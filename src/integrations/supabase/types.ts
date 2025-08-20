@@ -14,7 +14,155 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      drugs: {
+        Row: {
+          category: string | null
+          created_at: string
+          description: string | null
+          dosage: string | null
+          generic_name: string | null
+          id: string
+          is_active: boolean
+          name: string
+          unit: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          dosage?: string | null
+          generic_name?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          unit?: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          dosage?: string | null
+          generic_name?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          unit?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      order_items: {
+        Row: {
+          created_at: string
+          drug_id: string
+          id: string
+          order_id: string
+          quantity: number
+        }
+        Insert: {
+          created_at?: string
+          drug_id: string
+          id?: string
+          order_id: string
+          quantity: number
+        }
+        Update: {
+          created_at?: string
+          drug_id?: string
+          id?: string
+          order_id?: string
+          quantity?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_items_drug_id_fkey"
+            columns: ["drug_id"]
+            isOneToOne: false
+            referencedRelation: "drugs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          created_at: string
+          id: string
+          notes: string | null
+          pharmacy_id: string
+          status: string
+          total_items: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          pharmacy_id: string
+          status?: string
+          total_items?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          pharmacy_id?: string
+          status?: string
+          total_items?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_pharmacy_id_fkey"
+            columns: ["pharmacy_id"]
+            isOneToOne: false
+            referencedRelation: "pharmacies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pharmacies: {
+        Row: {
+          address: string | null
+          created_at: string
+          id: string
+          license_number: string | null
+          name: string
+          phone: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          id?: string
+          license_number?: string | null
+          name: string
+          phone?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          id?: string
+          license_number?: string | null
+          name?: string
+          phone?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
