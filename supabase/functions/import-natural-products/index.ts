@@ -66,9 +66,9 @@ async function processCSVData(supabaseClient: any, csvData: string) {
     const lines = csvData.split('\n').filter(line => line.trim())
     console.log(`Total lines: ${lines.length}`)
     
-    // Skip header row and limit to first 20 records for testing
-    const dataLines = lines.slice(1, 21) // Only first 20 records for testing
-    console.log(`Data lines to process (TEST): ${dataLines.length}`)
+    // Skip header row and process all records
+    const dataLines = lines.slice(1) // All data lines after header
+    console.log(`Data lines to process: ${dataLines.length}`)
     
     let processedCount = 0
     let errorCount = 0
@@ -116,8 +116,8 @@ async function processCSVData(supabaseClient: any, csvData: string) {
         }
       }
       
-      // Log progress every 50 records
-      if (processedCount % 50 === 0) {
+      // Log progress every 100 records
+      if (processedCount % 100 === 0) {
         console.log(`Processed ${processedCount} natural products so far...`)
       }
     }
