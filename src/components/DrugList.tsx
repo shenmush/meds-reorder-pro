@@ -7,10 +7,13 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Pill, Plus, Minus, ShoppingCart, Search, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Pill, Plus, Minus, ShoppingCart, Search, Eye, ChevronLeft, ChevronRight, Filter } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 import { useToast } from '@/hooks/use-toast';
+import { useIsMobile } from '@/hooks/use-mobile';
+import DrugCard from './DrugCard';
+import MobileFilters from './MobileFilters';
 
 interface UnifiedDrug {
   id: string;
@@ -68,6 +71,7 @@ const DrugList: React.FC<DrugListProps> = ({ pharmacy }) => {
     packageCount: ''
   });
   const { toast } = useToast();
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     fetchDrugs();
@@ -345,15 +349,33 @@ const DrugList: React.FC<DrugListProps> = ({ pharmacy }) => {
   return (
     <div className="space-y-6">
       {/* Search and Cart Summary */}
-      <div className="flex flex-col sm:flex-row gap-6 items-center justify-between">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-5 w-5" />
-          <Input
-            placeholder="جستجو در داروها..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pr-12 text-right rounded-xl border-border/60 bg-card/50 focus:bg-card focus:border-primary/50 transition-all duration-300"
-          />
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-5 w-5" />
+            <Input
+              placeholder="جستجو در داروها..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pr-12 text-right rounded-xl border-border/60 bg-card/50 focus:bg-card focus:border-primary/50 transition-all duration-300"
+            />
+          </div>
+          
+          {isMobile && (
+            <MobileFilters
+              columnFilters={columnFilters}
+              onUpdateFilter={updateColumnFilter}
+              onClearFilters={() => setColumnFilters({
+                name: '',
+                company: '',
+                type: '',
+                irc: '',
+                erxCode: '',
+                gtin: '',
+                packageCount: ''
+              })}
+            />
+          )}
         </div>
         
         {cart.length > 0 && (
@@ -491,169 +513,196 @@ const DrugList: React.FC<DrugListProps> = ({ pharmacy }) => {
                 {activeTab === 'natural' && 'فرآورده های طبیعی'}
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-right">نام محصول</TableHead>
-                    <TableHead className="text-right">شرکت تولیدکننده</TableHead>
-                    <TableHead className="text-right">نوع</TableHead>
-                    <TableHead className="text-right">کد IRC</TableHead>
-                    <TableHead className="text-right">کد ERX</TableHead>
-                    <TableHead className="text-right">کد GTIN</TableHead>
-                    <TableHead className="text-right">تعداد بسته</TableHead>
-                    <TableHead className="text-right">عملیات</TableHead>
-                  </TableRow>
-                  {/* Column Filters Row */}
-                  <TableRow className="bg-muted/50">
-                    <TableHead className="p-2">
-                      <Input
-                        placeholder="جستجو نام..."
-                        value={columnFilters.name}
-                        onChange={(e) => updateColumnFilter('name', e.target.value)}
-                        className="h-8 text-xs text-right"
-                      />
-                    </TableHead>
-                    <TableHead className="p-2">
-                      <Input
-                        placeholder="جستجو شرکت..."
-                        value={columnFilters.company}
-                        onChange={(e) => updateColumnFilter('company', e.target.value)}
-                        className="h-8 text-xs text-right"
-                      />
-                    </TableHead>
-                    <TableHead className="p-2">
-                      <Input
-                        placeholder="جستجو نوع..."
-                        value={columnFilters.type}
-                        onChange={(e) => updateColumnFilter('type', e.target.value)}
-                        className="h-8 text-xs text-right"
-                      />
-                    </TableHead>
-                    <TableHead className="p-2">
-                      <Input
-                        placeholder="جستجو IRC..."
-                        value={columnFilters.irc}
-                        onChange={(e) => updateColumnFilter('irc', e.target.value)}
-                        className="h-8 text-xs text-right"
-                      />
-                    </TableHead>
-                    <TableHead className="p-2">
-                      <Input
-                        placeholder="جستجو ERX..."
-                        value={columnFilters.erxCode}
-                        onChange={(e) => updateColumnFilter('erxCode', e.target.value)}
-                        className="h-8 text-xs text-right"
-                      />
-                    </TableHead>
-                    <TableHead className="p-2">
-                      <Input
-                        placeholder="جستجو GTIN..."
-                        value={columnFilters.gtin}
-                        onChange={(e) => updateColumnFilter('gtin', e.target.value)}
-                        className="h-8 text-xs text-right"
-                      />
-                    </TableHead>
-                    <TableHead className="p-2">
-                      <Input
-                        placeholder="جستجو تعداد..."
-                        value={columnFilters.packageCount}
-                        onChange={(e) => updateColumnFilter('packageCount', e.target.value)}
-                        className="h-8 text-xs text-right"
-                      />
-                    </TableHead>
-                    <TableHead className="p-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setColumnFilters({
-                          name: '',
-                          company: '',
-                          type: '',
-                          irc: '',
-                          erxCode: '',
-                          gtin: '',
-                          packageCount: ''
-                        })}
-                        className="h-8 text-xs"
-                      >
-                        پاک کردن
-                      </Button>
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {currentPageDrugs.map((drug) => {
-                    const quantity = getCartQuantity(drug.id);
-                    
-                    return (
-                      <TableRow key={drug.id}>
-                        <TableCell className="text-right font-medium">
-                          {drug.name}
-                          {drug.genericCode && (
-                            <div className="text-sm text-muted-foreground">
-                              کد ژنریک: {drug.genericCode}
+            <CardContent className={isMobile ? "p-4" : ""}>
+              {isMobile ? (
+                // Mobile Card View
+                <div className="space-y-4">
+                  {currentPageDrugs.length > 0 ? (
+                    <div className="grid gap-4">
+                      {currentPageDrugs.map((drug) => {
+                        const quantity = getCartQuantity(drug.id);
+                        const tempQuantity = getTempQuantity(drug.id);
+                        
+                        return (
+                          <DrugCard
+                            key={drug.id}
+                            drug={drug}
+                            quantity={quantity}
+                            tempQuantity={tempQuantity}
+                            onUpdateTempQuantity={(qty) => setTempQuantity(drug.id, qty)}
+                            onAddToCart={() => addToCartWithQuantity(drug, tempQuantity)}
+                            getTypeLabel={getTypeLabel}
+                          />
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
+                // Desktop Table View
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-right">نام محصول</TableHead>
+                      <TableHead className="text-right">شرکت تولیدکننده</TableHead>
+                      <TableHead className="text-right">نوع</TableHead>
+                      <TableHead className="text-right">کد IRC</TableHead>
+                      <TableHead className="text-right">کد ERX</TableHead>
+                      <TableHead className="text-right">کد GTIN</TableHead>
+                      <TableHead className="text-right">تعداد بسته</TableHead>
+                      <TableHead className="text-right">عملیات</TableHead>
+                    </TableRow>
+                    {/* Column Filters Row */}
+                    <TableRow className="bg-muted/50">
+                      <TableHead className="p-2">
+                        <Input
+                          placeholder="جستجو نام..."
+                          value={columnFilters.name}
+                          onChange={(e) => updateColumnFilter('name', e.target.value)}
+                          className="h-8 text-xs text-right"
+                        />
+                      </TableHead>
+                      <TableHead className="p-2">
+                        <Input
+                          placeholder="جستجو شرکت..."
+                          value={columnFilters.company}
+                          onChange={(e) => updateColumnFilter('company', e.target.value)}
+                          className="h-8 text-xs text-right"
+                        />
+                      </TableHead>
+                      <TableHead className="p-2">
+                        <Input
+                          placeholder="جستجو نوع..."
+                          value={columnFilters.type}
+                          onChange={(e) => updateColumnFilter('type', e.target.value)}
+                          className="h-8 text-xs text-right"
+                        />
+                      </TableHead>
+                      <TableHead className="p-2">
+                        <Input
+                          placeholder="جستجو IRC..."
+                          value={columnFilters.irc}
+                          onChange={(e) => updateColumnFilter('irc', e.target.value)}
+                          className="h-8 text-xs text-right"
+                        />
+                      </TableHead>
+                      <TableHead className="p-2">
+                        <Input
+                          placeholder="جستجو ERX..."
+                          value={columnFilters.erxCode}
+                          onChange={(e) => updateColumnFilter('erxCode', e.target.value)}
+                          className="h-8 text-xs text-right"
+                        />
+                      </TableHead>
+                      <TableHead className="p-2">
+                        <Input
+                          placeholder="جستجو GTIN..."
+                          value={columnFilters.gtin}
+                          onChange={(e) => updateColumnFilter('gtin', e.target.value)}
+                          className="h-8 text-xs text-right"
+                        />
+                      </TableHead>
+                      <TableHead className="p-2">
+                        <Input
+                          placeholder="جستجو تعداد..."
+                          value={columnFilters.packageCount}
+                          onChange={(e) => updateColumnFilter('packageCount', e.target.value)}
+                          className="h-8 text-xs text-right"
+                        />
+                      </TableHead>
+                      <TableHead className="p-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setColumnFilters({
+                            name: '',
+                            company: '',
+                            type: '',
+                            irc: '',
+                            erxCode: '',
+                            gtin: '',
+                            packageCount: ''
+                          })}
+                          className="h-8 text-xs"
+                        >
+                          پاک کردن
+                        </Button>
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {currentPageDrugs.map((drug) => {
+                      const quantity = getCartQuantity(drug.id);
+                      
+                      return (
+                        <TableRow key={drug.id}>
+                          <TableCell className="text-right font-medium">
+                            {drug.name}
+                            {drug.genericCode && (
+                              <div className="text-sm text-muted-foreground">
+                                کد ژنریک: {drug.genericCode}
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">{drug.company}</TableCell>
+                          <TableCell className="text-right">
+                            <Badge variant="secondary" className="text-xs">
+                              {getTypeLabel(drug.type)}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-sm">
+                            {drug.irc}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-sm">
+                            {drug.erxCode || '-'}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-sm">
+                            {drug.gtin || '-'}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {drug.packageCount || '-'}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setTempQuantity(drug.id, getTempQuantity(drug.id) - 1)}
+                                className="h-8 w-8 p-0"
+                              >
+                                <Minus className="h-3 w-3" />
+                              </Button>
+                              <Input
+                                type="number"
+                                min="1"
+                                value={getTempQuantity(drug.id)}
+                                onChange={(e) => setTempQuantity(drug.id, parseInt(e.target.value) || 1)}
+                                className="w-16 text-center"
+                              />
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setTempQuantity(drug.id, getTempQuantity(drug.id) + 1)}
+                                className="h-8 w-8 p-0"
+                              >
+                                <Plus className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                onClick={() => addToCartWithQuantity(drug, getTempQuantity(drug.id))}
+                                className="gap-2"
+                              >
+                                <ShoppingCart className="h-3 w-3" />
+                                افزودن
+                              </Button>
                             </div>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right">{drug.company}</TableCell>
-                        <TableCell className="text-right">
-                          <Badge variant="secondary" className="text-xs">
-                            {getTypeLabel(drug.type)}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          {drug.irc}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          {drug.erxCode || '-'}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          {drug.gtin || '-'}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {drug.packageCount || '-'}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setTempQuantity(drug.id, getTempQuantity(drug.id) - 1)}
-                              className="h-8 w-8 p-0"
-                            >
-                              <Minus className="h-3 w-3" />
-                            </Button>
-                            <Input
-                              type="number"
-                              min="1"
-                              value={getTempQuantity(drug.id)}
-                              onChange={(e) => setTempQuantity(drug.id, parseInt(e.target.value) || 1)}
-                              className="w-16 text-center"
-                            />
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setTempQuantity(drug.id, getTempQuantity(drug.id) + 1)}
-                              className="h-8 w-8 p-0"
-                            >
-                              <Plus className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              onClick={() => addToCartWithQuantity(drug, getTempQuantity(drug.id))}
-                              className="gap-2"
-                            >
-                              <ShoppingCart className="h-3 w-3" />
-                              افزودن
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              )}
 
               {/* Pagination Section */}
               {filteredDrugs.length > 0 && totalPages > 1 && (
