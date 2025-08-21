@@ -85,14 +85,14 @@ async function processCSVData(supabaseClient: any, csvData: string) {
           if (values.length >= 9) {
             const record = {
               irc: cleanValue(values[0]) || '',
+              atc_code: cleanValue(values[1]) || null, // Column 1 has ATC code
               full_en_brand_name: cleanValue(values[2]) || '', // Column 2 has the brand name
-              erx_code: cleanValue(values[7]) || null, // GTIN is in column 7
-              atc_code: cleanValue(values[5]) || null, // The numeric code in column 5
-              action: cleanValue(values[8]) || null, // Status is in column 8
               license_owner_name: cleanValue(values[3]) || null, // Company name in column 3
               license_owner_national_code: cleanValue(values[4]) || null, // Company national code in column 4
+              erx_code: cleanValue(values[5]) || null, // ErxCode is in column 5
+              package_count: values[6] ? parseInt(cleanValue(values[6])) || null : null, // Package count in column 6
               gtin: cleanValue(values[7]) || null, // GTIN in column 7
-              package_count: values[6] ? parseInt(cleanValue(values[6])) || null : null // Package count in column 6
+              action: cleanValue(values[8]) || null // Action/Status is in column 8
             }
             
             records.push(record)
