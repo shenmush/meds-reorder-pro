@@ -1,73 +1,145 @@
-# Welcome to your Lovable project
+# سامانه مدیریت داروخانه
 
-## Project info
+سامانه جامع مدیریت داروخانه با قابلیت‌های سفارش‌گیری، مدیریت موجودی، و تحلیل گزارشات.
 
-**URL**: https://lovable.dev/projects/c1639977-600b-4d96-b9c9-beab57129092
+## ویژگی‌ها
 
-## How can I edit this code?
+- 🏪 مدیریت پروفایل داروخانه
+- 💊 جستجو و سفارش داروهای شیمیایی، تجهیزات پزشکی و محصولات طبیعی
+- 📋 پیگیری سفارشات و تاریخچه خرید
+- 👨‍💼 پنل ادمین برای مدیریت کامل سامانه
+- 📊 گزارشات جامع و آنالیز داده‌ها
+- 🌙 پشتیبانی از تم تاریک و روشن
+- 📱 طراحی کاملاً ریسپانسیو
 
-There are several ways of editing your application.
+## فناوری‌های استفاده شده
 
-**Use Lovable**
+- **Frontend**: React 18, TypeScript, Vite
+- **UI/UX**: Tailwind CSS, shadcn/ui Components
+- **Backend**: Supabase (PostgreSQL, Authentication, Real-time)
+- **Charts**: Recharts
+- **Icons**: Lucide React
+- **Routing**: React Router DOM
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/c1639977-600b-4d96-b9c9-beab57129092) and start prompting.
+## راه‌اندازی سریع
 
-Changes made via Lovable will be committed automatically to this repo.
+### پیش‌نیازها
 
-**Use your preferred IDE**
+- Node.js (نسخه 18+)
+- npm یا yarn
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### مراحل نصب
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+```bash
+# کلون پروژه
+git clone <repository-url>
+cd pharmacy-management
 
-Follow these steps:
+# نصب وابستگی‌ها
+npm install
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+# کپی کردن فایل environment
+cp .env.example .env
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+# تنظیم متغیرهای محیطی در فایل .env
+# VITE_SUPABASE_URL=your-supabase-url
+# VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
 
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# اجرای پروژه
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+پروژه روی `http://localhost:3000` در دسترس خواهد بود.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## دستورات موجود
 
-**Use GitHub Codespaces**
+```bash
+# اجرای development server
+npm run dev
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+# ساخت برای production
+npm run build
 
-## What technologies are used for this project?
+# پیش‌نمایش build
+npm run preview
 
-This project is built with:
+# اجرای linter
+npm run lint
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+# Type checking
+npm run type-check
+```
 
-## How can I deploy this project?
+## ساختار پروژه
 
-Simply open [Lovable](https://lovable.dev/projects/c1639977-600b-4d96-b9c9-beab57129092) and click on Share -> Publish.
+```
+src/
+├── components/          # کامپوننت‌های UI
+│   ├── ui/             # کامپوننت‌های پایه shadcn
+│   ├── AdminAddDrug.tsx
+│   ├── AdminOrders.tsx
+│   ├── AdminPharmacies.tsx
+│   ├── AdminReports.tsx
+│   ├── AuthPage.tsx
+│   ├── Dashboard.tsx
+│   ├── DrugCard.tsx
+│   ├── DrugList.tsx
+│   └── ...
+├── hooks/              # Custom React hooks
+├── integrations/       # تنظیمات Supabase
+├── lib/               # توابع کمکی
+├── pages/             # صفحات اصلی
+└── main.tsx           # نقطه ورود اپلیکیشن
+```
 
-## Can I connect a custom domain to my Lovable project?
+## دیتابیس
 
-Yes, you can!
+پروژه از Supabase استفاده می‌کند با جداول زیر:
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+- `pharmacies` - اطلاعات داروخانه‌ها
+- `chemical_drugs` - داروهای شیمیایی
+- `medical_supplies` - تجهیزات پزشکی  
+- `natural_products` - محصولات طبیعی
+- `orders` - سفارشات
+- `order_items` - اقلام سفارش
+- `profiles` - پروفایل کاربران
+- `user_roles` - نقش‌های کاربری
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+## احراز هویت
+
+سامانه دارای سه سطح دسترسی است:
+
+- **کاربر عادی**: دسترسی به داشبورد و ثبت سفارش
+- **صاحب داروخانه**: مدیریت داروخانه و سفارشات
+- **ادمین**: دسترسی کامل به تمام بخش‌ها
+
+## Deployment
+
+برای اطلاعات کامل deployment بر روی سرور، فایل [DEPLOYMENT.md](./DEPLOYMENT.md) را مطالعه کنید.
+
+### Deploy سریع
+
+```bash
+# ساخت production build
+npm run build
+
+# اجرا با serve
+npm install -g serve
+serve -s dist -p 3000
+```
+
+## مشارکت در پروژه
+
+1. Fork کنید
+2. برنچ feature بسازید (`git checkout -b feature/AmazingFeature`)
+3. تغییرات را commit کنید (`git commit -m 'Add some AmazingFeature'`)
+4. به برنچ push کنید (`git push origin feature/AmazingFeature`)
+5. Pull Request باز کنید
+
+## لایسنس
+
+این پروژه تحت لایسنس MIT منتشر شده است.
+
+## پشتیبانی
+
+برای گزارش باگ یا درخواست feature جدید، از بخش Issues استفاده کنید.
