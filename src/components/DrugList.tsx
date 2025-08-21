@@ -7,7 +7,8 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Pill, Plus, Minus, ShoppingCart, Search } from 'lucide-react';
+import { Pill, Plus, Minus, ShoppingCart, Search, Eye } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 
 interface UnifiedDrug {
@@ -53,6 +54,7 @@ const DrugList: React.FC<DrugListProps> = ({ pharmacy }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState('all');
+  const [tempQuantities, setTempQuantities] = useState<Record<string, number>>({});
   const { toast } = useToast();
 
   useEffect(() => {
@@ -147,13 +149,24 @@ const DrugList: React.FC<DrugListProps> = ({ pharmacy }) => {
     );
   });
 
-  const addToCart = (drug: UnifiedDrug) => {
+  const getTempQuantity = (drugId: string) => {
+    return tempQuantities[drugId] || 1;
+  };
+
+  const setTempQuantity = (drugId: string, quantity: number) => {
+    setTempQuantities(prev => ({
+      ...prev,
+      [drugId]: Math.max(1, quantity)
+    }));
+  };
+
+  const addToCartWithQuantity = (drug: UnifiedDrug, quantity: number) => {
     setCart(prev => {
       const existing = prev.find(item => item.drugId === drug.id);
       if (existing) {
         return prev.map(item =>
           item.drugId === drug.id
-            ? { ...item, quantity: item.quantity + 1 }
+            ? { ...item, quantity: item.quantity + quantity }
             : item
         );
       }
@@ -161,9 +174,16 @@ const DrugList: React.FC<DrugListProps> = ({ pharmacy }) => {
         drugId: drug.id, 
         drugName: drug.name, 
         company: drug.company,
-        quantity: 1, 
+        quantity: quantity, 
         type: drug.type 
       }];
+    });
+    
+    // Reset temp quantity after adding
+    setTempQuantities(prev => {
+      const newQuantities = { ...prev };
+      delete newQuantities[drug.id];
+      return newQuantities;
     });
   };
 
@@ -288,24 +308,98 @@ const DrugList: React.FC<DrugListProps> = ({ pharmacy }) => {
         </div>
         
         {cart.length > 0 && (
-          <Card className="w-full sm:w-auto">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between gap-4">
-                <div className="text-right">
-                  <p className="text-sm text-muted-foreground">سبد خرید</p>
-                  <p className="font-bold">{getTotalItems()} قلم</p>
+          <div className="flex items-center gap-4">
+            <Card className="w-full sm:w-auto">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="text-right">
+                    <p className="text-sm text-muted-foreground">سبد خرید</p>
+                    <p className="font-bold">{getTotalItems()} قلم</p>
+                  </div>
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" className="gap-2">
+                        <Eye className="h-4 w-4" />
+                        مشاهده سبد
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                      <DialogHeader>
+                        <DialogTitle className="text-right">سبد خرید شما</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="text-right">نام محصول</TableHead>
+                              <TableHead className="text-right">شرکت</TableHead>
+                              <TableHead className="text-right">تعداد</TableHead>
+                              <TableHead className="text-right">عملیات</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {cart.map((item) => (
+                              <TableRow key={item.drugId}>
+                                <TableCell className="text-right font-medium">
+                                  {item.drugName}
+                                </TableCell>
+                                <TableCell className="text-right">{item.company}</TableCell>
+                                <TableCell className="text-right">
+                                  <div className="flex items-center gap-2">
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => updateQuantity(item.drugId, item.quantity - 1)}
+                                      className="h-8 w-8 p-0"
+                                    >
+                                      <Minus className="h-3 w-3" />
+                                    </Button>
+                                    <span className="min-w-[2rem] text-center font-bold">
+                                      {item.quantity}
+                                    </span>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => updateQuantity(item.drugId, item.quantity + 1)}
+                                      className="h-8 w-8 p-0"
+                                    >
+                                      <Plus className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <Button
+                                    size="sm"
+                                    variant="destructive"
+                                    onClick={() => updateQuantity(item.drugId, 0)}
+                                  >
+                                    حذف
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                        <div className="flex justify-end gap-4 pt-4 border-t">
+                          <div className="text-right">
+                            <p className="text-lg font-bold">مجموع: {getTotalItems()} قلم</p>
+                          </div>
+                          <Button 
+                            onClick={submitOrder}
+                            disabled={submitting}
+                            className="gap-2"
+                          >
+                            <ShoppingCart className="h-4 w-4" />
+                            ثبت سفارش نهایی
+                          </Button>
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
                 </div>
-                <Button 
-                  onClick={submitOrder}
-                  disabled={submitting}
-                  className="gap-2"
-                >
-                  <ShoppingCart className="h-4 w-4" />
-                  ثبت سفارش
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
         )}
       </div>
 
@@ -367,38 +461,39 @@ const DrugList: React.FC<DrugListProps> = ({ pharmacy }) => {
                           {drug.packageCount || '-'}
                         </TableCell>
                         <TableCell className="text-right">
-                          {quantity > 0 ? (
-                            <div className="flex items-center gap-2">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => updateQuantity(drug.id, quantity - 1)}
-                                className="h-8 w-8 p-0"
-                              >
-                                <Minus className="h-3 w-3" />
-                              </Button>
-                              <span className="min-w-[2rem] text-center font-bold">
-                                {quantity}
-                              </span>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => updateQuantity(drug.id, quantity + 1)}
-                                className="h-8 w-8 p-0"
-                              >
-                                <Plus className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          ) : (
+                          <div className="flex items-center gap-2">
                             <Button
                               size="sm"
-                              onClick={() => addToCart(drug)}
-                              className="gap-2"
+                              variant="outline"
+                              onClick={() => setTempQuantity(drug.id, getTempQuantity(drug.id) - 1)}
+                              className="h-8 w-8 p-0"
+                            >
+                              <Minus className="h-3 w-3" />
+                            </Button>
+                            <Input
+                              type="number"
+                              min="1"
+                              value={getTempQuantity(drug.id)}
+                              onChange={(e) => setTempQuantity(drug.id, parseInt(e.target.value) || 1)}
+                              className="w-16 text-center"
+                            />
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setTempQuantity(drug.id, getTempQuantity(drug.id) + 1)}
+                              className="h-8 w-8 p-0"
                             >
                               <Plus className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={() => addToCartWithQuantity(drug, getTempQuantity(drug.id))}
+                              className="gap-2"
+                            >
+                              <ShoppingCart className="h-3 w-3" />
                               افزودن
                             </Button>
-                          )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
