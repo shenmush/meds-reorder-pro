@@ -369,16 +369,16 @@ const AdminReports = () => {
   const selectedCompanyData = companyAnalytics.find(c => c.company_name === selectedCompany);
 
   return (
-    <div className="space-y-6 p-4 max-w-full overflow-hidden">
+    <div className="space-y-6 w-full min-h-0">
       {/* Header - Mobile Optimized */}
-      <div className={`flex ${isMobile ? 'flex-col gap-3' : 'items-center justify-between'}`}>
+      <div className={`flex ${isMobile ? 'flex-col gap-3 px-4' : 'items-center justify-between'}`}>
         <h2 className={`font-bold gradient-text ${isMobile ? 'text-xl text-center' : 'text-2xl'}`}>
           تحلیل‌های جامع گزارشات
         </h2>
         
-        <div className={`flex items-center gap-2 ${isMobile ? 'justify-center w-full' : ''}`}>
+        <div className={`flex items-center gap-2 ${isMobile ? 'justify-center w-full px-4' : ''}`}>
           <Select value={dateFilter} onValueChange={setDateFilter}>
-            <SelectTrigger className={`${isMobile ? 'w-full max-w-xs' : 'w-48'} bg-card`}>
+            <SelectTrigger className={`${isMobile ? 'w-full max-w-xs' : 'w-48'}`}>
               <SelectValue placeholder="بازه زمانی" />
             </SelectTrigger>
             <SelectContent>
@@ -398,20 +398,20 @@ const AdminReports = () => {
         </div>
       ) : (
         <Tabs defaultValue="pharmacy" className="space-y-6 w-full">
-          <TabsList className={`grid w-full grid-cols-2 ${isMobile ? 'bg-card/60 backdrop-blur-sm rounded-2xl p-2 border border-border/60 shadow-soft' : ''}`}>
-            <TabsTrigger value="pharmacy" className={`flex items-center gap-2 ${isMobile ? 'text-sm px-2 py-2 rounded-xl font-medium transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-medium' : ''}`}>
+          <TabsList className={`grid w-full grid-cols-2 ${isMobile ? 'mx-4' : ''}`}>
+            <TabsTrigger value="pharmacy" className="flex items-center gap-2">
               <Store className="h-4 w-4" />
               {isMobile ? 'داروخانه' : 'تحلیل بر اساس داروخانه'}
             </TabsTrigger>
-            <TabsTrigger value="company" className={`flex items-center gap-2 ${isMobile ? 'text-sm px-2 py-2 rounded-xl font-medium transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-medium' : ''}`}>
+            <TabsTrigger value="company" className="flex items-center gap-2">
               <Building2 className="h-4 w-4" />
               {isMobile ? 'شرکت' : 'تحلیل بر اساس شرکت'}
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="pharmacy" className="space-y-6 w-full overflow-hidden">
+          <TabsContent value="pharmacy" className="space-y-6 w-full">
             {/* Pharmacy selection and export - Mobile optimized */}
-            <div className={`flex ${isMobile ? 'flex-col gap-4' : 'items-center justify-between'}`}>
+            <div className={`flex ${isMobile ? 'flex-col gap-4 px-4' : 'items-center justify-between'}`}>
               <div className={`flex ${isMobile ? 'flex-col gap-3' : 'items-center gap-4'}`}>
                 <Select value={selectedPharmacy} onValueChange={setSelectedPharmacy}>
                   <SelectTrigger className={`${isMobile ? 'w-full' : 'w-64'}`}>
@@ -488,44 +488,48 @@ const AdminReports = () => {
                 </div>
 
                 {/* Pharmacy performance chart */}
-                <Card className="shadow-medium border-border/60 rounded-2xl">
-                  <CardHeader>
-                    <CardTitle className={isMobile ? 'text-base' : 'text-lg'}>
-                      عملکرد داروخانه‌ها - تعداد سفارشات
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ChartContainer config={{}} className={isMobile ? 'h-60' : 'h-80'}>
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={pharmacyAnalytics.slice(0, isMobile ? 5 : 10)} margin={{ top: 10, right: 10, left: 10, bottom: isMobile ? 80 : 80 }}>
-                          <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                          <XAxis 
-                            dataKey="pharmacy_name" 
-                            angle={-45}
-                            textAnchor="end"
-                            height={isMobile ? 80 : 80}
-                            fontSize={isMobile ? 10 : 12}
-                            interval={0}
-                            tick={{ fontSize: isMobile ? 10 : 12 }}
-                          />
-                          <YAxis fontSize={isMobile ? 10 : 12} />
-                          <Tooltip 
-                            contentStyle={{
-                              backgroundColor: 'hsl(var(--card))',
-                              border: '1px solid hsl(var(--border))',
-                              borderRadius: '8px',
-                              fontSize: isMobile ? '12px' : '14px'
-                            }}
-                          />
-                          <Bar dataKey="total_orders" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </ChartContainer>
-                  </CardContent>
-                </Card>
+                <div className={isMobile ? 'px-4' : ''}>
+                  <Card className="shadow-medium border-border/60 rounded-2xl">
+                    <CardHeader>
+                      <CardTitle className={isMobile ? 'text-base' : 'text-lg'}>
+                        عملکرد داروخانه‌ها - تعداد سفارشات
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className={isMobile ? 'overflow-x-auto -mx-4 px-4' : ''}>
+                        <ChartContainer config={{}} className={isMobile ? 'h-60 min-w-[400px]' : 'h-80'}>
+                          <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={pharmacyAnalytics.slice(0, isMobile ? 5 : 10)} margin={{ top: 10, right: 10, left: 10, bottom: isMobile ? 80 : 80 }}>
+                              <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                              <XAxis 
+                                dataKey="pharmacy_name" 
+                                angle={-45}
+                                textAnchor="end"
+                                height={isMobile ? 80 : 80}
+                                fontSize={isMobile ? 10 : 12}
+                                interval={0}
+                                tick={{ fontSize: isMobile ? 10 : 12 }}
+                              />
+                              <YAxis fontSize={isMobile ? 10 : 12} />
+                              <Tooltip 
+                                contentStyle={{
+                                  backgroundColor: 'hsl(var(--card))',
+                                  border: '1px solid hsl(var(--border))',
+                                  borderRadius: '8px',
+                                  fontSize: isMobile ? '12px' : '14px'
+                                }}
+                              />
+                              <Bar dataKey="total_orders" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </ChartContainer>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
 
                 {/* List of pharmacies */}
-                <div className="grid gap-4">
+                <div className={`grid gap-4 ${isMobile ? 'px-4' : ''}`}>
                   {pharmacyAnalytics.map((pharmacy) => (
                     <Card key={pharmacy.pharmacy_id} className="hover:shadow-elegant transition-all duration-300">
                       <CardContent className="p-4">
@@ -669,9 +673,9 @@ const AdminReports = () => {
             ) : null}
           </TabsContent>
 
-          <TabsContent value="company" className="space-y-6 w-full overflow-hidden">
+          <TabsContent value="company" className="space-y-6 w-full">
             {/* Company selection and export - Mobile optimized */}
-            <div className={`flex ${isMobile ? 'flex-col gap-4' : 'items-center justify-between'}`}>
+            <div className={`flex ${isMobile ? 'flex-col gap-4 px-4' : 'items-center justify-between'}`}>
               <div className={`flex ${isMobile ? 'flex-col gap-3' : 'items-center gap-4'}`}>
                 <Select value={selectedCompany} onValueChange={setSelectedCompany}>
                   <SelectTrigger className={`${isMobile ? 'w-full' : 'w-64'}`}>
@@ -748,44 +752,48 @@ const AdminReports = () => {
                 </div>
 
                 {/* Company performance chart */}
-                <Card className="shadow-medium border-border/60 rounded-2xl">
-                  <CardHeader>
-                    <CardTitle className={isMobile ? 'text-base' : 'text-lg'}>
-                      عملکرد شرکت‌ها - مقدار کل سفارشات
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ChartContainer config={{}} className={isMobile ? 'h-60' : 'h-80'}>
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={companyAnalytics.slice(0, isMobile ? 5 : 10)} margin={{ top: 10, right: 10, left: 10, bottom: isMobile ? 80 : 80 }}>
-                          <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                          <XAxis 
-                            dataKey="company_name" 
-                            angle={-45}
-                            textAnchor="end"
-                            height={isMobile ? 80 : 80}
-                            fontSize={isMobile ? 10 : 12}
-                            interval={0}
-                            tick={{ fontSize: isMobile ? 10 : 12 }}
-                          />
-                          <YAxis fontSize={isMobile ? 10 : 12} />
-                          <Tooltip 
-                            contentStyle={{
-                              backgroundColor: 'hsl(var(--card))',
-                              border: '1px solid hsl(var(--border))',
-                              borderRadius: '8px',
-                              fontSize: isMobile ? '12px' : '14px'
-                            }}
-                          />
-                          <Bar dataKey="total_quantity" fill="hsl(var(--secondary))" radius={[4, 4, 0, 0]} />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </ChartContainer>
-                  </CardContent>
-                </Card>
+                <div className={isMobile ? 'px-4' : ''}>
+                  <Card className="shadow-medium border-border/60 rounded-2xl">
+                    <CardHeader>
+                      <CardTitle className={isMobile ? 'text-base' : 'text-lg'}>
+                        عملکرد شرکت‌ها - مقدار کل سفارشات
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className={isMobile ? 'overflow-x-auto -mx-4 px-4' : ''}>
+                        <ChartContainer config={{}} className={isMobile ? 'h-60 min-w-[400px]' : 'h-80'}>
+                          <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={companyAnalytics.slice(0, isMobile ? 5 : 10)} margin={{ top: 10, right: 10, left: 10, bottom: isMobile ? 80 : 80 }}>
+                              <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                              <XAxis 
+                                dataKey="company_name" 
+                                angle={-45}
+                                textAnchor="end"
+                                height={isMobile ? 80 : 80}
+                                fontSize={isMobile ? 10 : 12}
+                                interval={0}
+                                tick={{ fontSize: isMobile ? 10 : 12 }}
+                              />
+                              <YAxis fontSize={isMobile ? 10 : 12} />
+                              <Tooltip 
+                                contentStyle={{
+                                  backgroundColor: 'hsl(var(--card))',
+                                  border: '1px solid hsl(var(--border))',
+                                  borderRadius: '8px',
+                                  fontSize: isMobile ? '12px' : '14px'
+                                }}
+                              />
+                              <Bar dataKey="total_quantity" fill="hsl(var(--secondary))" radius={[4, 4, 0, 0]} />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </ChartContainer>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
 
                 {/* List of companies */}
-                <div className="grid gap-4">
+                <div className={`grid gap-4 ${isMobile ? 'px-4' : ''}`}>
                   {companyAnalytics.map((company, index) => (
                     <Card key={index} className="hover:shadow-elegant transition-all duration-300">
                       <CardContent className="p-4">
