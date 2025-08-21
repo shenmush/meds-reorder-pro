@@ -495,19 +495,19 @@ const AdminReports = () => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className={isMobile ? 'overflow-x-auto -mx-6 px-6' : ''}>
-                      <ChartContainer config={{}} className={isMobile ? 'h-60 min-w-[400px]' : 'h-80'}>
+                    <div className="w-full">
+                      <ChartContainer config={{}} className={isMobile ? 'h-60 w-full' : 'h-80'}>
                         <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={pharmacyAnalytics.slice(0, isMobile ? 5 : 10)} margin={{ top: 10, right: 10, left: 10, bottom: isMobile ? 80 : 80 }}>
+                          <BarChart data={pharmacyAnalytics.slice(0, isMobile ? 5 : 10)} margin={{ top: 10, right: 10, left: 10, bottom: 60 }}>
                             <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
                             <XAxis 
                               dataKey="pharmacy_name" 
                               angle={-45}
                               textAnchor="end"
-                              height={isMobile ? 80 : 80}
-                              fontSize={isMobile ? 10 : 12}
+                              height={60}
+                              fontSize={isMobile ? 9 : 12}
                               interval={0}
-                              tick={{ fontSize: isMobile ? 10 : 12 }}
+                              tick={{ fontSize: isMobile ? 9 : 12 }}
                             />
                             <YAxis fontSize={isMobile ? 10 : 12} />
                             <Tooltip 
@@ -758,19 +758,19 @@ const AdminReports = () => {
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className={isMobile ? 'overflow-x-auto -mx-4 px-4' : ''}>
-                        <ChartContainer config={{}} className={isMobile ? 'h-60 min-w-[400px]' : 'h-80'}>
+                      <div className="w-full">
+                        <ChartContainer config={{}} className={isMobile ? 'h-60 w-full' : 'h-80'}>
                           <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={companyAnalytics.slice(0, isMobile ? 5 : 10)} margin={{ top: 10, right: 10, left: 10, bottom: isMobile ? 80 : 80 }}>
+                            <BarChart data={companyAnalytics.slice(0, isMobile ? 5 : 10)} margin={{ top: 10, right: 10, left: 10, bottom: 60 }}>
                               <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
                               <XAxis 
                                 dataKey="company_name" 
                                 angle={-45}
                                 textAnchor="end"
-                                height={isMobile ? 80 : 80}
-                                fontSize={isMobile ? 10 : 12}
+                                height={60}
+                                fontSize={isMobile ? 9 : 12}
                                 interval={0}
-                                tick={{ fontSize: isMobile ? 10 : 12 }}
+                                tick={{ fontSize: isMobile ? 9 : 12 }}
                               />
                               <YAxis fontSize={isMobile ? 10 : 12} />
                               <Tooltip 
