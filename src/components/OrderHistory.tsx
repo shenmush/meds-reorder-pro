@@ -14,6 +14,15 @@ interface OrderItem {
   drugName?: string;
   drugCompany?: string;
   drugType?: string;
+  drugDetails?: {
+    irc?: string;
+    erxCode?: string;
+    gtin?: string;
+    packageCount?: number;
+    action?: string;
+    genericCode?: string;
+    atcCode?: string;
+  };
 }
 
 interface Order {
@@ -23,6 +32,7 @@ interface Order {
   status: string;
   notes?: string;
   items?: OrderItem[];
+  itemCount?: number;
 }
 
 interface OrderHistoryProps {
@@ -33,7 +43,9 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ pharmacyId }) => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
+  const [expandedProducts, setExpandedProducts] = useState<Set<string>>(new Set());
   const [loadingItems, setLoadingItems] = useState<Set<string>>(new Set());
+  const [loadingProductDetails, setLoadingProductDetails] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
   useEffect(() => {
@@ -49,7 +61,23 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ pharmacyId }) => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setOrders(data || []);
+      
+      // Fetch item counts for each order
+      const ordersWithCounts = await Promise.all((data || []).map(async (order) => {
+        const { data: itemsData, error: itemsError } = await supabase
+          .from('order_items')
+          .select('id')
+          .eq('order_id', order.id);
+        
+        if (itemsError) {
+          console.error('Error fetching item count:', itemsError);
+          return { ...order, itemCount: 0 };
+        }
+        
+        return { ...order, itemCount: itemsData?.length || 0 };
+      }));
+      
+      setOrders(ordersWithCounts);
     } catch (error) {
       toast({
         title: "خطا",
@@ -129,6 +157,108 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ pharmacyId }) => {
     }
   };
 
+  const fetchProductDetails = async (drugId: string, drugType: string) => {
+    setLoadingProductDetails(prev => new Set(prev).add(drugId));
+    
+    try {
+      let productDetails = {};
+      
+      if (drugType === 'شیمیایی') {
+        const { data, error } = await supabase
+          .from('chemical_drugs')
+          .select('irc, erx_code, gtin, package_count, action, generic_code')
+          .eq('id', drugId)
+          .single();
+        
+        if (!error && data) {
+          productDetails = {
+            irc: data.irc,
+            erxCode: data.erx_code,
+            gtin: data.gtin,
+            packageCount: data.package_count,
+            action: data.action,
+            genericCode: data.generic_code
+          };
+        }
+      } else if (drugType === 'ملزومات پزشکی') {
+        const { data, error } = await supabase
+          .from('medical_supplies')
+          .select('irc, erx_code, gtin, package_count, action')
+          .eq('id', drugId)
+          .single();
+        
+        if (!error && data) {
+          productDetails = {
+            irc: data.irc,
+            erxCode: data.erx_code,
+            gtin: data.gtin,
+            packageCount: data.package_count,
+            action: data.action
+          };
+        }
+      } else if (drugType === 'طبیعی') {
+        const { data, error } = await supabase
+          .from('natural_products')
+          .select('irc, erx_code, gtin, package_count, action, atc_code')
+          .eq('id', drugId)
+          .single();
+        
+        if (!error && data) {
+          productDetails = {
+            irc: data.irc,
+            erxCode: data.erx_code,
+            gtin: data.gtin,
+            packageCount: data.package_count,
+            action: data.action,
+            atcCode: data.atc_code
+          };
+        }
+      }
+
+      // Update the product with detailed information
+      setOrders(prev => prev.map(order => ({
+        ...order,
+        items: order.items?.map(item => 
+          item.drug_id === drugId 
+            ? { ...item, drugDetails: productDetails }
+            : item
+        )
+      })));
+
+    } catch (error) {
+      toast({
+        title: "خطا",
+        description: "خطا در بارگذاری جزئیات محصول",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingProductDetails(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(drugId);
+        return newSet;
+      });
+    }
+  };
+
+  const toggleProductExpanded = async (drugId: string, drugType: string) => {
+    const newExpanded = new Set(expandedProducts);
+    
+    if (expandedProducts.has(drugId)) {
+      newExpanded.delete(drugId);
+    } else {
+      newExpanded.add(drugId);
+      
+      // Fetch product details if not already loaded
+      const allItems = orders.flatMap(order => order.items || []);
+      const product = allItems.find(item => item.drug_id === drugId);
+      if (product && !product.drugDetails) {
+        await fetchProductDetails(drugId, drugType);
+      }
+    }
+    
+    setExpandedProducts(newExpanded);
+  };
+
   const toggleOrderExpanded = async (orderId: string) => {
     const newExpanded = new Set(expandedOrders);
     
@@ -168,10 +298,6 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ pharmacyId }) => {
     
     const statusInfo = statusMap[status as keyof typeof statusMap] || { label: status, variant: 'default' as const };
     return <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>;
-  };
-
-  const getUniqueProductCount = (items: OrderItem[]) => {
-    return items.length;
   };
 
   if (loading) {
@@ -219,7 +345,7 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ pharmacyId }) => {
                       {getStatusBadge(order.status)}
                     </TableCell>
                     <TableCell className="text-right">
-                      {order.items ? getUniqueProductCount(order.items) : '-'} نوع
+                      {order.itemCount !== undefined ? order.itemCount : '-'} نوع
                     </TableCell>
                     <TableCell className="text-right">
                       {order.total_items} عدد
@@ -265,22 +391,92 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ pharmacyId }) => {
                             </TableHeader>
                             <TableBody>
                               {order.items.map((item) => (
-                                <TableRow key={item.id}>
-                                  <TableCell className="text-right font-medium">
-                                    {item.drugName}
-                                  </TableCell>
-                                  <TableCell className="text-right">
-                                    {item.drugCompany}
-                                  </TableCell>
-                                  <TableCell className="text-right">
-                                    <Badge variant="secondary" className="text-xs">
-                                      {item.drugType}
-                                    </Badge>
-                                  </TableCell>
-                                  <TableCell className="text-right">
-                                    {item.quantity} عدد
-                                  </TableCell>
-                                </TableRow>
+                                <React.Fragment key={item.id}>
+                                  <TableRow 
+                                    className="cursor-pointer hover:bg-muted/20"
+                                    onClick={() => toggleProductExpanded(item.drug_id, item.drugType || '')}
+                                  >
+                                    <TableCell className="text-right font-medium">
+                                      <div className="flex items-center justify-between">
+                                        <span>{item.drugName}</span>
+                                        <div className="flex items-center gap-2">
+                                          {loadingProductDetails.has(item.drug_id) ? (
+                                            <span className="text-xs text-muted-foreground">در حال بارگذاری...</span>
+                                          ) : expandedProducts.has(item.drug_id) ? (
+                                            <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                                          ) : (
+                                            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                                          )}
+                                        </div>
+                                      </div>
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                      {item.drugCompany}
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                      <Badge variant="secondary" className="text-xs">
+                                        {item.drugType}
+                                      </Badge>
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                      {item.quantity} عدد
+                                    </TableCell>
+                                  </TableRow>
+                                  
+                                  {expandedProducts.has(item.drug_id) && item.drugDetails && (
+                                    <TableRow>
+                                      <TableCell colSpan={4} className="p-0">
+                                        <div className="bg-muted/20 p-3 border-t">
+                                          <h5 className="font-medium text-sm text-right mb-2">مشخصات تکمیلی محصول</h5>
+                                          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+                                            {item.drugDetails.irc && (
+                                              <div className="text-right">
+                                                <span className="font-medium">کد IRC:</span>
+                                                <div className="font-mono">{item.drugDetails.irc}</div>
+                                              </div>
+                                            )}
+                                            {item.drugDetails.erxCode && (
+                                              <div className="text-right">
+                                                <span className="font-medium">کد ERX:</span>
+                                                <div className="font-mono">{item.drugDetails.erxCode}</div>
+                                              </div>
+                                            )}
+                                            {item.drugDetails.gtin && (
+                                              <div className="text-right">
+                                                <span className="font-medium">کد GTIN:</span>
+                                                <div className="font-mono">{item.drugDetails.gtin}</div>
+                                              </div>
+                                            )}
+                                            {item.drugDetails.packageCount && (
+                                              <div className="text-right">
+                                                <span className="font-medium">تعداد بسته:</span>
+                                                <div>{item.drugDetails.packageCount}</div>
+                                              </div>
+                                            )}
+                                            {item.drugDetails.genericCode && (
+                                              <div className="text-right">
+                                                <span className="font-medium">کد ژنریک:</span>
+                                                <div className="font-mono">{item.drugDetails.genericCode}</div>
+                                              </div>
+                                            )}
+                                            {item.drugDetails.atcCode && (
+                                              <div className="text-right">
+                                                <span className="font-medium">کد ATC:</span>
+                                                <div className="font-mono">{item.drugDetails.atcCode}</div>
+                                              </div>
+                                            )}
+                                            {item.drugDetails.action && (
+                                              <div className="text-right md:col-span-2">
+                                                <span className="font-medium">اثر دارویی:</span>
+                                                <div>{item.drugDetails.action}</div>
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </TableCell>
+                                    </TableRow>
+                                  )}
+                                </React.Fragment>
                               ))}
                             </TableBody>
                           </Table>
