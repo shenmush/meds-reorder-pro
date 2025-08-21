@@ -440,7 +440,7 @@ const AdminReports = () => {
             {selectedPharmacy === 'all' ? (
               // Overview of all pharmacies
               <div className={`grid gap-6 ${isMobile ? 'px-4' : ''}`}>
-                <div className={`grid gap-3 ${isMobile ? 'grid-cols-1 space-y-3' : 'md:grid-cols-4'}`}>
+                <div className={`grid gap-4 ${isMobile ? 'grid-cols-1' : 'grid-cols-2 lg:grid-cols-4'}`}>
                   <Card className="shadow-medium border-border/60 rounded-2xl">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                       <CardTitle className="font-medium text-sm">کل داروخانه‌ها</CardTitle>
@@ -702,7 +702,7 @@ const AdminReports = () => {
             {selectedCompany === 'all' ? (
               // Overview of all companies
               <div className={`grid gap-6 ${isMobile ? 'px-4' : ''}`}>
-                <div className={`grid gap-3 ${isMobile ? 'grid-cols-1 space-y-3' : 'md:grid-cols-4'}`}>
+                <div className={`grid gap-4 ${isMobile ? 'grid-cols-1' : 'grid-cols-2 lg:grid-cols-4'}`}>
                   <Card className="shadow-medium border-border/60 rounded-2xl">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                       <CardTitle className="font-medium text-sm">کل شرکت‌ها</CardTitle>
