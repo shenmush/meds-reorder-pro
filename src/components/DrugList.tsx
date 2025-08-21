@@ -1,42 +1,58 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { useToast } from '@/hooks/use-toast';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Pill, Plus, Minus, ShoppingCart, Search } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
-interface Drug {
+interface UnifiedDrug {
   id: string;
   name: string;
-  generic_name?: string;
-  dosage?: string;
-  unit: string;
-  category?: string;
-  description?: string;
+  company: string;
+  packageCount?: number;
+  action?: string;
+  irc: string;
+  type: 'chemical' | 'medical' | 'natural';
+  erxCode?: string;
+  gtin?: string;
+  genericCode?: string;
+  atcCode?: string;
 }
 
 interface Pharmacy {
   id: string;
   name: string;
+  address?: string;
+  phone?: string;
+  license_number?: string;
 }
 
 interface DrugListProps {
-  pharmacy: Pharmacy;
+  pharmacy: Pharmacy | null;
 }
 
 interface CartItem {
-  drug: Drug;
+  drugId: string;
+  drugName: string;
+  company: string;
   quantity: number;
+  type: 'chemical' | 'medical' | 'natural';
 }
 
 const DrugList: React.FC<DrugListProps> = ({ pharmacy }) => {
-  const [drugs, setDrugs] = useState<Drug[]>([]);
+  const [chemicalDrugs, setChemicalDrugs] = useState<UnifiedDrug[]>([]);
+  const [medicalSupplies, setMedicalSupplies] = useState<UnifiedDrug[]>([]);
+  const [naturalProducts, setNaturalProducts] = useState<UnifiedDrug[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [activeTab, setActiveTab] = useState('all');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -45,42 +61,54 @@ const DrugList: React.FC<DrugListProps> = ({ pharmacy }) => {
 
   const fetchDrugs = async () => {
     try {
-      // Fetch from all drug tables
-      const [drugsResult, chemicalDrugsResult, naturalProductsResult, medicalSuppliesResult] = await Promise.all([
-        supabase.from('drugs').select('*').eq('is_active', true),
+      const [chemicalResult, medicalResult, naturalResult] = await Promise.all([
         supabase.from('chemical_drugs').select('*').eq('is_active', true),
-        supabase.from('natural_products').select('*').eq('is_active', true),
-        supabase.from('medical_supplies').select('*').eq('is_active', true)
+        supabase.from('medical_supplies').select('*').eq('is_active', true),
+        supabase.from('natural_products').select('*').eq('is_active', true)
       ]);
 
-      const allDrugs = [
-        ...(drugsResult.data || []).map(drug => ({ ...drug, source: 'drugs' })),
-        ...(chemicalDrugsResult.data || []).map(drug => ({ 
-          ...drug, 
-          source: 'chemical_drugs',
-          name: drug.full_brand_name,
-          generic_name: drug.generic_code,
-          category: 'دارو شیمیایی',
-          unit: 'عدد'
-        })),
-        ...(naturalProductsResult.data || []).map(drug => ({ 
-          ...drug, 
-          source: 'natural_products',
-          name: drug.full_en_brand_name,
-          category: 'محصولات طبیعی',
-          unit: 'عدد'
-        })),
-        ...(medicalSuppliesResult.data || []).map(drug => ({ 
-          ...drug, 
-          source: 'medical_supplies',
-          name: drug.title,
-          category: 'ملزومات پزشکی',
-          unit: 'عدد'
-        }))
-      ];
+      const chemical = (chemicalResult.data || []).map(drug => ({
+        id: drug.id,
+        name: drug.full_brand_name,
+        company: drug.license_owner_company_name || 'نامشخص',
+        packageCount: drug.package_count,
+        action: drug.action,
+        irc: drug.irc,
+        type: 'chemical' as const,
+        erxCode: drug.erx_code,
+        gtin: drug.gtin,
+        genericCode: drug.generic_code
+      }));
 
-      setDrugs(allDrugs);
-    } catch (error: any) {
+      const medical = (medicalResult.data || []).map(drug => ({
+        id: drug.id,
+        name: drug.title,
+        company: drug.license_owner_company_name || 'نامشخص',
+        packageCount: drug.package_count,
+        action: drug.action,
+        irc: drug.irc,
+        type: 'medical' as const,
+        erxCode: drug.erx_code,
+        gtin: drug.gtin
+      }));
+
+      const natural = (naturalResult.data || []).map(drug => ({
+        id: drug.id,
+        name: drug.full_en_brand_name,
+        company: drug.license_owner_name || 'نامشخص',
+        packageCount: drug.package_count,
+        action: drug.action,
+        irc: drug.irc,
+        type: 'natural' as const,
+        erxCode: drug.erx_code,
+        gtin: drug.gtin,
+        atcCode: drug.atc_code
+      }));
+
+      setChemicalDrugs(chemical);
+      setMedicalSupplies(medical);
+      setNaturalProducts(natural);
+    } catch (error) {
       toast({
         title: "خطا",
         description: "خطا در بارگذاری فهرست داروها",
@@ -91,39 +119,61 @@ const DrugList: React.FC<DrugListProps> = ({ pharmacy }) => {
     }
   };
 
-  const filteredDrugs = drugs.filter(drug => {
+  const getAllDrugs = () => [...chemicalDrugs, ...medicalSupplies, ...naturalProducts];
+
+  const getCurrentDrugs = () => {
+    switch (activeTab) {
+      case 'chemical':
+        return chemicalDrugs;
+      case 'medical':
+        return medicalSupplies;
+      case 'natural':
+        return naturalProducts;
+      default:
+        return getAllDrugs();
+    }
+  };
+
+  const filteredDrugs = getCurrentDrugs().filter(drug => {
     const searchLower = searchTerm.toLowerCase();
     return (
       drug.name?.toLowerCase().includes(searchLower) ||
-      drug.generic_name?.toLowerCase().includes(searchLower) ||
-      (drug as any).irc?.toLowerCase().includes(searchLower) ||
-      (drug as any).erx_code?.toLowerCase().includes(searchLower) ||
-      (drug as any).gtin?.toLowerCase().includes(searchLower) ||
-      drug.category?.toLowerCase().includes(searchLower)
+      drug.company?.toLowerCase().includes(searchLower) ||
+      drug.irc?.toLowerCase().includes(searchLower) ||
+      drug.erxCode?.toLowerCase().includes(searchLower) ||
+      drug.gtin?.toLowerCase().includes(searchLower) ||
+      drug.genericCode?.toLowerCase().includes(searchLower) ||
+      drug.atcCode?.toLowerCase().includes(searchLower)
     );
   });
 
-  const addToCart = (drug: Drug) => {
+  const addToCart = (drug: UnifiedDrug) => {
     setCart(prev => {
-      const existing = prev.find(item => item.drug.id === drug.id);
+      const existing = prev.find(item => item.drugId === drug.id);
       if (existing) {
         return prev.map(item =>
-          item.drug.id === drug.id
+          item.drugId === drug.id
             ? { ...item, quantity: item.quantity + 1 }
             : item
         );
       }
-      return [...prev, { drug, quantity: 1 }];
+      return [...prev, { 
+        drugId: drug.id, 
+        drugName: drug.name, 
+        company: drug.company,
+        quantity: 1, 
+        type: drug.type 
+      }];
     });
   };
 
   const updateQuantity = (drugId: string, newQuantity: number) => {
     if (newQuantity <= 0) {
-      setCart(prev => prev.filter(item => item.drug.id !== drugId));
+      setCart(prev => prev.filter(item => item.drugId !== drugId));
     } else {
       setCart(prev =>
         prev.map(item =>
-          item.drug.id === drugId
+          item.drugId === drugId
             ? { ...item, quantity: newQuantity }
             : item
         )
@@ -132,7 +182,7 @@ const DrugList: React.FC<DrugListProps> = ({ pharmacy }) => {
   };
 
   const getCartQuantity = (drugId: string) => {
-    const item = cart.find(item => item.drug.id === drugId);
+    const item = cart.find(item => item.drugId === drugId);
     return item ? item.quantity : 0;
   };
 
@@ -141,6 +191,15 @@ const DrugList: React.FC<DrugListProps> = ({ pharmacy }) => {
   };
 
   const submitOrder = async () => {
+    if (!pharmacy) {
+      toast({
+        title: "خطا",
+        description: "لطفاً ابتدا اطلاعات داروخانه را تکمیل کنید",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (cart.length === 0) {
       toast({
         title: "سبد خرید خالی",
@@ -152,7 +211,6 @@ const DrugList: React.FC<DrugListProps> = ({ pharmacy }) => {
 
     setSubmitting(true);
     try {
-      // Create order
       const { data: orderData, error: orderError } = await supabase
         .from('orders')
         .insert({
@@ -164,10 +222,9 @@ const DrugList: React.FC<DrugListProps> = ({ pharmacy }) => {
 
       if (orderError) throw orderError;
 
-      // Create order items
       const orderItems = cart.map(item => ({
         order_id: orderData.id,
-        drug_id: item.drug.id,
+        drug_id: item.drugId,
         quantity: item.quantity,
       }));
 
@@ -177,14 +234,13 @@ const DrugList: React.FC<DrugListProps> = ({ pharmacy }) => {
 
       if (itemsError) throw itemsError;
 
-      // Clear cart
       setCart([]);
       
       toast({
         title: "سفارش ثبت شد",
         description: `سفارش شما با ${getTotalItems()} قلم دارو ثبت شد`,
       });
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: "خطا",
         description: "خطا در ثبت سفارش",
@@ -192,6 +248,19 @@ const DrugList: React.FC<DrugListProps> = ({ pharmacy }) => {
       });
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const getTypeLabel = (type: string) => {
+    switch (type) {
+      case 'chemical':
+        return 'شیمیایی';
+      case 'medical':
+        return 'ملزومات';
+      case 'natural':
+        return 'طبیعی';
+      default:
+        return type;
     }
   };
 
@@ -230,7 +299,6 @@ const DrugList: React.FC<DrugListProps> = ({ pharmacy }) => {
                   onClick={submitOrder}
                   disabled={submitting}
                   className="gap-2"
-                  style={{ background: 'var(--gradient-secondary)' }}
                 >
                   <ShoppingCart className="h-4 w-4" />
                   ثبت سفارش
@@ -241,100 +309,115 @@ const DrugList: React.FC<DrugListProps> = ({ pharmacy }) => {
         )}
       </div>
 
-      {/* Drugs Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredDrugs.map((drug) => {
-          const quantity = getCartQuantity(drug.id);
-          
-          return (
-            <Card key={drug.id} className="shadow-[var(--shadow-soft)] hover:shadow-[var(--shadow-medium)] transition-[var(--transition-smooth)]">
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div className="text-right flex-1">
-                    <CardTitle className="text-lg">{drug.name}</CardTitle>
-                    {drug.generic_name && (
-                      <CardDescription className="text-sm text-muted-foreground">
-                        {drug.generic_name}
-                      </CardDescription>
-                    )}
-                  </div>
-                  <Pill className="h-6 w-6 text-primary flex-shrink-0" />
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex flex-wrap gap-2 text-right">
-                  {drug.dosage && (
-                    <Badge variant="secondary" className="text-xs">
-                      {drug.dosage}
-                    </Badge>
-                  )}
-                  {drug.category && (
-                    <Badge variant="outline" className="text-xs">
-                      {drug.category}
-                    </Badge>
-                  )}
-                </div>
-                
-                {drug.description && (
-                  <p className="text-sm text-muted-foreground text-right line-clamp-2">
-                    {drug.description}
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="all">همه</TabsTrigger>
+          <TabsTrigger value="chemical">داروهای شیمیایی</TabsTrigger>
+          <TabsTrigger value="medical">ملزومات پزشکی</TabsTrigger>
+          <TabsTrigger value="natural">فرآورده های طبیعی</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value={activeTab} className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-right">
+                {activeTab === 'all' && 'تمام محصولات'}
+                {activeTab === 'chemical' && 'داروهای شیمیایی'}
+                {activeTab === 'medical' && 'ملزومات پزشکی'}
+                {activeTab === 'natural' && 'فرآورده های طبیعی'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-right">نام محصول</TableHead>
+                    <TableHead className="text-right">شرکت تولیدکننده</TableHead>
+                    <TableHead className="text-right">نوع</TableHead>
+                    <TableHead className="text-right">کد IRC</TableHead>
+                    <TableHead className="text-right">تعداد بسته</TableHead>
+                    <TableHead className="text-right">عملیات</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredDrugs.map((drug) => {
+                    const quantity = getCartQuantity(drug.id);
+                    
+                    return (
+                      <TableRow key={drug.id}>
+                        <TableCell className="text-right font-medium">
+                          {drug.name}
+                          {drug.genericCode && (
+                            <div className="text-sm text-muted-foreground">
+                              کد ژنریک: {drug.genericCode}
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">{drug.company}</TableCell>
+                        <TableCell className="text-right">
+                          <Badge variant="secondary" className="text-xs">
+                            {getTypeLabel(drug.type)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-sm">
+                          {drug.irc}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {drug.packageCount || '-'}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {quantity > 0 ? (
+                            <div className="flex items-center gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => updateQuantity(drug.id, quantity - 1)}
+                                className="h-8 w-8 p-0"
+                              >
+                                <Minus className="h-3 w-3" />
+                              </Button>
+                              <span className="min-w-[2rem] text-center font-bold">
+                                {quantity}
+                              </span>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => updateQuantity(drug.id, quantity + 1)}
+                                className="h-8 w-8 p-0"
+                              >
+                                <Plus className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button
+                              size="sm"
+                              onClick={() => addToCart(drug)}
+                              className="gap-2"
+                            >
+                              <Plus className="h-3 w-3" />
+                              افزودن
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+
+              {filteredDrugs.length === 0 && (
+                <div className="py-8 text-center">
+                  <Pill className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground">
+                    {searchTerm ? 'محصول مورد نظر یافت نشد' : 'محصولی در دسترس نیست'}
                   </p>
-                )}
-
-                <div className="flex items-center justify-between pt-2">
-                  {quantity > 0 ? (
-                    <div className="flex items-center gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => updateQuantity(drug.id, quantity - 1)}
-                        className="h-8 w-8 p-0"
-                      >
-                        <Minus className="h-3 w-3" />
-                      </Button>
-                      <span className="min-w-[2rem] text-center font-bold">
-                        {quantity}
-                      </span>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => updateQuantity(drug.id, quantity + 1)}
-                        className="h-8 w-8 p-0"
-                      >
-                        <Plus className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <Button
-                      size="sm"
-                      onClick={() => addToCart(drug)}
-                      className="gap-2"
-                    >
-                      <Plus className="h-3 w-3" />
-                      افزودن
-                    </Button>
-                  )}
-                  
-                  <span className="text-xs text-muted-foreground">
-                    {drug.unit}
-                  </span>
                 </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-
-      {filteredDrugs.length === 0 && (
-        <Card>
-          <CardContent className="py-8 text-center">
-            <Pill className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <p className="text-muted-foreground">
-              {searchTerm ? 'داروی مورد نظر یافت نشد' : 'داروی در دسترس نیست'}
-            </p>
-          </CardContent>
-        </Card>
-      )}
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
