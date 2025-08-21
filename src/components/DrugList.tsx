@@ -394,71 +394,130 @@ const DrugList: React.FC<DrugListProps> = ({ pharmacy }) => {
                         مشاهده سبد
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="max-w-5xl max-h-[85vh] overflow-y-auto rounded-2xl">
+                    <DialogContent className={`max-w-5xl max-h-[85vh] overflow-y-auto rounded-2xl ${isMobile ? 'max-w-[95vw] m-2' : ''}`}>
                       <DialogHeader className="text-right pb-4 border-b border-border/60">
-                        <DialogTitle className="text-2xl font-bold text-gradient">سبد خرید شما</DialogTitle>
+                        <DialogTitle className={`font-bold text-gradient ${isMobile ? 'text-lg' : 'text-2xl'}`}>سبد خرید شما</DialogTitle>
                       </DialogHeader>
+                      
                       <div className="space-y-4">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead className="text-right">نام محصول</TableHead>
-                              <TableHead className="text-right">شرکت</TableHead>
-                              <TableHead className="text-right">تعداد</TableHead>
-                              <TableHead className="text-right">عملیات</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
+                        {isMobile ? (
+                          // Mobile Cart Cards
+                          <div className="space-y-3">
                             {cart.map((item) => (
-                              <TableRow key={item.drugId}>
-                                <TableCell className="text-right font-medium">
-                                  {item.drugName}
-                                </TableCell>
-                                <TableCell className="text-right">{item.company}</TableCell>
-                                <TableCell className="text-right">
-                                  <div className="flex items-center gap-2">
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => updateQuantity(item.drugId, item.quantity - 1)}
-                                      className="h-8 w-8 p-0"
-                                    >
-                                      <Minus className="h-3 w-3" />
-                                    </Button>
-                                    <span className="min-w-[2rem] text-center font-bold">
-                                      {item.quantity}
-                                    </span>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => updateQuantity(item.drugId, item.quantity + 1)}
-                                      className="h-8 w-8 p-0"
-                                    >
-                                      <Plus className="h-3 w-3" />
-                                    </Button>
+                              <Card key={item.drugId} className="border border-border/60 rounded-xl overflow-hidden">
+                                <CardContent className="p-4">
+                                  <div className="space-y-3">
+                                    {/* Header with name and company */}
+                                    <div className="space-y-1">
+                                      <h4 className="font-medium text-foreground text-right">{item.drugName}</h4>
+                                      <p className="text-sm text-muted-foreground text-right">{item.company}</p>
+                                      <Badge variant="secondary" className="text-xs">
+                                        {getTypeLabel(item.type)}
+                                      </Badge>
+                                    </div>
+                                    
+                                    {/* Quantity controls and remove button */}
+                                    <div className="flex items-center justify-between gap-3">
+                                      <div className="flex items-center gap-2">
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          onClick={() => updateQuantity(item.drugId, item.quantity - 1)}
+                                          className="h-8 w-8 p-0 rounded-lg"
+                                        >
+                                          <Minus className="h-3 w-3" />
+                                        </Button>
+                                        <span className="min-w-[2rem] text-center font-bold bg-muted/30 px-3 py-1 rounded-lg">
+                                          {item.quantity}
+                                        </span>
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          onClick={() => updateQuantity(item.drugId, item.quantity + 1)}
+                                          className="h-8 w-8 p-0 rounded-lg"
+                                        >
+                                          <Plus className="h-3 w-3" />
+                                        </Button>
+                                      </div>
+                                      
+                                      <Button
+                                        size="sm"
+                                        variant="destructive"
+                                        onClick={() => updateQuantity(item.drugId, 0)}
+                                        className="gap-2 rounded-lg"
+                                      >
+                                        حذف
+                                      </Button>
+                                    </div>
                                   </div>
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  <Button
-                                    size="sm"
-                                    variant="destructive"
-                                    onClick={() => updateQuantity(item.drugId, 0)}
-                                  >
-                                    حذف
-                                  </Button>
-                                </TableCell>
-                              </TableRow>
+                                </CardContent>
+                              </Card>
                             ))}
-                          </TableBody>
-                        </Table>
-                         <div className="flex justify-end gap-4 pt-4 border-t">
+                          </div>
+                        ) : (
+                          // Desktop Table
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="text-right">نام محصول</TableHead>
+                                <TableHead className="text-right">شرکت</TableHead>
+                                <TableHead className="text-right">تعداد</TableHead>
+                                <TableHead className="text-right">عملیات</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {cart.map((item) => (
+                                <TableRow key={item.drugId}>
+                                  <TableCell className="text-right font-medium">
+                                    {item.drugName}
+                                  </TableCell>
+                                  <TableCell className="text-right">{item.company}</TableCell>
+                                  <TableCell className="text-right">
+                                    <div className="flex items-center gap-2">
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => updateQuantity(item.drugId, item.quantity - 1)}
+                                        className="h-8 w-8 p-0"
+                                      >
+                                        <Minus className="h-3 w-3" />
+                                      </Button>
+                                      <span className="min-w-[2rem] text-center font-bold">
+                                        {item.quantity}
+                                      </span>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => updateQuantity(item.drugId, item.quantity + 1)}
+                                        className="h-8 w-8 p-0"
+                                      >
+                                        <Plus className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    <Button
+                                      size="sm"
+                                      variant="destructive"
+                                      onClick={() => updateQuantity(item.drugId, 0)}
+                                    >
+                                      حذف
+                                    </Button>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        )}
+                        
+                         <div className={`flex ${isMobile ? 'flex-col gap-3' : 'justify-end gap-4'} pt-4 border-t`}>
                            <div className="text-right">
-                             <p className="text-lg font-bold">{getTotalItems()} نوع محصول (مجموع {getTotalQuantity()} عدد)</p>
+                             <p className={`font-bold ${isMobile ? 'text-base' : 'text-lg'}`}>{getTotalItems()} نوع محصول (مجموع {getTotalQuantity()} عدد)</p>
                            </div>
                           <Button 
                             onClick={submitOrder}
                             disabled={submitting}
-                            className="gap-2"
+                            className={`gap-2 ${isMobile ? 'w-full' : ''}`}
                           >
                             <ShoppingCart className="h-4 w-4" />
                             ثبت سفارش نهایی
@@ -474,39 +533,75 @@ const DrugList: React.FC<DrugListProps> = ({ pharmacy }) => {
         )}
       </div>
 
-      {/* Enhanced Tabs */}
+      {/* Enhanced Tabs - Mobile Optimized */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-4 bg-card/60 backdrop-blur-sm rounded-2xl p-2 border border-border/60 shadow-soft">
-          <TabsTrigger 
-            value="all" 
-            className="rounded-xl font-medium transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-medium"
-          >
-            همه
-          </TabsTrigger>
-          <TabsTrigger 
-            value="chemical"
-            className="rounded-xl font-medium transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-medium"
-          >
-            داروهای شیمیایی
-          </TabsTrigger>
-          <TabsTrigger 
-            value="medical"
-            className="rounded-xl font-medium transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-medium"
-          >
-            ملزومات پزشکی
-          </TabsTrigger>
-          <TabsTrigger 
-            value="natural"
-            className="rounded-xl font-medium transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-medium"
-          >
-            فرآورده های طبیعی
-          </TabsTrigger>
-        </TabsList>
+        {isMobile ? (
+          // Mobile: Two rows of tabs
+          <div className="space-y-2">
+            <TabsList className="grid w-full grid-cols-2 gap-1 p-1 bg-card/60 backdrop-blur-sm rounded-2xl border border-border/60 shadow-soft">
+              <TabsTrigger 
+                value="all" 
+                className="rounded-xl font-medium transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-medium text-xs px-2 py-2"
+              >
+                همه
+              </TabsTrigger>
+              <TabsTrigger 
+                value="chemical"
+                className="rounded-xl font-medium transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-medium text-xs px-2 py-2"
+              >
+                شیمیایی
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsList className="grid w-full grid-cols-2 gap-1 p-1 bg-card/60 backdrop-blur-sm rounded-2xl border border-border/60 shadow-soft">
+              <TabsTrigger 
+                value="medical"
+                className="rounded-xl font-medium transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-medium text-xs px-2 py-2"
+              >
+                ملزومات
+              </TabsTrigger>
+              <TabsTrigger 
+                value="natural"
+                className="rounded-xl font-medium transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-medium text-xs px-2 py-2"
+              >
+                طبیعی
+              </TabsTrigger>
+            </TabsList>
+          </div>
+        ) : (
+          // Desktop: Single row
+          <TabsList className="grid w-full grid-cols-4 bg-card/60 backdrop-blur-sm rounded-2xl p-2 border border-border/60 shadow-soft">
+            <TabsTrigger 
+              value="all" 
+              className="rounded-xl font-medium transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-medium"
+            >
+              همه
+            </TabsTrigger>
+            <TabsTrigger 
+              value="chemical"
+              className="rounded-xl font-medium transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-medium"
+            >
+              داروهای شیمیایی
+            </TabsTrigger>
+            <TabsTrigger 
+              value="medical"
+              className="rounded-xl font-medium transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-medium"
+            >
+              ملزومات پزشکی
+            </TabsTrigger>
+            <TabsTrigger 
+              value="natural"
+              className="rounded-xl font-medium transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-medium"
+            >
+              فرآورده های طبیعی
+            </TabsTrigger>
+          </TabsList>
+        )}
 
         <TabsContent value={activeTab} className="space-y-6 mt-6">
           <Card className="shadow-medium border-border/60 rounded-2xl overflow-hidden">
-            <CardHeader className="bg-gradient-to-r from-primary/5 to-secondary/5 border-b border-border/60 pb-4">
-              <CardTitle className="text-right text-2xl font-bold text-gradient">
+            <CardHeader className={`bg-gradient-to-r from-primary/5 to-secondary/5 border-b border-border/60 ${isMobile ? 'pb-3 px-4' : 'pb-4'}`}>
+              <CardTitle className={`text-right font-bold text-gradient ${isMobile ? 'text-lg' : 'text-2xl'}`}>
                 {activeTab === 'all' && 'تمام محصولات'}
                 {activeTab === 'chemical' && 'داروهای شیمیایی'}
                 {activeTab === 'medical' && 'ملزومات پزشکی'}
