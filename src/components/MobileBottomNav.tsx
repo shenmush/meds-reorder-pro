@@ -16,7 +16,8 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   const adminTabs = [
     { id: 'pharmacies', icon: User, label: 'داروخانه‌ها' },
     { id: 'orders', icon: ShoppingCart, label: 'سفارشات' },
-    { id: 'reports', icon: BarChart3, label: 'گزارشات' }
+    { id: 'reports', icon: BarChart3, label: 'گزارشات' },
+    { id: 'upload', icon: Pill, label: 'افزودن' }
   ];
 
   const userTabs = [
