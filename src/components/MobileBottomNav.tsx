@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pill, User, ShoppingCart, BarChart3, Settings } from 'lucide-react';
+import { Pill, User, ShoppingCart, BarChart3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface MobileBottomNavProps {
@@ -16,9 +16,7 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   const adminTabs = [
     { id: 'pharmacies', icon: User, label: 'داروخانه‌ها' },
     { id: 'orders', icon: ShoppingCart, label: 'سفارشات' },
-    { id: 'reports', icon: BarChart3, label: 'گزارشات' },
-    { id: 'upload', icon: Pill, label: 'افزودن' },
-    { id: 'import', icon: Settings, label: 'وارد کردن' }
+    { id: 'reports', icon: BarChart3, label: 'گزارشات' }
   ];
 
   const userTabs = [
