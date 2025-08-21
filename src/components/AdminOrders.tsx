@@ -31,6 +31,7 @@ interface OrderWithItems extends Order {
       generic_name?: string;
       category?: string;
       unit: string;
+      company?: string;
     } | null;
   }>;
 }
@@ -79,7 +80,7 @@ const AdminOrders = () => {
           try {
             const { data: chemicalData } = await supabase
               .from('chemical_drugs')
-              .select('full_brand_name, generic_code, action')
+              .select('full_brand_name, generic_code, action, license_owner_company_name')
               .eq('id', item.drug_id)
               .maybeSingle();
             
@@ -88,6 +89,7 @@ const AdminOrders = () => {
                 name: chemicalData.full_brand_name,
                 generic_name: chemicalData.generic_code,
                 category: chemicalData.action,
+                company: chemicalData.license_owner_company_name,
                 unit: 'عدد'
               };
             }
@@ -100,7 +102,7 @@ const AdminOrders = () => {
             try {
               const { data: medicalData } = await supabase
                 .from('medical_supplies')
-                .select('title, action')
+                .select('title, action, license_owner_company_name')
                 .eq('id', item.drug_id)
                 .maybeSingle();
               
@@ -109,6 +111,7 @@ const AdminOrders = () => {
                   name: medicalData.title,
                   generic_name: null,
                   category: medicalData.action,
+                  company: medicalData.license_owner_company_name,
                   unit: 'عدد'
                 };
               }
@@ -122,7 +125,7 @@ const AdminOrders = () => {
             try {
               const { data: naturalData } = await supabase
                 .from('natural_products')
-                .select('full_en_brand_name, atc_code, action')
+                .select('full_en_brand_name, atc_code, action, license_owner_name')
                 .eq('id', item.drug_id)
                 .maybeSingle();
               
@@ -131,6 +134,7 @@ const AdminOrders = () => {
                   name: naturalData.full_en_brand_name,
                   generic_name: naturalData.atc_code,
                   category: naturalData.action,
+                  company: naturalData.license_owner_name,
                   unit: 'عدد'
                 };
               }
@@ -400,6 +404,9 @@ const AdminOrders = () => {
                           <p className="font-medium text-base">
                             {item.drugs?.name || `محصول شناسه: ${item.drug_id.slice(0, 8)}...`}
                           </p>
+                          {item.drugs?.company && (
+                            <p className="text-sm text-muted-foreground">شرکت: {item.drugs.company}</p>
+                          )}
                           {item.drugs?.generic_name && (
                             <p className="text-sm text-muted-foreground">نام عمومی: {item.drugs.generic_name}</p>
                           )}

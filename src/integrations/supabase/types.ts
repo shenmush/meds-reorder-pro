@@ -62,45 +62,6 @@ export type Database = {
         }
         Relationships: []
       }
-      drugs: {
-        Row: {
-          category: string | null
-          created_at: string
-          description: string | null
-          dosage: string | null
-          generic_name: string | null
-          id: string
-          is_active: boolean
-          name: string
-          unit: string
-          updated_at: string
-        }
-        Insert: {
-          category?: string | null
-          created_at?: string
-          description?: string | null
-          dosage?: string | null
-          generic_name?: string | null
-          id?: string
-          is_active?: boolean
-          name: string
-          unit?: string
-          updated_at?: string
-        }
-        Update: {
-          category?: string | null
-          created_at?: string
-          description?: string | null
-          dosage?: string | null
-          generic_name?: string | null
-          id?: string
-          is_active?: boolean
-          name?: string
-          unit?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       medical_supplies: {
         Row: {
           action: string | null
@@ -217,13 +178,6 @@ export type Database = {
           quantity?: number
         }
         Relationships: [
-          {
-            foreignKeyName: "order_items_drug_id_fkey"
-            columns: ["drug_id"]
-            isOneToOne: false
-            referencedRelation: "drugs"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "order_items_order_id_fkey"
             columns: ["order_id"]
