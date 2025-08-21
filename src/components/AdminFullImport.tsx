@@ -13,30 +13,30 @@ const AdminFullImport = () => {
     try {
       console.log('Starting full import process...');
       
-      // Read the complete CSV file from the project
-      const response = await fetch('/chemical_drugs.csv');
+      // Read the natural products CSV file from the project
+      const response = await fetch('/natural_products.csv');
       if (!response.ok) {
-        throw new Error('Could not load CSV file');
+        throw new Error('Could not load natural products CSV file');
       }
       
       const csvContent = await response.text();
-      console.log('CSV content loaded, size:', csvContent.length);
+      console.log('Natural products CSV content loaded, size:', csvContent.length);
       
-      const { data, error } = await supabase.functions.invoke('import-all-csv-data', {
+      const { data, error } = await supabase.functions.invoke('import-natural-products', {
         method: 'POST',
         body: csvContent
       });
       
       if (error) {
         console.error('Import error:', error);
-        toast.error(`خطا در شروع وارد کردن داده‌ها: ${error.message}`);
+        toast.error(`خطا در شروع وارد کردن فرآورده‌های طبیعی: ${error.message}`);
         return;
       }
       
       console.log('Import result:', data);
       
       if (data.success) {
-        toast.success('فرآیند وارد کردن تمام داده‌ها شروع شد. این کار چند دقیقه طول می‌کشد.');
+        toast.success('فرآیند وارد کردن فرآورده‌های طبیعی شروع شد. این کار چند دقیقه طول می‌کشد.');
         toast.info('می‌توانید صفحه را نگه دارید یا بعداً برگردید. فرآیند در پس‌زمینه ادامه خواهد یافت.');
       } else {
         toast.error(`خطا در شروع فرآیند: ${data.error}`);
@@ -55,18 +55,18 @@ const AdminFullImport = () => {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Upload className="h-5 w-5" />
-          وارد کردن کامل داده‌های CSV
+          وارد کردن فرآورده‌های طبیعی
         </CardTitle>
         <CardDescription>
-          وارد کردن تمام ۲۹ هزار رکورد داروهای شیمیایی از فایل CSV
+          وارد کردن تمام رکوردهای فرآورده‌های طبیعی از فایل CSV
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <h4 className="font-medium text-blue-800 mb-2">توجه:</h4>
           <ul className="text-sm text-blue-700 space-y-1">
-            <li>• این فرآیند تمام داده‌های فایل CSV را وارد می‌کند</li>
-            <li>• حدود ۲۹ هزار رکورد پردازش خواهد شد</li>
+            <li>• این فرآیند تمام فرآورده‌های طبیعی را وارد می‌کند</li>
+            <li>• تمام رکوردهای موجود در فایل پردازش خواهد شد</li>
             <li>• فرآیند در پس‌زمینه اجرا می‌شود</li>
             <li>• ممکن است چند دقیقه طول بکشد</li>
           </ul>
@@ -86,7 +86,7 @@ const AdminFullImport = () => {
           ) : (
             <>
               <Upload className="ml-2 h-4 w-4" />
-              وارد کردن تمام داده‌ها
+              وارد کردن فرآورده‌های طبیعی
             </>
           )}
         </Button>
