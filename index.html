@@ -19,6 +19,9 @@
     <meta name="twitter:title" content="سیستم مدیریت سفارشات داروخانه" />
     <meta name="twitter:description" content="سیستم یکپارچه مدیریت سفارشات داروخانه" />
 
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json" />
+    
     <!-- Mobile Web App -->
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -27,6 +30,29 @@
     
     <!-- Theme Color -->
     <meta name="theme-color" content="#1e40af" />
+    
+    <!-- PWA Icons -->
+    <link rel="icon" type="image/png" sizes="192x192" href="/pwa-192x192.png" />
+    <link rel="apple-touch-icon" sizes="192x192" href="/pwa-192x192.png" />
+    
+    <!-- Preload critical fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    
+    <!-- Service Worker Registration -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+          navigator.serviceWorker.register('/sw.js')
+            .then(function(registration) {
+              console.log('SW registered: ', registration);
+            })
+            .catch(function(registrationError) {
+              console.log('SW registration failed: ', registrationError);
+            });
+        });
+      }
+    </script>
   </head>
 
   <body>

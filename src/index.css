@@ -125,6 +125,40 @@ Beautiful, professional, and Persian-friendly
   }
 }
 
+/* PWA and Mobile Optimizations */
+@supports (padding: max(0px)) {
+  .safe-area-pb {
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+  }
+  
+  .safe-area-pt {
+    padding-top: max(8px, env(safe-area-inset-top));
+  }
+}
+
+/* Mobile-first responsive utilities */
+.mobile-only {
+  @apply block md:hidden;
+}
+
+.desktop-only {
+  @apply hidden md:block;
+}
+
+/* Enhanced mobile scrolling */
+.mobile-scroll {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
+
+/* PWA safe area handling */
+@media (display-mode: standalone) {
+  body {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
 @layer base {
   * {
     @apply border-border;

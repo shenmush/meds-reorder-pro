@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { LogOut, Pill, Plus, ShoppingCart, User as UserIcon } from 'lucide-react';
+import { LogOut, Pill, Plus, ShoppingCart, User as UserIcon, BarChart3, Settings } from 'lucide-react';
 import DrugList from './DrugList';
 import PharmacyProfile from './PharmacyProfile';
 import AdminAddDrug from './AdminAddDrug';
@@ -14,6 +14,8 @@ import AdminPharmacies from './AdminPharmacies';
 import AdminOrders from './AdminOrders';
 import AdminReports from './AdminReports';
 import OrderHistory from './OrderHistory';
+import MobileBottomNav from './MobileBottomNav';
+import MobileHeader from './MobileHeader';
 
 interface DashboardProps {
   user: User;
@@ -106,6 +108,10 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
     }
   };
 
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab as any);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -119,8 +125,18 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30">
-      {/* Modern Header */}
-      <header className="border-b border-border/60 bg-card/90 backdrop-blur-lg shadow-soft">
+      {/* Mobile Header */}
+      <div className="mobile-only">
+        <MobileHeader 
+          user={user}
+          pharmacy={pharmacy}
+          userRole={userRole}
+          onSignOut={handleSignOut}
+        />
+      </div>
+
+      {/* Desktop Header */}
+      <header className="desktop-only border-b border-border/60 bg-card/90 backdrop-blur-lg shadow-soft">
         <div className="container mx-auto px-6 py-5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -151,7 +167,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
         </div>
       </header>
 
-      <div className="container mx-auto px-6 py-8">
+      {/* Main Content */}
+      <div className="container mx-auto px-4 md:px-6 py-4 md:py-8 pb-20 md:pb-8">
         {!pharmacy && userRole !== 'admin' ? (
           <PharmacyProfile 
             user={user} 
@@ -160,8 +177,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
           />
         ) : (
           <>
-            {/* Modern Navigation */}
-            <div className="mb-8">
+            {/* Desktop Navigation */}
+            <div className="desktop-only mb-8">
               <div className="bg-card/60 backdrop-blur-sm rounded-2xl p-2 border border-border/60 shadow-soft">
                 <div className="flex flex-wrap gap-1">
                   {userRole === 'admin' ? (
@@ -200,7 +217,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
                             : 'hover:bg-muted/60'
                         }`}
                       >
-                        <Plus className="h-5 w-5" />
+                        <BarChart3 className="h-5 w-5" />
                         <span className="font-medium">گزارشات</span>
                       </Button>
                       <Button
@@ -224,7 +241,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
                             : 'hover:bg-muted/60'
                         }`}
                       >
-                        <Plus className="h-5 w-5" />
+                        <Settings className="h-5 w-5" />
                         <span className="font-medium">وارد کردن CSV</span>
                       </Button>
                     </>
@@ -273,8 +290,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
               </div>
             </div>
 
-            {/* Enhanced Content Area */}
-            <div className="animate-in fade-in-50 duration-500">
+            {/* Content Area */}
+            <div className="animate-in fade-in-50 duration-500 mobile-scroll">
               {userRole === 'admin' ? (
                 // Admin Content
                 <>
@@ -304,6 +321,13 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
           </>
         )}
       </div>
+
+      {/* Mobile Bottom Navigation */}
+      <MobileBottomNav 
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
+        userRole={userRole}
+      />
     </div>
   );
 };
