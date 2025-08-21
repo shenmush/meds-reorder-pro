@@ -9,6 +9,7 @@ import { LogOut, Pill, Plus, ShoppingCart, User as UserIcon } from 'lucide-react
 import DrugList from './DrugList';
 import PharmacyProfile from './PharmacyProfile';
 import AdminAddDrug from './AdminAddDrug';
+import AdminFullImport from './AdminFullImport';
 import AdminPharmacies from './AdminPharmacies';
 import AdminOrders from './AdminOrders';
 import AdminReports from './AdminReports';
@@ -30,7 +31,7 @@ interface Pharmacy {
 const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
   const [pharmacy, setPharmacy] = useState<Pharmacy | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'drugs' | 'profile' | 'orders' | 'pharmacies' | 'reports' | 'upload'>('drugs');
+  const [activeTab, setActiveTab] = useState<'drugs' | 'profile' | 'orders' | 'pharmacies' | 'reports' | 'upload' | 'import'>('drugs');
   const [userRole, setUserRole] = useState<string | null>(null);
   const { toast } = useToast();
 
@@ -214,6 +215,18 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
                         <Pill className="h-5 w-5" />
                         <span className="font-medium">افزودن دارو</span>
                       </Button>
+                      <Button
+                        variant={activeTab === 'import' ? 'default' : 'ghost'}
+                        onClick={() => setActiveTab('import')}
+                        className={`gap-3 px-6 py-3 rounded-xl transition-all duration-300 ${
+                          activeTab === 'import' 
+                            ? 'btn-primary shadow-medium' 
+                            : 'hover:bg-muted/60'
+                        }`}
+                      >
+                        <Plus className="h-5 w-5" />
+                        <span className="font-medium">وارد کردن CSV</span>
+                      </Button>
                     </>
                   ) : (
                     // Regular User Navigation
@@ -269,6 +282,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
                   {activeTab === 'orders' && <AdminOrders />}
                   {activeTab === 'reports' && <AdminReports />}
                   {activeTab === 'upload' && <AdminAddDrug />}
+                  {activeTab === 'import' && <AdminFullImport />}
                 </>
               ) : (
                 // Regular User Content
