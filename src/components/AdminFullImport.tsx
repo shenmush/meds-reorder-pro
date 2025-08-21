@@ -13,10 +13,14 @@ const AdminFullImport = () => {
     try {
       console.log('Starting full import process...');
       
-      // First, we need to read the CSV file content
-      const csvContent = `IRC,FULLBRANDNAME,GenericCode,LicenseOwnerCompanyName,LicenseOwnerCompanyNationalId,PackageCount,GTIN,ErxCode,Action
-9154715040124503,ACA TABLET ORAL 162.5 mg/32.5 mg/325 mg,1,البرز دارو,10861412626,100,06260152410148,60000,
-6634773526419774,AXAR TABLET ORAL 162.5 mg/32.5 mg/325 mg,1,داروسازی تولید دارو,10102901102,100,06260803001756,60001,`;
+      // Read the complete CSV file from the project
+      const response = await fetch('/chemical_drugs.csv');
+      if (!response.ok) {
+        throw new Error('Could not load CSV file');
+      }
+      
+      const csvContent = await response.text();
+      console.log('CSV content loaded, size:', csvContent.length);
       
       const { data, error } = await supabase.functions.invoke('import-all-csv-data', {
         method: 'POST',
@@ -32,7 +36,8 @@ const AdminFullImport = () => {
       console.log('Import result:', data);
       
       if (data.success) {
-        toast.success('فرآیند وارد کردن داده‌ها شروع شد.');
+        toast.success('فرآیند وارد کردن تمام داده‌ها شروع شد. این کار چند دقیقه طول می‌کشد.');
+        toast.info('می‌توانید صفحه را نگه دارید یا بعداً برگردید. فرآیند در پس‌زمینه ادامه خواهد یافت.');
       } else {
         toast.error(`خطا در شروع فرآیند: ${data.error}`);
       }
