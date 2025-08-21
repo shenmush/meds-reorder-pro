@@ -14,7 +14,7 @@ const AdminFullImport = () => {
       console.log('Starting full import process...');
       
       // Read the natural products CSV file from the project
-      const response = await fetch('/natural_products.csv');
+      const response = await fetch('/کدینگ_نسخه‌نویسی_و_نسخه‌پیچی_فرآورده‌های_طبیعی.csv');
       if (!response.ok) {
         throw new Error('Could not load natural products CSV file');
       }
