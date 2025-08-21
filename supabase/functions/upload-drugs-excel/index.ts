@@ -116,7 +116,7 @@ serve(async (req) => {
     
     console.log(`Valid rows: ${data.length}, Skipped rows: ${skippedRows}`);
 
-    // Insert data in batches
+    // Insert data in batches using upsert to handle duplicates
     const batchSize = 100;
     let inserted = 0;
     
@@ -124,15 +124,18 @@ serve(async (req) => {
       const batch = data.slice(i, i + batchSize);
       const { error } = await supabaseClient
         .from(tableType)
-        .insert(batch);
+        .upsert(batch, { 
+          onConflict: 'irc',
+          ignoreDuplicates: false 
+        });
       
       if (error) {
-        console.error(`Error inserting batch ${i}-${i + batchSize}:`, error);
+        console.error(`Error upserting batch ${i}-${i + batchSize}:`, error);
         throw error;
       }
       
       inserted += batch.length;
-      console.log(`Inserted ${inserted}/${data.length} records`);
+      console.log(`Processed ${inserted}/${data.length} records`);
     }
 
     return new Response(JSON.stringify({ 
