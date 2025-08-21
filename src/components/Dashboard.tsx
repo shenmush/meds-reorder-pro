@@ -4,6 +4,7 @@ import { User } from '@supabase/supabase-js';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { LogOut, Pill, ShoppingCart, User as UserIcon, BarChart3 } from 'lucide-react';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 import DrugList from './DrugList';
 import PharmacyProfile from './PharmacyProfile';
 import AdminAddDrug from './AdminAddDrug';
@@ -152,14 +153,17 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
                 </p>
               </div>
             </div>
-            <Button 
-              variant="outline" 
-              onClick={handleSignOut} 
-              className="gap-2 px-6 py-2.5 rounded-xl hover:bg-destructive/10 hover:text-destructive hover:border-destructive/20 transition-all duration-300"
-            >
-              <LogOut className="h-4 w-4" />
-              خروج
-            </Button>
+            <div className="flex items-center gap-3">
+              <ThemeToggle />
+              <Button 
+                variant="outline" 
+                onClick={handleSignOut} 
+                className="gap-2 px-6 py-2.5 rounded-xl hover:bg-destructive/10 hover:text-destructive hover:border-destructive/20 transition-all duration-300"
+              >
+                <LogOut className="h-4 w-4" />
+                خروج
+              </Button>
+            </div>
           </div>
         </div>
       </header>

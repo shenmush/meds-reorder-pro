@@ -2,6 +2,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { LogOut, Pill, ShoppingCart, Menu } from 'lucide-react';
 import { User } from '@supabase/supabase-js';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 
 interface MobileHeaderProps {
   user: User;
@@ -36,15 +37,18 @@ const MobileHeader: React.FC<MobileHeaderProps> = ({
           </div>
         </div>
 
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onSignOut}
-          className="gap-2 px-3 py-2 rounded-lg hover:bg-destructive/10 hover:text-destructive transition-colors"
-        >
-          <LogOut className="h-4 w-4" />
-          <span className="text-sm">خروج</span>
-        </Button>
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onSignOut}
+            className="gap-2 px-3 py-2 rounded-lg hover:bg-destructive/10 hover:text-destructive transition-colors"
+          >
+            <LogOut className="h-4 w-4" />
+            <span className="text-sm">خروج</span>
+          </Button>
+        </div>
       </div>
     </header>
   );
