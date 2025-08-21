@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
 import AuthPage from '@/components/AuthPage';
 import Dashboard from '@/components/Dashboard';
+import CreateTestUsers from '@/components/CreateTestUsers';
 
 const Index = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -45,7 +46,10 @@ const Index = () => {
       {user ? (
         <Dashboard user={user} onAuthChange={setUser} />
       ) : (
-        <AuthPage user={user} onAuthChange={setUser} />
+        <div className="space-y-8 p-4">
+          <CreateTestUsers />
+          <AuthPage user={user} onAuthChange={setUser} />
+        </div>
       )}
     </div>
   );

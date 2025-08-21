@@ -26,11 +26,33 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
   const [pharmacy, setPharmacy] = useState<Pharmacy | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'drugs' | 'profile' | 'orders' | 'admin'>('drugs');
+  const [userRole, setUserRole] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
     fetchPharmacyProfile();
+    fetchUserRole();
   }, [user]);
+
+  const fetchUserRole = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .single();
+
+      if (error) {
+        console.error('Error fetching user role:', error);
+        setUserRole('user'); // Default to user role
+      } else {
+        setUserRole(data?.role || 'user');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      setUserRole('user');
+    }
+  };
 
   const fetchPharmacyProfile = async () => {
     try {
@@ -92,10 +114,12 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
                 <ShoppingCart className="h-4 w-4 text-secondary absolute -bottom-1 -right-1" />
               </div>
               <div className="text-right">
-                <h1 className="text-xl font-bold text-foreground">سیستم مدیریت سفارشات</h1>
-                {pharmacy && (
-                  <p className="text-sm text-muted-foreground">{pharmacy.name}</p>
-                )}
+                <h1 className="text-xl font-bold text-foreground">
+                  {userRole === 'admin' ? 'پنل مدیریت' : 'سیستم مدیریت سفارشات'}
+                </h1>
+                <p className="text-sm text-muted-foreground">
+                  {userRole === 'admin' ? `مدیر: ${user.email}` : pharmacy?.name || user.email}
+                </p>
               </div>
             </div>
             <Button variant="outline" onClick={handleSignOut} className="gap-2">
@@ -141,14 +165,16 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
                 <ShoppingCart className="h-4 w-4" />
                 سفارشات من
               </Button>
-              <Button
-                variant={activeTab === 'admin' ? 'default' : 'outline'}
-                onClick={() => setActiveTab('admin')}
-                className="gap-2"
-              >
-                <Plus className="h-4 w-4" />
-                مدیریت
-              </Button>
+              {userRole === 'admin' && (
+                <Button
+                  variant={activeTab === 'admin' ? 'default' : 'outline'}
+                  onClick={() => setActiveTab('admin')}
+                  className="gap-2"
+                >
+                  <Plus className="h-4 w-4" />
+                  مدیریت داروها
+                </Button>
+              )}
             </div>
 
             {/* Content */}
@@ -175,7 +201,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
                 </CardContent>
               </Card>
             )}
-            {activeTab === 'admin' && <AdminUpload />}
+            {activeTab === 'admin' && userRole === 'admin' && <AdminUpload />}
           </>
         )}
       </div>
