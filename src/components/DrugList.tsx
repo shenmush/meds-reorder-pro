@@ -45,14 +45,41 @@ const DrugList: React.FC<DrugListProps> = ({ pharmacy }) => {
 
   const fetchDrugs = async () => {
     try {
-      const { data, error } = await supabase
-        .from('drugs')
-        .select('*')
-        .eq('is_active', true)
-        .order('name');
+      // Fetch from all drug tables
+      const [drugsResult, chemicalDrugsResult, naturalProductsResult, medicalSuppliesResult] = await Promise.all([
+        supabase.from('drugs').select('*').eq('is_active', true),
+        supabase.from('chemical_drugs').select('*').eq('is_active', true),
+        supabase.from('natural_products').select('*').eq('is_active', true),
+        supabase.from('medical_supplies').select('*').eq('is_active', true)
+      ]);
 
-      if (error) throw error;
-      setDrugs(data || []);
+      const allDrugs = [
+        ...(drugsResult.data || []).map(drug => ({ ...drug, source: 'drugs' })),
+        ...(chemicalDrugsResult.data || []).map(drug => ({ 
+          ...drug, 
+          source: 'chemical_drugs',
+          name: drug.full_brand_name,
+          generic_name: drug.generic_code,
+          category: 'دارو شیمیایی',
+          unit: 'عدد'
+        })),
+        ...(naturalProductsResult.data || []).map(drug => ({ 
+          ...drug, 
+          source: 'natural_products',
+          name: drug.full_en_brand_name,
+          category: 'محصولات طبیعی',
+          unit: 'عدد'
+        })),
+        ...(medicalSuppliesResult.data || []).map(drug => ({ 
+          ...drug, 
+          source: 'medical_supplies',
+          name: drug.title,
+          category: 'ملزومات پزشکی',
+          unit: 'عدد'
+        }))
+      ];
+
+      setDrugs(allDrugs);
     } catch (error: any) {
       toast({
         title: "خطا",
@@ -64,11 +91,17 @@ const DrugList: React.FC<DrugListProps> = ({ pharmacy }) => {
     }
   };
 
-  const filteredDrugs = drugs.filter(drug =>
-    drug.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    drug.generic_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    drug.category?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredDrugs = drugs.filter(drug => {
+    const searchLower = searchTerm.toLowerCase();
+    return (
+      drug.name?.toLowerCase().includes(searchLower) ||
+      drug.generic_name?.toLowerCase().includes(searchLower) ||
+      (drug as any).irc?.toLowerCase().includes(searchLower) ||
+      (drug as any).erx_code?.toLowerCase().includes(searchLower) ||
+      (drug as any).gtin?.toLowerCase().includes(searchLower) ||
+      drug.category?.toLowerCase().includes(searchLower)
+    );
+  });
 
   const addToCart = (drug: Drug) => {
     setCart(prev => {

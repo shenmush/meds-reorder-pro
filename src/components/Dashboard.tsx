@@ -7,6 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { LogOut, Pill, Plus, ShoppingCart, User as UserIcon } from 'lucide-react';
 import DrugList from './DrugList';
 import PharmacyProfile from './PharmacyProfile';
+import AdminUpload from './AdminUpload';
 
 interface DashboardProps {
   user: User;
@@ -24,7 +25,7 @@ interface Pharmacy {
 const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
   const [pharmacy, setPharmacy] = useState<Pharmacy | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'drugs' | 'profile' | 'orders'>('drugs');
+  const [activeTab, setActiveTab] = useState<'drugs' | 'profile' | 'orders' | 'admin'>('drugs');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -140,6 +141,14 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
                 <ShoppingCart className="h-4 w-4" />
                 سفارشات من
               </Button>
+              <Button
+                variant={activeTab === 'admin' ? 'default' : 'outline'}
+                onClick={() => setActiveTab('admin')}
+                className="gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                مدیریت
+              </Button>
             </div>
 
             {/* Content */}
@@ -166,6 +175,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
                 </CardContent>
               </Card>
             )}
+            {activeTab === 'admin' && <AdminUpload />}
           </>
         )}
       </div>
