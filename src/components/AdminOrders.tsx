@@ -63,19 +63,95 @@ const AdminOrders = () => {
           order_items(
             id,
             quantity,
-            drug_id,
-            drugs(
-              name,
-              generic_name,
-              category,
-              unit
-            )
+            drug_id
           )
         `)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setOrders(data || []);
+      
+      // Fetch drug details separately from the three tables
+      const ordersWithDrugDetails = await Promise.all((data || []).map(async (order) => {
+        const itemsWithDrugs = await Promise.all(order.order_items.map(async (item) => {
+          // Try to find the drug in chemical_drugs first
+          let drugData = null;
+          
+          try {
+            const { data: chemicalData } = await supabase
+              .from('chemical_drugs')
+              .select('full_brand_name, generic_code, action')
+              .eq('id', item.drug_id)
+              .maybeSingle();
+            
+            if (chemicalData) {
+              drugData = {
+                name: chemicalData.full_brand_name,
+                generic_name: chemicalData.generic_code,
+                category: chemicalData.action,
+                unit: 'عدد'
+              };
+            }
+          } catch (err) {
+            // Continue to next table
+          }
+
+          if (!drugData) {
+            // Try medical_supplies
+            try {
+              const { data: medicalData } = await supabase
+                .from('medical_supplies')
+                .select('title, action')
+                .eq('id', item.drug_id)
+                .maybeSingle();
+              
+              if (medicalData) {
+                drugData = {
+                  name: medicalData.title,
+                  generic_name: null,
+                  category: medicalData.action,
+                  unit: 'عدد'
+                };
+              }
+            } catch (err) {
+              // Continue to next table
+            }
+          }
+
+          if (!drugData) {
+            // Try natural_products
+            try {
+              const { data: naturalData } = await supabase
+                .from('natural_products')
+                .select('full_en_brand_name, atc_code, action')
+                .eq('id', item.drug_id)
+                .maybeSingle();
+              
+              if (naturalData) {
+                drugData = {
+                  name: naturalData.full_en_brand_name,
+                  generic_name: naturalData.atc_code,
+                  category: naturalData.action,
+                  unit: 'عدد'
+                };
+              }
+            } catch (err) {
+              // Drug not found in any table
+            }
+          }
+
+          return {
+            ...item,
+            drugs: drugData
+          };
+        }));
+
+        return {
+          ...order,
+          order_items: itemsWithDrugs
+        };
+      }));
+
+      setOrders(ordersWithDrugDetails);
     } catch (error) {
       console.error('Error fetching orders:', error);
       toast({
