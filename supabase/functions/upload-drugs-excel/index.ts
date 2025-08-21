@@ -36,12 +36,35 @@ serve(async (req) => {
     
     console.log(`Processing ${tableType} with ${lines.length - 1} rows`);
 
-    // Helper function to clean null characters and trim
+    // Helper function to clean null characters and trim while preserving Persian text
     const cleanValue = (value: string | undefined): string | null => {
       if (!value) return null;
-      // Remove null characters (\u0000) and other problematic characters
+      // Only remove null characters and control characters, keep Persian text
       const cleaned = value.replace(/\u0000/g, '').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '').trim();
       return cleaned || null;
+    };
+
+    // Helper function to parse numbers (handles both English and Persian digits)
+    const parseNumber = (value: string | undefined): number | null => {
+      if (!value) return null;
+      const cleaned = cleanValue(value);
+      if (!cleaned) return null;
+      
+      // Convert Persian digits to English digits
+      const persianToEnglish = cleaned
+        .replace(/۰/g, '0')
+        .replace(/۱/g, '1')
+        .replace(/۲/g, '2')
+        .replace(/۳/g, '3')
+        .replace(/۴/g, '4')
+        .replace(/۵/g, '5')
+        .replace(/۶/g, '6')
+        .replace(/۷/g, '7')
+        .replace(/۸/g, '8')
+        .replace(/۹/g, '9');
+      
+      const number = parseInt(persianToEnglish);
+      return isNaN(number) ? null : number;
     };
 
     const data = [];
@@ -68,7 +91,7 @@ serve(async (req) => {
           row.full_brand_name = fullBrandName;
           row.license_owner_company_name = cleanValue(values[2]);
           row.license_owner_company_national_id = cleanValue(values[3]);
-          row.package_count = values[4] && cleanValue(values[4]) ? parseInt(cleanValue(values[4])!) : null;
+          row.package_count = parseNumber(values[4]);
           row.erx_code = cleanValue(values[5]);
           row.gtin = cleanValue(values[6]);
           row.action = cleanValue(values[7]);
@@ -86,7 +109,7 @@ serve(async (req) => {
           row.full_en_brand_name = fullEnBrandName;
           row.license_owner_name = cleanValue(values[2]);
           row.license_owner_national_code = cleanValue(values[3]);
-          row.package_count = values[4] && cleanValue(values[4]) ? parseInt(cleanValue(values[4])!) : null;
+          row.package_count = parseNumber(values[4]);
           row.erx_code = cleanValue(values[5]);
           row.gtin = cleanValue(values[6]);
           row.action = cleanValue(values[7]);
@@ -104,7 +127,7 @@ serve(async (req) => {
           row.title = title;
           row.license_owner_company_name = cleanValue(values[2]);
           row.license_owner_company_national_code = cleanValue(values[3]);
-          row.package_count = values[4] && cleanValue(values[4]) ? parseInt(cleanValue(values[4])!) : null;
+          row.package_count = parseNumber(values[4]);
           row.erx_code = cleanValue(values[5]);
           row.gtin = cleanValue(values[6]);
           row.action = cleanValue(values[7]);
