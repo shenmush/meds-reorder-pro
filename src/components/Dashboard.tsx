@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { LogOut, Pill, Plus, ShoppingCart, User as UserIcon } from 'lucide-react';
 import DrugList from './DrugList';
 import PharmacyProfile from './PharmacyProfile';
-import AdminUpload from './AdminUpload';
+import AdminAddDrug from './AdminAddDrug';
 import AdminPharmacies from './AdminPharmacies';
 import AdminOrders from './AdminOrders';
 import AdminReports from './AdminReports';
@@ -268,7 +268,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
                   {activeTab === 'pharmacies' && <AdminPharmacies />}
                   {activeTab === 'orders' && <AdminOrders />}
                   {activeTab === 'reports' && <AdminReports />}
-                  {activeTab === 'upload' && <AdminUpload />}
+                  {activeTab === 'upload' && <AdminAddDrug />}
                 </>
               ) : (
                 // Regular User Content
