@@ -596,37 +596,6 @@ const AdminReports = () => {
                 </Card>
               </div>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>عملکرد داروخانه‌ها - تعداد سفارشات</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ChartContainer config={{}} className="h-80">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={pharmacyAnalytics.slice(0, 10)} margin={{ top: 10, right: 10, left: 10, bottom: 60 }}>
-                        <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                        <XAxis 
-                          dataKey="pharmacy_name" 
-                          angle={-45}
-                          textAnchor="end"
-                          height={60}
-                          fontSize={12}
-                          interval={0}
-                        />
-                        <YAxis fontSize={12} />
-                        <Tooltip 
-                          contentStyle={{
-                            backgroundColor: 'hsl(var(--card))',
-                            border: '1px solid hsl(var(--border))',
-                            borderRadius: '8px'
-                          }}
-                        />
-                        <Bar dataKey="total_orders" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </ChartContainer>
-                </CardContent>
-              </Card>
 
               <div className="grid gap-4">
                 {pharmacyAnalytics.map((pharmacy) => (
@@ -830,37 +799,6 @@ const AdminReports = () => {
                 </Card>
               </div>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>عملکرد شرکت‌ها - کل مقدار</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ChartContainer config={{}} className="h-80">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={companyAnalytics.slice(0, 10)} margin={{ top: 10, right: 10, left: 10, bottom: 60 }}>
-                        <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                        <XAxis 
-                          dataKey="company_name" 
-                          angle={-45}
-                          textAnchor="end"
-                          height={60}
-                          fontSize={12}
-                          interval={0}
-                        />
-                        <YAxis fontSize={12} />
-                        <Tooltip 
-                          contentStyle={{
-                            backgroundColor: 'hsl(var(--card))',
-                            border: '1px solid hsl(var(--border))',
-                            borderRadius: '8px'
-                          }}
-                        />
-                        <Bar dataKey="total_quantity" fill="hsl(var(--secondary))" radius={[4, 4, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </ChartContainer>
-                </CardContent>
-              </Card>
 
               <div className="grid gap-4">
                 {companyAnalytics.map((company) => (
@@ -1061,37 +999,6 @@ const AdminReports = () => {
                 </Card>
               </div>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>پرتقاضاترین داروها</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ChartContainer config={{}} className="h-80">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={drugAnalytics.slice(0, 10)} margin={{ top: 10, right: 10, left: 10, bottom: 60 }}>
-                        <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                        <XAxis 
-                          dataKey="drug_name" 
-                          angle={-45}
-                          textAnchor="end"
-                          height={60}
-                          fontSize={12}
-                          interval={0}
-                        />
-                        <YAxis fontSize={12} />
-                        <Tooltip 
-                          contentStyle={{
-                            backgroundColor: 'hsl(var(--card))',
-                            border: '1px solid hsl(var(--border))',
-                            borderRadius: '8px'
-                          }}
-                        />
-                        <Bar dataKey="total_quantity" fill="hsl(var(--accent))" radius={[4, 4, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </ChartContainer>
-                </CardContent>
-              </Card>
 
               <div className="grid gap-4">
                 {drugAnalytics.map((drug) => (
