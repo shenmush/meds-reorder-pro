@@ -10,9 +10,12 @@ const Index = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log('Index component mounted, setting up auth');
+    
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        console.log('Auth state changed:', event, 'Session:', !!session);
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
@@ -21,8 +24,12 @@ const Index = () => {
 
     // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('Initial session check:', !!session);
       setSession(session);
       setUser(session?.user ?? null);
+      setLoading(false);
+    }).catch(error => {
+      console.error('Error getting session:', error);
       setLoading(false);
     });
 
