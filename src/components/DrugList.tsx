@@ -327,36 +327,36 @@ const DrugList: React.FC<DrugListProps> = ({ pharmacy }) => {
   return (
     <div className="space-y-6">
       {/* Search and Cart Summary */}
-      <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
+      <div className="flex flex-col sm:flex-row gap-6 items-center justify-between">
         <div className="relative flex-1 max-w-md">
-          <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+          <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-5 w-5" />
           <Input
             placeholder="جستجو در داروها..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pr-10 text-right"
+            className="pr-12 text-right rounded-xl border-border/60 bg-card/50 focus:bg-card focus:border-primary/50 transition-all duration-300"
           />
         </div>
         
         {cart.length > 0 && (
           <div className="flex items-center gap-4">
-            <Card className="w-full sm:w-auto">
+            <Card className="w-full sm:w-auto bg-gradient-to-r from-primary/5 to-secondary/5 border-primary/20 shadow-medium">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between gap-4">
                   <div className="text-right">
                     <p className="text-sm text-muted-foreground">سبد خرید</p>
-                    <p className="font-bold">{getTotalItems()} قلم</p>
+                    <p className="font-bold text-lg text-primary">{getTotalItems()} قلم</p>
                   </div>
                   <Dialog>
                     <DialogTrigger asChild>
-                      <Button variant="outline" className="gap-2">
+                      <Button variant="outline" className="gap-2 rounded-xl hover:bg-primary/10 hover:border-primary/30 transition-all duration-300">
                         <Eye className="h-4 w-4" />
                         مشاهده سبد
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-                      <DialogHeader>
-                        <DialogTitle className="text-right">سبد خرید شما</DialogTitle>
+                    <DialogContent className="max-w-5xl max-h-[85vh] overflow-y-auto rounded-2xl">
+                      <DialogHeader className="text-right pb-4 border-b border-border/60">
+                        <DialogTitle className="text-2xl font-bold text-gradient">سبد خرید شما</DialogTitle>
                       </DialogHeader>
                       <div className="space-y-4">
                         <Table>
@@ -434,19 +434,39 @@ const DrugList: React.FC<DrugListProps> = ({ pharmacy }) => {
         )}
       </div>
 
-      {/* Tabs */}
+      {/* Enhanced Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="all">همه</TabsTrigger>
-          <TabsTrigger value="chemical">داروهای شیمیایی</TabsTrigger>
-          <TabsTrigger value="medical">ملزومات پزشکی</TabsTrigger>
-          <TabsTrigger value="natural">فرآورده های طبیعی</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-4 bg-card/60 backdrop-blur-sm rounded-2xl p-2 border border-border/60 shadow-soft">
+          <TabsTrigger 
+            value="all" 
+            className="rounded-xl font-medium transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-medium"
+          >
+            همه
+          </TabsTrigger>
+          <TabsTrigger 
+            value="chemical"
+            className="rounded-xl font-medium transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-medium"
+          >
+            داروهای شیمیایی
+          </TabsTrigger>
+          <TabsTrigger 
+            value="medical"
+            className="rounded-xl font-medium transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-medium"
+          >
+            ملزومات پزشکی
+          </TabsTrigger>
+          <TabsTrigger 
+            value="natural"
+            className="rounded-xl font-medium transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-medium"
+          >
+            فرآورده های طبیعی
+          </TabsTrigger>
         </TabsList>
 
-        <TabsContent value={activeTab} className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-right">
+        <TabsContent value={activeTab} className="space-y-6 mt-6">
+          <Card className="shadow-medium border-border/60 rounded-2xl overflow-hidden">
+            <CardHeader className="bg-gradient-to-r from-primary/5 to-secondary/5 border-b border-border/60 pb-4">
+              <CardTitle className="text-right text-2xl font-bold text-gradient">
                 {activeTab === 'all' && 'تمام محصولات'}
                 {activeTab === 'chemical' && 'داروهای شیمیایی'}
                 {activeTab === 'medical' && 'ملزومات پزشکی'}

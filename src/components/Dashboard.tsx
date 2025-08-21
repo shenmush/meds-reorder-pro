@@ -104,26 +104,32 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b bg-card shadow-[var(--shadow-soft)]">
-        <div className="container mx-auto px-4 py-4">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30">
+      {/* Modern Header */}
+      <header className="border-b border-border/60 bg-card/90 backdrop-blur-lg shadow-soft">
+        <div className="container mx-auto px-6 py-5">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                <Pill className="h-8 w-8 text-primary" />
-                <ShoppingCart className="h-4 w-4 text-secondary absolute -bottom-1 -right-1" />
+            <div className="flex items-center gap-4">
+              <div className="relative p-3 rounded-2xl bg-gradient-to-br from-primary/10 to-secondary/10">
+                <Pill className="h-7 w-7 text-primary" />
+                <div className="absolute -bottom-1 -right-1 p-1 bg-secondary rounded-full">
+                  <ShoppingCart className="h-3 w-3 text-white" />
+                </div>
               </div>
               <div className="text-right">
-                <h1 className="text-xl font-bold text-foreground">
+                <h1 className="text-2xl font-bold text-gradient">
                   {userRole === 'admin' ? 'پنل مدیریت' : 'سیستم مدیریت سفارشات'}
                 </h1>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-muted-foreground mt-1">
                   {userRole === 'admin' ? `مدیر: ${user.email}` : pharmacy?.name || user.email}
                 </p>
               </div>
             </div>
-            <Button variant="outline" onClick={handleSignOut} className="gap-2">
+            <Button 
+              variant="outline" 
+              onClick={handleSignOut} 
+              className="gap-2 px-6 py-2.5 rounded-xl hover:bg-destructive/10 hover:text-destructive hover:border-destructive/20 transition-all duration-300"
+            >
               <LogOut className="h-4 w-4" />
               خروج
             </Button>
@@ -131,7 +137,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-6">
+      <div className="container mx-auto px-6 py-8">
         {!pharmacy && userRole !== 'admin' ? (
           <PharmacyProfile 
             user={user} 
@@ -140,57 +146,79 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
           />
         ) : (
           <>
-            {/* Navigation */}
-            <div className="flex flex-wrap gap-2 mb-6">
-              <Button
-                variant={activeTab === 'drugs' ? 'default' : 'outline'}
-                onClick={() => setActiveTab('drugs')}
-                className="gap-2"
-              >
-                <Pill className="h-4 w-4" />
-                فهرست داروها
-              </Button>
-              <Button
-                variant={activeTab === 'profile' ? 'default' : 'outline'}
-                onClick={() => setActiveTab('profile')}
-                className="gap-2"
-              >
-                <UserIcon className="h-4 w-4" />
-                مشخصات داروخانه
-              </Button>
-              <Button
-                variant={activeTab === 'orders' ? 'default' : 'outline'}
-                onClick={() => setActiveTab('orders')}
-                className="gap-2"
-              >
-                <ShoppingCart className="h-4 w-4" />
-                سفارشات من
-              </Button>
-              {userRole === 'admin' && (
-                <Button
-                  variant={activeTab === 'admin' ? 'default' : 'outline'}
-                  onClick={() => setActiveTab('admin')}
-                  className="gap-2"
-                >
-                  <Plus className="h-4 w-4" />
-                  مدیریت داروها
-                </Button>
-              )}
+            {/* Modern Navigation */}
+            <div className="mb-8">
+              <div className="bg-card/60 backdrop-blur-sm rounded-2xl p-2 border border-border/60 shadow-soft">
+                <div className="flex flex-wrap gap-1">
+                  <Button
+                    variant={activeTab === 'drugs' ? 'default' : 'ghost'}
+                    onClick={() => setActiveTab('drugs')}
+                    className={`gap-3 px-6 py-3 rounded-xl transition-all duration-300 ${
+                      activeTab === 'drugs' 
+                        ? 'btn-primary shadow-medium' 
+                        : 'hover:bg-muted/60'
+                    }`}
+                  >
+                    <Pill className="h-5 w-5" />
+                    <span className="font-medium">فهرست داروها</span>
+                  </Button>
+                  <Button
+                    variant={activeTab === 'profile' ? 'default' : 'ghost'}
+                    onClick={() => setActiveTab('profile')}
+                    className={`gap-3 px-6 py-3 rounded-xl transition-all duration-300 ${
+                      activeTab === 'profile' 
+                        ? 'btn-primary shadow-medium' 
+                        : 'hover:bg-muted/60'
+                    }`}
+                  >
+                    <UserIcon className="h-5 w-5" />
+                    <span className="font-medium">مشخصات داروخانه</span>
+                  </Button>
+                  <Button
+                    variant={activeTab === 'orders' ? 'default' : 'ghost'}
+                    onClick={() => setActiveTab('orders')}
+                    className={`gap-3 px-6 py-3 rounded-xl transition-all duration-300 ${
+                      activeTab === 'orders' 
+                        ? 'btn-primary shadow-medium' 
+                        : 'hover:bg-muted/60'
+                    }`}
+                  >
+                    <ShoppingCart className="h-5 w-5" />
+                    <span className="font-medium">سفارشات من</span>
+                  </Button>
+                  {userRole === 'admin' && (
+                    <Button
+                      variant={activeTab === 'admin' ? 'default' : 'ghost'}
+                      onClick={() => setActiveTab('admin')}
+                      className={`gap-3 px-6 py-3 rounded-xl transition-all duration-300 ${
+                        activeTab === 'admin' 
+                          ? 'btn-primary shadow-medium' 
+                          : 'hover:bg-muted/60'
+                      }`}
+                    >
+                      <Plus className="h-5 w-5" />
+                      <span className="font-medium">مدیریت داروها</span>
+                    </Button>
+                  )}
+                </div>
+              </div>
             </div>
 
-            {/* Content */}
-            {activeTab === 'drugs' && <DrugList pharmacy={pharmacy} />}
-            {activeTab === 'profile' && (
-              <PharmacyProfile 
-                user={user} 
-                pharmacy={pharmacy} 
-                onPharmacyUpdate={setPharmacy} 
-              />
-            )}
-            {activeTab === 'orders' && pharmacy && (
-              <OrderHistory pharmacyId={pharmacy.id} />
-            )}
-            {activeTab === 'admin' && userRole === 'admin' && <AdminUpload />}
+            {/* Enhanced Content Area */}
+            <div className="animate-in fade-in-50 duration-500">
+              {activeTab === 'drugs' && <DrugList pharmacy={pharmacy} />}
+              {activeTab === 'profile' && (
+                <PharmacyProfile 
+                  user={user} 
+                  pharmacy={pharmacy} 
+                  onPharmacyUpdate={setPharmacy} 
+                />
+              )}
+              {activeTab === 'orders' && pharmacy && (
+                <OrderHistory pharmacyId={pharmacy.id} />
+              )}
+              {activeTab === 'admin' && userRole === 'admin' && <AdminUpload />}
+            </div>
           </>
         )}
       </div>
