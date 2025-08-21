@@ -15,12 +15,16 @@ const AdminFullImport = () => {
       
       // Read the natural products CSV file from the project
       const response = await fetch('/کدینگ_نسخه‌نویسی_و_نسخه‌پیچی_فرآورده‌های_طبیعی.csv');
+      console.log('Response status:', response.status);
+      console.log('Response ok:', response.ok);
+      
       if (!response.ok) {
-        throw new Error('Could not load natural products CSV file');
+        throw new Error(`Could not load natural products CSV file. Status: ${response.status}`);
       }
       
       const csvContent = await response.text();
       console.log('Natural products CSV content loaded, size:', csvContent.length);
+      console.log('First 200 chars:', csvContent.substring(0, 200));
       
       const { data, error } = await supabase.functions.invoke('import-natural-products', {
         method: 'POST',
