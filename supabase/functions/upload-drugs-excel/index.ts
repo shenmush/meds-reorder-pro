@@ -115,13 +115,26 @@ serve(async (req) => {
     }
     
     console.log(`Valid rows: ${data.length}, Skipped rows: ${skippedRows}`);
+    
+    // Deduplicate data by irc to avoid "cannot affect row a second time" error
+    const uniqueData = [];
+    const seenIrcs = new Set();
+    
+    for (const item of data) {
+      if (!seenIrcs.has(item.irc)) {
+        seenIrcs.add(item.irc);
+        uniqueData.push(item);
+      }
+    }
+    
+    console.log(`Unique records after deduplication: ${uniqueData.length}`);
 
     // Insert data in batches using upsert to handle duplicates
     const batchSize = 100;
-    let inserted = 0;
+    let processed = 0;
     
-    for (let i = 0; i < data.length; i += batchSize) {
-      const batch = data.slice(i, i + batchSize);
+    for (let i = 0; i < uniqueData.length; i += batchSize) {
+      const batch = uniqueData.slice(i, i + batchSize);
       const { error } = await supabaseClient
         .from(tableType)
         .upsert(batch, { 
@@ -134,13 +147,13 @@ serve(async (req) => {
         throw error;
       }
       
-      inserted += batch.length;
-      console.log(`Processed ${inserted}/${data.length} records`);
+      processed += batch.length;
+      console.log(`Processed ${processed}/${uniqueData.length} records`);
     }
 
     return new Response(JSON.stringify({ 
       success: true, 
-      message: `Successfully imported ${inserted} records to ${tableType}` 
+      message: `Successfully processed ${processed} records to ${tableType}` 
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
