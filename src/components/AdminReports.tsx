@@ -21,6 +21,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 // Fixed Pharmacy import issue - using Store instead
 import { useToast } from '@/hooks/use-toast';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface PharmacyAnalytics {
   pharmacy_id: string;
@@ -79,6 +80,7 @@ const AdminReports = () => {
   const [dateFilter, setDateFilter] = useState('month');
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     generateAnalytics();
@@ -368,12 +370,15 @@ const AdminReports = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold gradient-text">تحلیل‌های جامع گزارشات</h2>
+      {/* Header - Mobile Optimized */}
+      <div className={`flex ${isMobile ? 'flex-col gap-3' : 'items-center justify-between'}`}>
+        <h2 className={`font-bold gradient-text ${isMobile ? 'text-xl text-center' : 'text-2xl'}`}>
+          تحلیل‌های جامع گزارشات
+        </h2>
         
-        <div className="flex items-center gap-2">
+        <div className={`flex items-center gap-2 ${isMobile ? 'justify-center' : ''}`}>
           <Select value={dateFilter} onValueChange={setDateFilter}>
-            <SelectTrigger className="w-48">
+            <SelectTrigger className={`${isMobile ? 'w-full max-w-xs' : 'w-48'}`}>
               <SelectValue placeholder="بازه زمانی" />
             </SelectTrigger>
             <SelectContent>
@@ -393,22 +398,23 @@ const AdminReports = () => {
         </div>
       ) : (
         <Tabs defaultValue="pharmacy" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="pharmacy" className="flex items-center gap-2">
+          <TabsList className={`grid w-full grid-cols-2 ${isMobile ? 'bg-card/60 backdrop-blur-sm rounded-2xl p-2 border border-border/60 shadow-soft' : ''}`}>
+            <TabsTrigger value="pharmacy" className={`flex items-center gap-2 ${isMobile ? 'text-sm px-2 py-2 rounded-xl font-medium transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-medium' : ''}`}>
               <Store className="h-4 w-4" />
-              تحلیل بر اساس داروخانه
+              {isMobile ? 'داروخانه' : 'تحلیل بر اساس داروخانه'}
             </TabsTrigger>
-            <TabsTrigger value="company" className="flex items-center gap-2">
+            <TabsTrigger value="company" className={`flex items-center gap-2 ${isMobile ? 'text-sm px-2 py-2 rounded-xl font-medium transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-medium' : ''}`}>
               <Building2 className="h-4 w-4" />
-              تحلیل بر اساس شرکت
+              {isMobile ? 'شرکت' : 'تحلیل بر اساس شرکت'}
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="pharmacy" className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
+            {/* Pharmacy selection and export - Mobile optimized */}
+            <div className={`flex ${isMobile ? 'flex-col gap-4' : 'items-center justify-between'}`}>
+              <div className={`flex ${isMobile ? 'flex-col gap-3' : 'items-center gap-4'}`}>
                 <Select value={selectedPharmacy} onValueChange={setSelectedPharmacy}>
-                  <SelectTrigger className="w-64">
+                  <SelectTrigger className={`${isMobile ? 'w-full' : 'w-64'}`}>
                     <SelectValue placeholder="انتخاب داروخانه" />
                   </SelectTrigger>
                   <SelectContent>
@@ -421,54 +427,58 @@ const AdminReports = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <Button onClick={() => exportToCSV('pharmacy')} variant="outline" className="flex items-center gap-2">
+              <Button 
+                onClick={() => exportToCSV('pharmacy')} 
+                variant="outline" 
+                className={`flex items-center gap-2 ${isMobile ? 'w-full justify-center' : ''}`}
+              >
                 <Download className="h-4 w-4" />
-                دانلود گزارش داروخانه‌ها
+                {isMobile ? 'دانلود گزارش' : 'دانلود گزارش داروخانه‌ها'}
               </Button>
             </div>
 
             {selectedPharmacy === 'all' ? (
               // Overview of all pharmacies
               <div className="grid gap-6">
-                <div className="grid gap-4 md:grid-cols-4">
-                  <Card>
+                <div className={`grid gap-4 ${isMobile ? 'grid-cols-2' : 'md:grid-cols-4'}`}>
+                  <Card className="shadow-medium border-border/60 rounded-2xl">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">کل داروخانه‌ها</CardTitle>
+                      <CardTitle className={`font-medium ${isMobile ? 'text-xs' : 'text-sm'}`}>کل داروخانه‌ها</CardTitle>
                       <Store className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold">{pharmacyAnalytics.length}</div>
+                      <div className={`font-bold text-primary ${isMobile ? 'text-lg' : 'text-2xl'}`}>{pharmacyAnalytics.length}</div>
                     </CardContent>
                   </Card>
-                  <Card>
+                  <Card className="shadow-medium border-border/60 rounded-2xl">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">کل سفارشات</CardTitle>
+                      <CardTitle className={`font-medium ${isMobile ? 'text-xs' : 'text-sm'}`}>کل سفارشات</CardTitle>
                       <ShoppingCart className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold">
+                      <div className={`font-bold text-primary ${isMobile ? 'text-lg' : 'text-2xl'}`}>
                         {pharmacyAnalytics.reduce((sum, p) => sum + p.total_orders, 0)}
                       </div>
                     </CardContent>
                   </Card>
-                  <Card>
+                  <Card className="shadow-medium border-border/60 rounded-2xl">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">کل اقلام</CardTitle>
+                      <CardTitle className={`font-medium ${isMobile ? 'text-xs' : 'text-sm'}`}>کل اقلام</CardTitle>
                       <Package className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold">
+                      <div className={`font-bold text-primary ${isMobile ? 'text-lg' : 'text-2xl'}`}>
                         {pharmacyAnalytics.reduce((sum, p) => sum + p.total_items, 0)}
                       </div>
                     </CardContent>
                   </Card>
-                  <Card>
+                  <Card className="shadow-medium border-border/60 rounded-2xl">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">میانگین سفارش</CardTitle>
+                      <CardTitle className={`font-medium ${isMobile ? 'text-xs' : 'text-sm'}`}>میانگین سفارش</CardTitle>
                       <TrendingUp className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold">
+                      <div className={`font-bold text-primary ${isMobile ? 'text-lg' : 'text-2xl'}`}>
                         {pharmacyAnalytics.length > 0 ? 
                           Math.round(pharmacyAnalytics.reduce((sum, p) => sum + p.total_orders, 0) / pharmacyAnalytics.length) 
                           : 0}
@@ -478,22 +488,25 @@ const AdminReports = () => {
                 </div>
 
                 {/* Pharmacy performance chart */}
-                <Card>
+                <Card className="shadow-medium border-border/60 rounded-2xl">
                   <CardHeader>
-                    <CardTitle>عملکرد داروخانه‌ها - تعداد سفارشات</CardTitle>
+                    <CardTitle className={isMobile ? 'text-base' : 'text-lg'}>
+                      عملکرد داروخانه‌ها - تعداد سفارشات
+                    </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <ChartContainer config={{}} className="h-80">
+                    <ChartContainer config={{}} className={isMobile ? 'h-60' : 'h-80'}>
                       <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={pharmacyAnalytics.slice(0, 10)}>
+                        <BarChart data={pharmacyAnalytics.slice(0, isMobile ? 5 : 10)}>
                           <CartesianGrid strokeDasharray="3 3" />
                           <XAxis 
                             dataKey="pharmacy_name" 
                             angle={-45}
                             textAnchor="end"
-                            height={100}
+                            height={isMobile ? 80 : 100}
+                            fontSize={isMobile ? 10 : 12}
                           />
-                          <YAxis />
+                          <YAxis fontSize={isMobile ? 10 : 12} />
                           <Tooltip />
                           <Bar dataKey="total_orders" fill="#3b82f6" />
                         </BarChart>
@@ -648,10 +661,11 @@ const AdminReports = () => {
           </TabsContent>
 
           <TabsContent value="company" className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
+            {/* Company selection and export - Mobile optimized */}
+            <div className={`flex ${isMobile ? 'flex-col gap-4' : 'items-center justify-between'}`}>
+              <div className={`flex ${isMobile ? 'flex-col gap-3' : 'items-center gap-4'}`}>
                 <Select value={selectedCompany} onValueChange={setSelectedCompany}>
-                  <SelectTrigger className="w-64">
+                  <SelectTrigger className={`${isMobile ? 'w-full' : 'w-64'}`}>
                     <SelectValue placeholder="انتخاب شرکت" />
                   </SelectTrigger>
                   <SelectContent>
@@ -664,54 +678,58 @@ const AdminReports = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <Button onClick={() => exportToCSV('company')} variant="outline" className="flex items-center gap-2">
+              <Button 
+                onClick={() => exportToCSV('company')} 
+                variant="outline" 
+                className={`flex items-center gap-2 ${isMobile ? 'w-full justify-center' : ''}`}
+              >
                 <Download className="h-4 w-4" />
-                دانلود گزارش شرکت‌ها
+                {isMobile ? 'دانلود گزارش' : 'دانلود گزارش شرکت‌ها'}
               </Button>
             </div>
 
             {selectedCompany === 'all' ? (
               // Overview of all companies
               <div className="grid gap-6">
-                <div className="grid gap-4 md:grid-cols-4">
-                  <Card>
+                <div className={`grid gap-4 ${isMobile ? 'grid-cols-2' : 'md:grid-cols-4'}`}>
+                  <Card className="shadow-medium border-border/60 rounded-2xl">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">کل شرکت‌ها</CardTitle>
+                      <CardTitle className={`font-medium ${isMobile ? 'text-xs' : 'text-sm'}`}>کل شرکت‌ها</CardTitle>
                       <Building2 className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold">{companyAnalytics.length}</div>
+                      <div className={`font-bold text-primary ${isMobile ? 'text-lg' : 'text-2xl'}`}>{companyAnalytics.length}</div>
                     </CardContent>
                   </Card>
-                  <Card>
+                  <Card className="shadow-medium border-border/60 rounded-2xl">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">کل سفارشات</CardTitle>
+                      <CardTitle className={`font-medium ${isMobile ? 'text-xs' : 'text-sm'}`}>کل سفارشات</CardTitle>
                       <ShoppingCart className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold">
+                      <div className={`font-bold text-primary ${isMobile ? 'text-lg' : 'text-2xl'}`}>
                         {companyAnalytics.reduce((sum, c) => sum + c.total_orders, 0)}
                       </div>
                     </CardContent>
                   </Card>
-                  <Card>
+                  <Card className="shadow-medium border-border/60 rounded-2xl">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">کل مقدار</CardTitle>
+                      <CardTitle className={`font-medium ${isMobile ? 'text-xs' : 'text-sm'}`}>کل مقدار</CardTitle>
                       <Package className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold">
+                      <div className={`font-bold text-primary ${isMobile ? 'text-lg' : 'text-2xl'}`}>
                         {companyAnalytics.reduce((sum, c) => sum + c.total_quantity, 0)}
                       </div>
                     </CardContent>
                   </Card>
-                  <Card>
+                  <Card className="shadow-medium border-border/60 rounded-2xl">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">میانگین محصولات</CardTitle>
+                      <CardTitle className={`font-medium ${isMobile ? 'text-xs' : 'text-sm'}`}>میانگین محصولات</CardTitle>
                       <TrendingUp className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold">
+                      <div className={`font-bold text-primary ${isMobile ? 'text-lg' : 'text-2xl'}`}>
                         {companyAnalytics.length > 0 ? 
                           Math.round(companyAnalytics.reduce((sum, c) => sum + c.unique_products, 0) / companyAnalytics.length) 
                           : 0}
@@ -721,22 +739,25 @@ const AdminReports = () => {
                 </div>
 
                 {/* Company performance chart */}
-                <Card>
+                <Card className="shadow-medium border-border/60 rounded-2xl">
                   <CardHeader>
-                    <CardTitle>عملکرد شرکت‌ها - مقدار کل سفارشات</CardTitle>
+                    <CardTitle className={isMobile ? 'text-base' : 'text-lg'}>
+                      عملکرد شرکت‌ها - مقدار کل سفارشات
+                    </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <ChartContainer config={{}} className="h-80">
+                    <ChartContainer config={{}} className={isMobile ? 'h-60' : 'h-80'}>
                       <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={companyAnalytics.slice(0, 10)}>
+                        <BarChart data={companyAnalytics.slice(0, isMobile ? 5 : 10)}>
                           <CartesianGrid strokeDasharray="3 3" />
                           <XAxis 
                             dataKey="company_name" 
                             angle={-45}
                             textAnchor="end"
-                            height={100}
+                            height={isMobile ? 80 : 100}
+                            fontSize={isMobile ? 10 : 12}
                           />
-                          <YAxis />
+                          <YAxis fontSize={isMobile ? 10 : 12} />
                           <Tooltip />
                           <Bar dataKey="total_quantity" fill="#10b981" />
                         </BarChart>
