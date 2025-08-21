@@ -36,6 +36,14 @@ serve(async (req) => {
     
     console.log(`Processing ${tableType} with ${lines.length - 1} rows`);
 
+    // Helper function to clean null characters and trim
+    const cleanValue = (value: string | undefined): string | null => {
+      if (!value) return null;
+      // Remove null characters (\u0000) and other problematic characters
+      const cleaned = value.replace(/\u0000/g, '').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '').trim();
+      return cleaned || null;
+    };
+
     const data = [];
     for (let i = 1; i < lines.length; i++) {
       if (lines[i].trim()) {
@@ -44,32 +52,32 @@ serve(async (req) => {
         
         // Map headers to database columns based on table type
         if (tableType === 'chemical_drugs') {
-          row.irc = values[0];
-          row.full_brand_name = values[1];
-          row.license_owner_company_name = values[2];
-          row.license_owner_company_national_id = values[3];
-          row.package_count = values[4] ? parseInt(values[4]) : null;
-          row.erx_code = values[5];
-          row.gtin = values[6];
-          row.action = values[7];
+          row.irc = cleanValue(values[0]);
+          row.full_brand_name = cleanValue(values[1]);
+          row.license_owner_company_name = cleanValue(values[2]);
+          row.license_owner_company_national_id = cleanValue(values[3]);
+          row.package_count = values[4] && cleanValue(values[4]) ? parseInt(cleanValue(values[4])!) : null;
+          row.erx_code = cleanValue(values[5]);
+          row.gtin = cleanValue(values[6]);
+          row.action = cleanValue(values[7]);
         } else if (tableType === 'natural_products') {
-          row.irc = values[0];
-          row.full_en_brand_name = values[1];
-          row.license_owner_name = values[2];
-          row.license_owner_national_code = values[3];
-          row.package_count = values[4] ? parseInt(values[4]) : null;
-          row.erx_code = values[5];
-          row.gtin = values[6];
-          row.action = values[7];
+          row.irc = cleanValue(values[0]);
+          row.full_en_brand_name = cleanValue(values[1]);
+          row.license_owner_name = cleanValue(values[2]);
+          row.license_owner_national_code = cleanValue(values[3]);
+          row.package_count = values[4] && cleanValue(values[4]) ? parseInt(cleanValue(values[4])!) : null;
+          row.erx_code = cleanValue(values[5]);
+          row.gtin = cleanValue(values[6]);
+          row.action = cleanValue(values[7]);
         } else if (tableType === 'medical_supplies') {
-          row.irc = values[0];
-          row.title = values[1];
-          row.license_owner_company_name = values[2];
-          row.license_owner_company_national_code = values[3];
-          row.package_count = values[4] ? parseInt(values[4]) : null;
-          row.erx_code = values[5];
-          row.gtin = values[6];
-          row.action = values[7];
+          row.irc = cleanValue(values[0]);
+          row.title = cleanValue(values[1]);
+          row.license_owner_company_name = cleanValue(values[2]);
+          row.license_owner_company_national_code = cleanValue(values[3]);
+          row.package_count = values[4] && cleanValue(values[4]) ? parseInt(cleanValue(values[4])!) : null;
+          row.erx_code = cleanValue(values[5]);
+          row.gtin = cleanValue(values[6]);
+          row.action = cleanValue(values[7]);
         }
         
         data.push(row);
