@@ -234,7 +234,11 @@ const DrugList: React.FC<DrugListProps> = ({ pharmacy }) => {
   };
 
   const getTotalItems = () => {
-    return cart.reduce((total, item) => total + item.quantity, 0);
+    return cart.length; // Number of unique products
+  };
+
+  const getTotalQuantity = () => {
+    return cart.reduce((total, item) => total + item.quantity, 0); // Total quantity
   };
 
   const submitOrder = async () => {
@@ -262,7 +266,7 @@ const DrugList: React.FC<DrugListProps> = ({ pharmacy }) => {
         .from('orders')
         .insert({
           pharmacy_id: pharmacy.id,
-          total_items: getTotalItems(),
+          total_items: getTotalQuantity(), // Use total quantity for order
         })
         .select()
         .single();
@@ -285,7 +289,7 @@ const DrugList: React.FC<DrugListProps> = ({ pharmacy }) => {
       
       toast({
         title: "سفارش ثبت شد",
-        description: `سفارش شما با ${getTotalItems()} قلم دارو ثبت شد`,
+        description: `سفارش شما با ${getTotalItems()} نوع محصول (مجموع ${getTotalQuantity()} عدد) ثبت شد`,
       });
     } catch (error) {
       toast({
@@ -407,10 +411,10 @@ const DrugList: React.FC<DrugListProps> = ({ pharmacy }) => {
                             ))}
                           </TableBody>
                         </Table>
-                        <div className="flex justify-end gap-4 pt-4 border-t">
-                          <div className="text-right">
-                            <p className="text-lg font-bold">مجموع: {getTotalItems()} قلم</p>
-                          </div>
+                         <div className="flex justify-end gap-4 pt-4 border-t">
+                           <div className="text-right">
+                             <p className="text-lg font-bold">{getTotalItems()} نوع محصول (مجموع {getTotalQuantity()} عدد)</p>
+                           </div>
                           <Button 
                             onClick={submitOrder}
                             disabled={submitting}
