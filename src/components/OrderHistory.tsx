@@ -4,8 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ChevronDown, ChevronUp, Calendar, Package, ShoppingCart } from 'lucide-react';
+import { ChevronDown, ChevronUp, Calendar, Package, ShoppingCart, Clock, FileText, Building2, Hash } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface OrderItem {
   id: string;
@@ -47,6 +48,7 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ pharmacyId }) => {
   const [loadingItems, setLoadingItems] = useState<Set<string>>(new Set());
   const [loadingProductDetails, setLoadingProductDetails] = useState<Set<string>>(new Set());
   const { toast } = useToast();
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     fetchOrders();
@@ -310,20 +312,196 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ pharmacyId }) => {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-right flex items-center gap-2">
+    <Card className="shadow-medium border-border/60 rounded-2xl">
+      <CardHeader className={`bg-gradient-to-r from-primary/5 to-secondary/5 border-b border-border/60 ${isMobile ? 'pb-3 px-4' : 'pb-4'}`}>
+        <CardTitle className={`text-right flex items-center gap-2 ${isMobile ? 'text-lg' : 'text-xl'}`}>
           <Calendar className="h-5 w-5" />
           تاریخچه سفارشات
         </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className={isMobile ? "p-4" : ""}>
         {orders.length === 0 ? (
           <div className="text-center py-8">
             <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <p className="text-muted-foreground">هنوز سفارشی ثبت نکرده‌اید</p>
           </div>
+        ) : isMobile ? (
+          // Mobile Card View
+          <div className="space-y-4">
+            {orders.map((order) => (
+              <Card key={order.id} className="border border-border/60 rounded-xl overflow-hidden bg-card/50 backdrop-blur-sm">
+                <CardContent className="p-4">
+                  <div className="space-y-4">
+                    {/* Order Header */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">
+                          {formatDate(order.created_at)}
+                        </span>
+                      </div>
+                      {getStatusBadge(order.status)}
+                    </div>
+
+                    {/* Order Stats */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="bg-muted/20 p-3 rounded-lg text-center">
+                        <div className="text-xs text-muted-foreground mb-1">انواع محصول</div>
+                        <div className="font-bold text-primary">{order.itemCount || 0}</div>
+                      </div>
+                      <div className="bg-muted/20 p-3 rounded-lg text-center">
+                        <div className="text-xs text-muted-foreground mb-1">مجموع اقلام</div>
+                        <div className="font-bold text-primary">{order.total_items}</div>
+                      </div>
+                    </div>
+
+                    {/* Expand Button */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => toggleOrderExpanded(order.id)}
+                      disabled={loadingItems.has(order.id)}
+                      className="w-full gap-2 rounded-xl border-border/60 hover:border-primary/30"
+                    >
+                      {loadingItems.has(order.id) ? (
+                        'در حال بارگذاری...'
+                      ) : expandedOrders.has(order.id) ? (
+                        <>
+                          <ChevronUp className="h-4 w-4" />
+                          بستن جزئیات
+                        </>
+                      ) : (
+                        <>
+                          <ChevronDown className="h-4 w-4" />
+                          مشاهده جزئیات
+                        </>
+                      )}
+                    </Button>
+
+                    {/* Expanded Order Items */}
+                    {expandedOrders.has(order.id) && order.items && (
+                      <div className="space-y-3 pt-3 border-t border-border/60">
+                        <h4 className="font-medium text-sm text-right mb-3 flex items-center gap-2">
+                          <Package className="h-4 w-4" />
+                          محصولات سفارش
+                        </h4>
+                        
+                        <div className="space-y-3">
+                          {order.items.map((item) => (
+                            <Card key={item.id} className="border border-border/30 rounded-lg bg-background/50">
+                              <CardContent className="p-3">
+                                <div 
+                                  className="space-y-2 cursor-pointer"
+                                  onClick={() => toggleProductExpanded(item.drug_id, item.drugType || '')}
+                                >
+                                  {/* Product Header */}
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex-1">
+                                      <h5 className="font-medium text-sm text-right">{item.drugName}</h5>
+                                      <div className="flex items-center gap-2 mt-1">
+                                        <Building2 className="h-3 w-3 text-muted-foreground" />
+                                        <span className="text-xs text-muted-foreground">{item.drugCompany}</span>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      {loadingProductDetails.has(item.drug_id) ? (
+                                        <span className="text-xs text-muted-foreground">بارگذاری...</span>
+                                      ) : expandedProducts.has(item.drug_id) ? (
+                                        <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                                      ) : (
+                                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {/* Product Info */}
+                                  <div className="flex items-center justify-between">
+                                    <Badge variant="secondary" className="text-xs">
+                                      {item.drugType}
+                                    </Badge>
+                                    <div className="bg-primary/10 text-primary px-2 py-1 rounded-lg text-xs font-medium">
+                                      {item.quantity} عدد
+                                    </div>
+                                  </div>
+
+                                  {/* Expanded Product Details */}
+                                  {expandedProducts.has(item.drug_id) && item.drugDetails && (
+                                    <div className="mt-3 pt-3 border-t border-border/30">
+                                      <h6 className="font-medium text-xs text-right mb-2 flex items-center gap-1">
+                                        <Hash className="h-3 w-3" />
+                                        مشخصات تکمیلی
+                                      </h6>
+                                      <div className="grid grid-cols-1 gap-2 text-xs">
+                                        {item.drugDetails.irc && (
+                                          <div className="bg-muted/20 p-2 rounded">
+                                            <span className="font-medium">کد IRC: </span>
+                                            <span className="font-mono">{item.drugDetails.irc}</span>
+                                          </div>
+                                        )}
+                                        {item.drugDetails.erxCode && (
+                                          <div className="bg-muted/20 p-2 rounded">
+                                            <span className="font-medium">کد ERX: </span>
+                                            <span className="font-mono">{item.drugDetails.erxCode}</span>
+                                          </div>
+                                        )}
+                                        {item.drugDetails.gtin && (
+                                          <div className="bg-muted/20 p-2 rounded">
+                                            <span className="font-medium">کد GTIN: </span>
+                                            <span className="font-mono">{item.drugDetails.gtin}</span>
+                                          </div>
+                                        )}
+                                        {item.drugDetails.packageCount && (
+                                          <div className="bg-muted/20 p-2 rounded">
+                                            <span className="font-medium">تعداد بسته: </span>
+                                            <span>{item.drugDetails.packageCount}</span>
+                                          </div>
+                                        )}
+                                        {item.drugDetails.genericCode && (
+                                          <div className="bg-muted/20 p-2 rounded">
+                                            <span className="font-medium">کد ژنریک: </span>
+                                            <span className="font-mono">{item.drugDetails.genericCode}</span>
+                                          </div>
+                                        )}
+                                        {item.drugDetails.atcCode && (
+                                          <div className="bg-muted/20 p-2 rounded">
+                                            <span className="font-medium">کد ATC: </span>
+                                            <span className="font-mono">{item.drugDetails.atcCode}</span>
+                                          </div>
+                                        )}
+                                        {item.drugDetails.action && (
+                                          <div className="bg-muted/20 p-2 rounded">
+                                            <span className="font-medium">اثر دارویی: </span>
+                                            <span>{item.drugDetails.action}</span>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+
+                        {/* Order Notes */}
+                        {order.notes && (
+                          <div className="mt-3 p-3 bg-muted/20 rounded-lg">
+                            <div className="flex items-center gap-2 mb-2">
+                              <FileText className="h-4 w-4 text-muted-foreground" />
+                              <span className="font-medium text-sm">یادداشت:</span>
+                            </div>
+                            <p className="text-sm text-right">{order.notes}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         ) : (
+          // Desktop Table View
           <Table>
             <TableHeader>
               <TableRow>
