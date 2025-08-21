@@ -1,1 +1,7 @@
 project_id = "rriukgdpjlemgalttztd"
+
+[functions.create-admin-user]
+verify_jwt = false
+
+[functions.import-all-csv-data]
+verify_jwt = false

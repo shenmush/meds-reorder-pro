@@ -6,40 +6,51 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-interface ChemicalDrugData {
-  irc: string;
-  full_brand_name: string;
-  generic_code?: string;
-  license_owner_company_name?: string;
-  license_owner_company_national_id?: string;
-  package_count?: number;
-  gtin?: string;
-  erx_code?: string;
-  action?: string;
-}
-
 serve(async (req) => {
+  console.log('Import function called');
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    console.log('Starting complete CSV import process...');
+    console.log('Starting import process...');
     
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Start background task for processing
-    EdgeRuntime.waitUntil(processAllCSVData(supabaseClient));
+    // Instead of reading file, we'll get CSV data from request body
+    let csvData: string;
     
-    // Return immediate response
+    if (req.method === 'POST') {
+      // If CSV data is sent in request body
+      csvData = await req.text();
+    } else {
+      // Return error - we need CSV data
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'CSV data required in request body'
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400
+        }
+      );
+    }
+
+    console.log('CSV data received, length:', csvData.length);
+    
+    // Start background processing
+    EdgeRuntime.waitUntil(processCSVData(supabaseClient, csvData));
+    
     return new Response(
       JSON.stringify({ 
         success: true,
-        message: 'Import process started in background',
+        message: 'Import process started successfully',
         status: 'processing'
       }),
       { 
@@ -62,67 +73,41 @@ serve(async (req) => {
   }
 })
 
-async function processAllCSVData(supabaseClient: any) {
+async function processCSVData(supabaseClient: any, csvData: string) {
   try {
-    console.log('Reading CSV file...');
+    console.log('Processing CSV data...');
     
-    // Try to read the CSV file from the project root
-    const csvPath = '/opt/app/کدینگ_نسخه‌نویسی_و_نسخه‌پیچی_داروهای_شیمیایی.csv';
-    let csvContent: string;
-    
-    try {
-      csvContent = await Deno.readTextFile(csvPath);
-    } catch (readError) {
-      console.error('Error reading CSV file from path:', csvPath, readError);
-      
-      // Alternative path if the first doesn't work
-      const altPath = './کدینگ_نسخه‌نویسی_و_نسخه‌پیچی_داروهای_شیمیایی.csv';
-      try {
-        csvContent = await Deno.readTextFile(altPath);
-      } catch (altError) {
-        console.error('Error reading from alternative path:', altPath, altError);
-        throw new Error('Could not read CSV file from any known path');
-      }
-    }
-    
-    console.log('CSV file read successfully, length:', csvContent.length);
-    
-    // Parse CSV content
-    const lines = csvContent.split('\n');
-    console.log('Total lines in CSV:', lines.length);
+    const lines = csvData.split('\n');
+    console.log('Total lines:', lines.length);
     
     let processedCount = 0;
     let errorCount = 0;
-    let batchCount = 0;
-    const batchSize = 50; // Smaller batch size for reliability
+    const batchSize = 50;
     
-    // Skip header line and process in batches
+    // Skip header and process in batches
     for (let i = 1; i < lines.length; i += batchSize) {
-      const batch: ChemicalDrugData[] = [];
+      const batch: any[] = [];
       
-      // Process batch
       for (let j = i; j < Math.min(i + batchSize, lines.length); j++) {
         const line = lines[j]?.trim();
         if (!line) continue;
         
         try {
-          // Handle CSV parsing with quotes and commas
           const values = parseCSVLine(line);
           
-          if (values.length >= 2) { // At least IRC and name required
-            const drug: ChemicalDrugData = {
-              irc: values[0]?.replace(/^"/, '').replace(/"$/, '') || '',
-              full_brand_name: values[1]?.replace(/^"/, '').replace(/"$/, '') || '',
-              generic_code: values[2]?.replace(/^"/, '').replace(/"$/, '') || null,
-              license_owner_company_name: values[3]?.replace(/^"/, '').replace(/"$/, '') || null,
-              license_owner_company_national_id: values[4]?.replace(/^"/, '').replace(/"$/, '') || null,
-              package_count: values[5] ? parseInt(values[5].replace(/^"/, '').replace(/"$/, '')) : null,
-              gtin: values[6]?.replace(/^"/, '').replace(/"$/, '') || null,
-              erx_code: values[7]?.replace(/^"/, '').replace(/"$/, '') || null,
-              action: values[8]?.replace(/^"/, '').replace(/"$/, '') || null,
+          if (values.length >= 2) {
+            const drug = {
+              irc: cleanValue(values[0]),
+              full_brand_name: cleanValue(values[1]),
+              generic_code: cleanValue(values[2]) || null,
+              license_owner_company_name: cleanValue(values[3]) || null,
+              license_owner_company_national_id: cleanValue(values[4]) || null,
+              package_count: values[5] ? parseInt(cleanValue(values[5])) : null,
+              gtin: cleanValue(values[6]) || null,
+              erx_code: cleanValue(values[7]) || null,
+              action: cleanValue(values[8]) || null,
             };
             
-            // Only add if required fields are present
             if (drug.irc && drug.full_brand_name) {
               batch.push(drug);
             }
@@ -133,7 +118,6 @@ async function processAllCSVData(supabaseClient: any) {
         }
       }
       
-      // Insert batch if not empty
       if (batch.length > 0) {
         try {
           const { error } = await supabaseClient
@@ -141,27 +125,26 @@ async function processAllCSVData(supabaseClient: any) {
             .insert(batch);
           
           if (error) {
-            console.error(`Error inserting batch ${batchCount}:`, error);
+            console.error('Insert error:', error);
             errorCount += batch.length;
           } else {
             processedCount += batch.length;
-            batchCount++;
-            console.log(`Batch ${batchCount} completed: ${batch.length} records processed. Total: ${processedCount}`);
+            console.log(`Processed ${processedCount} records so far...`);
           }
         } catch (insertError) {
-          console.error(`Insert error for batch ${batchCount}:`, insertError);
+          console.error('Insert error:', insertError);
           errorCount += batch.length;
         }
       }
       
-      // Small delay between batches to avoid overwhelming the database
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Small delay between batches
+      await new Promise(resolve => setTimeout(resolve, 50));
     }
     
-    console.log(`Import completed! Processed: ${processedCount}, Errors: ${errorCount}, Batches: ${batchCount}`);
+    console.log(`Import completed! Processed: ${processedCount}, Errors: ${errorCount}`);
     
   } catch (error) {
-    console.error('Background processing error:', error);
+    console.error('Processing error:', error);
   }
 }
 
@@ -175,7 +158,6 @@ function parseCSVLine(line: string): string[] {
     
     if (char === '"') {
       inQuotes = !inQuotes;
-      current += char;
     } else if (char === ',' && !inQuotes) {
       result.push(current);
       current = '';
@@ -186,4 +168,8 @@ function parseCSVLine(line: string): string[] {
   
   result.push(current);
   return result;
+}
+
+function cleanValue(value: string): string {
+  return value?.replace(/^"/, '').replace(/"$/, '').trim() || '';
 }

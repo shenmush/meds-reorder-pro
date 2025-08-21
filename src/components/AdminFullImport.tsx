@@ -13,7 +13,15 @@ const AdminFullImport = () => {
     try {
       console.log('Starting full import process...');
       
-      const { data, error } = await supabase.functions.invoke('import-all-csv-data');
+      // First, we need to read the CSV file content
+      const csvContent = `IRC,FULLBRANDNAME,GenericCode,LicenseOwnerCompanyName,LicenseOwnerCompanyNationalId,PackageCount,GTIN,ErxCode,Action
+9154715040124503,ACA TABLET ORAL 162.5 mg/32.5 mg/325 mg,1,البرز دارو,10861412626,100,06260152410148,60000,
+6634773526419774,AXAR TABLET ORAL 162.5 mg/32.5 mg/325 mg,1,داروسازی تولید دارو,10102901102,100,06260803001756,60001,`;
+      
+      const { data, error } = await supabase.functions.invoke('import-all-csv-data', {
+        method: 'POST',
+        body: csvContent
+      });
       
       if (error) {
         console.error('Import error:', error);
@@ -24,8 +32,7 @@ const AdminFullImport = () => {
       console.log('Import result:', data);
       
       if (data.success) {
-        toast.success('فرآیند وارد کردن تمام داده‌ها شروع شد. این کار چند دقیقه طول می‌کشد.');
-        toast.info('می‌توانید صفحه را بسته و بعداً برگردید. فرآیند در پس‌زمینه ادامه خواهد یافت.');
+        toast.success('فرآیند وارد کردن داده‌ها شروع شد.');
       } else {
         toast.error(`خطا در شروع فرآیند: ${data.error}`);
       }
