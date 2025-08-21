@@ -3,11 +3,15 @@ import { supabase } from '@/integrations/supabase/client';
 import { User } from '@supabase/supabase-js';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { LogOut, Pill, Plus, ShoppingCart, User as UserIcon } from 'lucide-react';
 import DrugList from './DrugList';
 import PharmacyProfile from './PharmacyProfile';
 import AdminUpload from './AdminUpload';
+import AdminPharmacies from './AdminPharmacies';
+import AdminOrders from './AdminOrders';
+import AdminReports from './AdminReports';
 import OrderHistory from './OrderHistory';
 
 interface DashboardProps {
@@ -217,7 +221,28 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
               {activeTab === 'orders' && pharmacy && (
                 <OrderHistory pharmacyId={pharmacy.id} />
               )}
-              {activeTab === 'admin' && userRole === 'admin' && <AdminUpload />}
+              {activeTab === 'admin' && userRole === 'admin' && (
+                <Tabs defaultValue="upload" className="w-full">
+                  <TabsList className="grid w-full grid-cols-4">
+                    <TabsTrigger value="upload">آپلود محصولات</TabsTrigger>
+                    <TabsTrigger value="pharmacies">داروخانه‌ها</TabsTrigger>
+                    <TabsTrigger value="orders">سفارشات</TabsTrigger>
+                    <TabsTrigger value="reports">گزارشات</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="upload">
+                    <AdminUpload />
+                  </TabsContent>
+                  <TabsContent value="pharmacies">
+                    <AdminPharmacies />
+                  </TabsContent>
+                  <TabsContent value="orders">
+                    <AdminOrders />
+                  </TabsContent>
+                  <TabsContent value="reports">
+                    <AdminReports />
+                  </TabsContent>
+                </Tabs>
+              )}
             </div>
           </>
         )}
