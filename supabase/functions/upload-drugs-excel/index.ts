@@ -45,15 +45,27 @@ serve(async (req) => {
     };
 
     const data = [];
+    let skippedRows = 0;
+    
     for (let i = 1; i < lines.length; i++) {
       if (lines[i].trim()) {
         const values = lines[i].split('\t');
         const row: any = {};
+        let isValidRow = true;
         
         // Map headers to database columns based on table type
         if (tableType === 'chemical_drugs') {
-          row.irc = cleanValue(values[0]);
-          row.full_brand_name = cleanValue(values[1]);
+          const irc = cleanValue(values[0]);
+          const fullBrandName = cleanValue(values[1]);
+          
+          // Skip row if required fields are missing
+          if (!irc || !fullBrandName) {
+            skippedRows++;
+            continue;
+          }
+          
+          row.irc = irc;
+          row.full_brand_name = fullBrandName;
           row.license_owner_company_name = cleanValue(values[2]);
           row.license_owner_company_national_id = cleanValue(values[3]);
           row.package_count = values[4] && cleanValue(values[4]) ? parseInt(cleanValue(values[4])!) : null;
@@ -61,8 +73,17 @@ serve(async (req) => {
           row.gtin = cleanValue(values[6]);
           row.action = cleanValue(values[7]);
         } else if (tableType === 'natural_products') {
-          row.irc = cleanValue(values[0]);
-          row.full_en_brand_name = cleanValue(values[1]);
+          const irc = cleanValue(values[0]);
+          const fullEnBrandName = cleanValue(values[1]);
+          
+          // Skip row if required fields are missing
+          if (!irc || !fullEnBrandName) {
+            skippedRows++;
+            continue;
+          }
+          
+          row.irc = irc;
+          row.full_en_brand_name = fullEnBrandName;
           row.license_owner_name = cleanValue(values[2]);
           row.license_owner_national_code = cleanValue(values[3]);
           row.package_count = values[4] && cleanValue(values[4]) ? parseInt(cleanValue(values[4])!) : null;
@@ -70,8 +91,17 @@ serve(async (req) => {
           row.gtin = cleanValue(values[6]);
           row.action = cleanValue(values[7]);
         } else if (tableType === 'medical_supplies') {
-          row.irc = cleanValue(values[0]);
-          row.title = cleanValue(values[1]);
+          const irc = cleanValue(values[0]);
+          const title = cleanValue(values[1]);
+          
+          // Skip row if required fields are missing
+          if (!irc || !title) {
+            skippedRows++;
+            continue;
+          }
+          
+          row.irc = irc;
+          row.title = title;
           row.license_owner_company_name = cleanValue(values[2]);
           row.license_owner_company_national_code = cleanValue(values[3]);
           row.package_count = values[4] && cleanValue(values[4]) ? parseInt(cleanValue(values[4])!) : null;
@@ -83,6 +113,8 @@ serve(async (req) => {
         data.push(row);
       }
     }
+    
+    console.log(`Valid rows: ${data.length}, Skipped rows: ${skippedRows}`);
 
     // Insert data in batches
     const batchSize = 100;
