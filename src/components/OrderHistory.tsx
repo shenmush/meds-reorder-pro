@@ -104,9 +104,9 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ pharmacyId }) => {
       const drugDetails = await Promise.all((orderItems || []).map(async (item) => {
         // Try to find the drug in each table
         const [chemicalResult, medicalResult, naturalResult] = await Promise.all([
-          supabase.from('chemical_drugs').select('full_brand_name, license_owner_company_name').eq('id', item.drug_id).single(),
-          supabase.from('medical_supplies').select('title, license_owner_company_name').eq('id', item.drug_id).single(),
-          supabase.from('natural_products').select('full_en_brand_name, license_owner_name').eq('id', item.drug_id).single()
+          supabase.from('chemical_drugs').select('full_brand_name, license_owner_company_name').eq('id', item.drug_id).maybeSingle(),
+          supabase.from('medical_supplies').select('title, license_owner_company_name').eq('id', item.drug_id).maybeSingle(),
+          supabase.from('natural_products').select('full_en_brand_name, license_owner_name').eq('id', item.drug_id).maybeSingle()
         ]);
 
         let drugName = 'نامشخص';
@@ -168,7 +168,7 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ pharmacyId }) => {
           .from('chemical_drugs')
           .select('irc, erx_code, gtin, package_count, action, generic_code')
           .eq('id', drugId)
-          .single();
+          .maybeSingle();
         
         if (!error && data) {
           productDetails = {
@@ -185,7 +185,7 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ pharmacyId }) => {
           .from('medical_supplies')
           .select('irc, erx_code, gtin, package_count, action')
           .eq('id', drugId)
-          .single();
+          .maybeSingle();
         
         if (!error && data) {
           productDetails = {
@@ -201,7 +201,7 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ pharmacyId }) => {
           .from('natural_products')
           .select('irc, erx_code, gtin, package_count, action, atc_code')
           .eq('id', drugId)
-          .single();
+          .maybeSingle();
         
         if (!error && data) {
           productDetails = {

@@ -54,7 +54,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
         .from('user_roles')
         .select('role')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error('Error fetching user role:', error);
@@ -74,10 +74,10 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
         .from('pharmacies')
         .select('*')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
-      if (error && error.code !== 'PGRST116') {
-        throw error;
+      if (error) {
+        console.error('Error fetching pharmacy profile:', error);
       }
       
       setPharmacy(data);
