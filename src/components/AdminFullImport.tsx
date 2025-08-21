@@ -14,7 +14,7 @@ const AdminFullImport = () => {
       console.log('Starting full import process...');
       
       // Read the natural products CSV file from the project
-      const response = await fetch('/public/کدینگ_نسخه‌نویسی_و_نسخه‌پیچی_فرآورده‌های_طبیعی.csv');
+      const response = await fetch('/کدینگ_نسخه‌نویسی_و_نسخه‌پیچی_فرآورده‌های_طبیعی.csv');
       console.log('Response status:', response.status);
       console.log('Response ok:', response.ok);
       
