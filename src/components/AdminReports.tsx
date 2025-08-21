@@ -19,6 +19,7 @@ import {
   TrendingDown
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+// Fixed Pharmacy import issue - using Store instead
 import { useToast } from '@/hooks/use-toast';
 
 interface PharmacyAnalytics {
