@@ -61,6 +61,7 @@ serve(async (req) => {
 async function processCSVData(supabaseClient: any, csvData: string) {
   try {
     console.log('Processing natural products CSV data...')
+    console.log('CSV data first 500 characters:', csvData.substring(0, 500))
     
     const lines = csvData.split('\n').filter(line => line.trim())
     console.log(`Total lines: ${lines.length}`)
