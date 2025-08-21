@@ -7,8 +7,9 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Pill, Plus, Minus, ShoppingCart, Search, Eye } from 'lucide-react';
+import { Pill, Plus, Minus, ShoppingCart, Search, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 import { useToast } from '@/hooks/use-toast';
 
 interface UnifiedDrug {
@@ -55,6 +56,8 @@ const DrugList: React.FC<DrugListProps> = ({ pharmacy }) => {
   const [submitting, setSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState('all');
   const [tempQuantities, setTempQuantities] = useState<Record<string, number>>({});
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({
     name: '',
     company: '',
@@ -69,6 +72,11 @@ const DrugList: React.FC<DrugListProps> = ({ pharmacy }) => {
   useEffect(() => {
     fetchDrugs();
   }, []);
+
+  // Reset to first page when search or filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, columnFilters, activeTab]);
 
   const fetchDrugs = async () => {
     try {
@@ -168,6 +176,16 @@ const DrugList: React.FC<DrugListProps> = ({ pharmacy }) => {
 
     return globalMatch && nameMatch && companyMatch && typeMatch && ircMatch && erxCodeMatch && gtinMatch && packageCountMatch;
   });
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredDrugs.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentPageDrugs = filteredDrugs.slice(startIndex, endIndex);
+
+  const goToPage = (page: number) => {
+    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+  };
 
   const updateColumnFilter = (column: string, value: string) => {
     setColumnFilters(prev => ({
@@ -565,7 +583,7 @@ const DrugList: React.FC<DrugListProps> = ({ pharmacy }) => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredDrugs.map((drug) => {
+                  {currentPageDrugs.map((drug) => {
                     const quantity = getCartQuantity(drug.id);
                     
                     return (
@@ -637,11 +655,102 @@ const DrugList: React.FC<DrugListProps> = ({ pharmacy }) => {
                 </TableBody>
               </Table>
 
+              {/* Pagination Section */}
+              {filteredDrugs.length > 0 && totalPages > 1 && (
+                <div className="flex flex-col sm:flex-row items-center justify-between pt-6 border-t border-border/60">
+                  <div className="text-sm text-muted-foreground mb-4 sm:mb-0">
+                    نمایش {startIndex + 1} تا {Math.min(endIndex, filteredDrugs.length)} از {filteredDrugs.length} محصول
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => goToPage(currentPage - 1)}
+                      disabled={currentPage === 1}
+                      className="gap-2 rounded-lg"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                      قبلی
+                    </Button>
+                    
+                    <div className="flex items-center gap-1">
+                      {/* First page */}
+                      {currentPage > 3 && (
+                        <>
+                          <Button
+                            variant={currentPage === 1 ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => goToPage(1)}
+                            className="w-8 h-8 p-0 rounded-lg"
+                          >
+                            1
+                          </Button>
+                          {currentPage > 4 && (
+                            <span className="px-2 text-muted-foreground">...</span>
+                          )}
+                        </>
+                      )}
+                      
+                      {/* Current page range */}
+                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                        const pageNumber = Math.max(1, Math.min(totalPages - 4, currentPage - 2)) + i;
+                        if (pageNumber > totalPages) return null;
+                        
+                        return (
+                          <Button
+                            key={pageNumber}
+                            variant={currentPage === pageNumber ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => goToPage(pageNumber)}
+                            className={`w-8 h-8 p-0 rounded-lg ${
+                              currentPage === pageNumber 
+                                ? 'btn-primary' 
+                                : 'hover:bg-primary/10'
+                            }`}
+                          >
+                            {pageNumber}
+                          </Button>
+                        );
+                      })}
+                      
+                      {/* Last page */}
+                      {currentPage < totalPages - 2 && (
+                        <>
+                          {currentPage < totalPages - 3 && (
+                            <span className="px-2 text-muted-foreground">...</span>
+                          )}
+                          <Button
+                            variant={currentPage === totalPages ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => goToPage(totalPages)}
+                            className="w-8 h-8 p-0 rounded-lg"
+                          >
+                            {totalPages}
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                    
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => goToPage(currentPage + 1)}
+                      disabled={currentPage === totalPages}
+                      className="gap-2 rounded-lg"
+                    >
+                      بعدی
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               {filteredDrugs.length === 0 && (
                 <div className="py-8 text-center">
                   <Pill className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                   <p className="text-muted-foreground">
-                    {searchTerm ? 'محصول مورد نظر یافت نشد' : 'محصولی در دسترس نیست'}
+                    {searchTerm || Object.values(columnFilters).some(filter => filter) ? 'محصول مورد نظر یافت نشد' : 'محصولی در دسترس نیست'}
                   </p>
                 </div>
               )}
