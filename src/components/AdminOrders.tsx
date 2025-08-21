@@ -31,7 +31,7 @@ interface OrderWithItems extends Order {
       generic_name?: string;
       category?: string;
       unit: string;
-    };
+    } | null;
   }>;
 }
 
@@ -321,17 +321,19 @@ const AdminOrders = () => {
                     {order.order_items.map((item) => (
                       <div key={item.id} className="flex items-center justify-between p-4 bg-background border rounded-lg">
                         <div className="space-y-1">
-                          <p className="font-medium text-base">{item.drugs.name}</p>
-                          {item.drugs.generic_name && (
+                          <p className="font-medium text-base">
+                            {item.drugs?.name || `محصول شناسه: ${item.drug_id.slice(0, 8)}...`}
+                          </p>
+                          {item.drugs?.generic_name && (
                             <p className="text-sm text-muted-foreground">نام عمومی: {item.drugs.generic_name}</p>
                           )}
-                          {item.drugs.category && (
+                          {item.drugs?.category && (
                             <p className="text-sm text-muted-foreground">دسته‌بندی: {item.drugs.category}</p>
                           )}
                         </div>
                         <div className="text-left">
                           <Badge variant="outline" className="text-base px-3 py-1">
-                            {item.quantity} {item.drugs.unit}
+                            {item.quantity} {item.drugs?.unit || 'عدد'}
                           </Badge>
                         </div>
                       </div>
