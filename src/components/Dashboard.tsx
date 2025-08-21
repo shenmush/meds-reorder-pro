@@ -131,7 +131,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
       </header>
 
       <div className="container mx-auto px-4 py-6">
-        {!pharmacy ? (
+        {!pharmacy && userRole !== 'admin' ? (
           <PharmacyProfile 
             user={user} 
             pharmacy={pharmacy} 
