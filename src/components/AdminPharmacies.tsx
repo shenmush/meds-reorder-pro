@@ -98,6 +98,9 @@ const AdminPharmacies = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
+              <div className="text-sm text-muted-foreground">
+                شناسه: {pharmacy.user_id.slice(0, 8)}...
+              </div>
 
               {pharmacy.address && (
                 <div className="flex items-start gap-2 text-sm">

@@ -26,6 +26,12 @@ interface OrderWithItems extends Order {
     id: string;
     quantity: number;
     drug_id: string;
+    drugs: {
+      name: string;
+      generic_name?: string;
+      category?: string;
+      unit: string;
+    };
   }>;
 }
 
@@ -57,7 +63,13 @@ const AdminOrders = () => {
           order_items(
             id,
             quantity,
-            drug_id
+            drug_id,
+            drugs(
+              name,
+              generic_name,
+              category,
+              unit
+            )
           )
         `)
         .order('created_at', { ascending: false });
@@ -307,13 +319,21 @@ const AdminOrders = () => {
                   <div className="space-y-3">
                     <h4 className="font-medium">محصولات سفارش:</h4>
                     {order.order_items.map((item) => (
-                      <div key={item.id} className="flex items-center justify-between p-3 bg-background border rounded-lg">
-                        <div>
-                          <p className="font-medium">محصول شناسه: {item.drug_id}</p>
+                      <div key={item.id} className="flex items-center justify-between p-4 bg-background border rounded-lg">
+                        <div className="space-y-1">
+                          <p className="font-medium text-base">{item.drugs.name}</p>
+                          {item.drugs.generic_name && (
+                            <p className="text-sm text-muted-foreground">نام عمومی: {item.drugs.generic_name}</p>
+                          )}
+                          {item.drugs.category && (
+                            <p className="text-sm text-muted-foreground">دسته‌بندی: {item.drugs.category}</p>
+                          )}
                         </div>
-                        <Badge variant="outline">
-                          {item.quantity} عدد
-                        </Badge>
+                        <div className="text-left">
+                          <Badge variant="outline" className="text-base px-3 py-1">
+                            {item.quantity} {item.drugs.unit}
+                          </Badge>
+                        </div>
                       </div>
                     ))}
                   </div>
