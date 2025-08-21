@@ -8,6 +8,7 @@ import { LogOut, Pill, Plus, ShoppingCart, User as UserIcon } from 'lucide-react
 import DrugList from './DrugList';
 import PharmacyProfile from './PharmacyProfile';
 import AdminUpload from './AdminUpload';
+import OrderHistory from './OrderHistory';
 
 interface DashboardProps {
   user: User;
@@ -186,20 +187,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
                 onPharmacyUpdate={setPharmacy} 
               />
             )}
-            {activeTab === 'orders' && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-right">سفارشات شما</CardTitle>
-                  <CardDescription className="text-right">
-                    فهرست سفارشات ثبت شده
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-center text-muted-foreground py-8">
-                    قابلیت مشاهده سفارشات به زودی اضافه خواهد شد
-                  </p>
-                </CardContent>
-              </Card>
+            {activeTab === 'orders' && pharmacy && (
+              <OrderHistory pharmacyId={pharmacy.id} />
             )}
             {activeTab === 'admin' && userRole === 'admin' && <AdminUpload />}
           </>
