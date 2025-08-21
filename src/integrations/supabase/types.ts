@@ -14,6 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
+      chemical_drugs: {
+        Row: {
+          action: string | null
+          created_at: string
+          erx_code: string | null
+          full_brand_name: string
+          generic_code: string | null
+          gtin: string | null
+          id: string
+          irc: string
+          is_active: boolean
+          license_owner_company_name: string | null
+          license_owner_company_national_id: string | null
+          package_count: number | null
+          updated_at: string
+        }
+        Insert: {
+          action?: string | null
+          created_at?: string
+          erx_code?: string | null
+          full_brand_name: string
+          generic_code?: string | null
+          gtin?: string | null
+          id?: string
+          irc: string
+          is_active?: boolean
+          license_owner_company_name?: string | null
+          license_owner_company_national_id?: string | null
+          package_count?: number | null
+          updated_at?: string
+        }
+        Update: {
+          action?: string | null
+          created_at?: string
+          erx_code?: string | null
+          full_brand_name?: string
+          generic_code?: string | null
+          gtin?: string | null
+          id?: string
+          irc?: string
+          is_active?: boolean
+          license_owner_company_name?: string | null
+          license_owner_company_national_id?: string | null
+          package_count?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       drugs: {
         Row: {
           category: string | null
@@ -49,6 +97,99 @@ export type Database = {
           is_active?: boolean
           name?: string
           unit?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      medical_supplies: {
+        Row: {
+          action: string | null
+          created_at: string
+          erx_code: string | null
+          gtin: string | null
+          id: string
+          irc: string
+          is_active: boolean
+          license_owner_company_name: string | null
+          license_owner_company_national_code: string | null
+          package_count: number | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          action?: string | null
+          created_at?: string
+          erx_code?: string | null
+          gtin?: string | null
+          id?: string
+          irc: string
+          is_active?: boolean
+          license_owner_company_name?: string | null
+          license_owner_company_national_code?: string | null
+          package_count?: number | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          action?: string | null
+          created_at?: string
+          erx_code?: string | null
+          gtin?: string | null
+          id?: string
+          irc?: string
+          is_active?: boolean
+          license_owner_company_name?: string | null
+          license_owner_company_national_code?: string | null
+          package_count?: number | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      natural_products: {
+        Row: {
+          action: string | null
+          atc_code: string | null
+          created_at: string
+          erx_code: string | null
+          full_en_brand_name: string
+          gtin: string | null
+          id: string
+          irc: string
+          is_active: boolean
+          license_owner_name: string | null
+          license_owner_national_code: string | null
+          package_count: number | null
+          updated_at: string
+        }
+        Insert: {
+          action?: string | null
+          atc_code?: string | null
+          created_at?: string
+          erx_code?: string | null
+          full_en_brand_name: string
+          gtin?: string | null
+          id?: string
+          irc: string
+          is_active?: boolean
+          license_owner_name?: string | null
+          license_owner_national_code?: string | null
+          package_count?: number | null
+          updated_at?: string
+        }
+        Update: {
+          action?: string | null
+          atc_code?: string | null
+          created_at?: string
+          erx_code?: string | null
+          full_en_brand_name?: string
+          gtin?: string | null
+          id?: string
+          irc?: string
+          is_active?: boolean
+          license_owner_name?: string | null
+          license_owner_national_code?: string | null
+          package_count?: number | null
           updated_at?: string
         }
         Relationships: []
