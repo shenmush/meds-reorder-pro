@@ -55,6 +55,15 @@ const DrugList: React.FC<DrugListProps> = ({ pharmacy }) => {
   const [submitting, setSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState('all');
   const [tempQuantities, setTempQuantities] = useState<Record<string, number>>({});
+  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({
+    name: '',
+    company: '',
+    type: '',
+    irc: '',
+    erxCode: '',
+    gtin: '',
+    packageCount: ''
+  });
   const { toast } = useToast();
 
   useEffect(() => {
@@ -137,17 +146,35 @@ const DrugList: React.FC<DrugListProps> = ({ pharmacy }) => {
   };
 
   const filteredDrugs = getCurrentDrugs().filter(drug => {
-    const searchLower = searchTerm.toLowerCase();
-    return (
-      drug.name?.toLowerCase().includes(searchLower) ||
-      drug.company?.toLowerCase().includes(searchLower) ||
-      drug.irc?.toLowerCase().includes(searchLower) ||
-      drug.erxCode?.toLowerCase().includes(searchLower) ||
-      drug.gtin?.toLowerCase().includes(searchLower) ||
-      drug.genericCode?.toLowerCase().includes(searchLower) ||
-      drug.atcCode?.toLowerCase().includes(searchLower)
+    // Global search
+    const globalMatch = !searchTerm || (
+      drug.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      drug.company?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      drug.irc?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      drug.erxCode?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      drug.gtin?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      drug.genericCode?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      drug.atcCode?.toLowerCase().includes(searchTerm.toLowerCase())
     );
+
+    // Column-specific filters
+    const nameMatch = !columnFilters.name || drug.name?.toLowerCase().includes(columnFilters.name.toLowerCase());
+    const companyMatch = !columnFilters.company || drug.company?.toLowerCase().includes(columnFilters.company.toLowerCase());
+    const typeMatch = !columnFilters.type || getTypeLabel(drug.type).toLowerCase().includes(columnFilters.type.toLowerCase());
+    const ircMatch = !columnFilters.irc || drug.irc?.toLowerCase().includes(columnFilters.irc.toLowerCase());
+    const erxCodeMatch = !columnFilters.erxCode || drug.erxCode?.toLowerCase().includes(columnFilters.erxCode.toLowerCase());
+    const gtinMatch = !columnFilters.gtin || drug.gtin?.toLowerCase().includes(columnFilters.gtin.toLowerCase());
+    const packageCountMatch = !columnFilters.packageCount || drug.packageCount?.toString().includes(columnFilters.packageCount);
+
+    return globalMatch && nameMatch && companyMatch && typeMatch && ircMatch && erxCodeMatch && gtinMatch && packageCountMatch;
   });
+
+  const updateColumnFilter = (column: string, value: string) => {
+    setColumnFilters(prev => ({
+      ...prev,
+      [column]: value
+    }));
+  };
 
   const getTempQuantity = (drugId: string) => {
     return tempQuantities[drugId] || 1;
@@ -430,8 +457,87 @@ const DrugList: React.FC<DrugListProps> = ({ pharmacy }) => {
                     <TableHead className="text-right">شرکت تولیدکننده</TableHead>
                     <TableHead className="text-right">نوع</TableHead>
                     <TableHead className="text-right">کد IRC</TableHead>
+                    <TableHead className="text-right">کد ERX</TableHead>
+                    <TableHead className="text-right">کد GTIN</TableHead>
                     <TableHead className="text-right">تعداد بسته</TableHead>
                     <TableHead className="text-right">عملیات</TableHead>
+                  </TableRow>
+                  {/* Column Filters Row */}
+                  <TableRow className="bg-muted/50">
+                    <TableHead className="p-2">
+                      <Input
+                        placeholder="جستجو نام..."
+                        value={columnFilters.name}
+                        onChange={(e) => updateColumnFilter('name', e.target.value)}
+                        className="h-8 text-xs text-right"
+                      />
+                    </TableHead>
+                    <TableHead className="p-2">
+                      <Input
+                        placeholder="جستجو شرکت..."
+                        value={columnFilters.company}
+                        onChange={(e) => updateColumnFilter('company', e.target.value)}
+                        className="h-8 text-xs text-right"
+                      />
+                    </TableHead>
+                    <TableHead className="p-2">
+                      <Input
+                        placeholder="جستجو نوع..."
+                        value={columnFilters.type}
+                        onChange={(e) => updateColumnFilter('type', e.target.value)}
+                        className="h-8 text-xs text-right"
+                      />
+                    </TableHead>
+                    <TableHead className="p-2">
+                      <Input
+                        placeholder="جستجو IRC..."
+                        value={columnFilters.irc}
+                        onChange={(e) => updateColumnFilter('irc', e.target.value)}
+                        className="h-8 text-xs text-right"
+                      />
+                    </TableHead>
+                    <TableHead className="p-2">
+                      <Input
+                        placeholder="جستجو ERX..."
+                        value={columnFilters.erxCode}
+                        onChange={(e) => updateColumnFilter('erxCode', e.target.value)}
+                        className="h-8 text-xs text-right"
+                      />
+                    </TableHead>
+                    <TableHead className="p-2">
+                      <Input
+                        placeholder="جستجو GTIN..."
+                        value={columnFilters.gtin}
+                        onChange={(e) => updateColumnFilter('gtin', e.target.value)}
+                        className="h-8 text-xs text-right"
+                      />
+                    </TableHead>
+                    <TableHead className="p-2">
+                      <Input
+                        placeholder="جستجو تعداد..."
+                        value={columnFilters.packageCount}
+                        onChange={(e) => updateColumnFilter('packageCount', e.target.value)}
+                        className="h-8 text-xs text-right"
+                      />
+                    </TableHead>
+                    <TableHead className="p-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setColumnFilters({
+                          name: '',
+                          company: '',
+                          type: '',
+                          irc: '',
+                          erxCode: '',
+                          gtin: '',
+                          packageCount: ''
+                        })}
+                        className="h-8 text-xs"
+                      >
+                        پاک کردن
+                      </Button>
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -456,6 +562,12 @@ const DrugList: React.FC<DrugListProps> = ({ pharmacy }) => {
                         </TableCell>
                         <TableCell className="text-right font-mono text-sm">
                           {drug.irc}
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-sm">
+                          {drug.erxCode || '-'}
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-sm">
+                          {drug.gtin || '-'}
                         </TableCell>
                         <TableCell className="text-right">
                           {drug.packageCount || '-'}
