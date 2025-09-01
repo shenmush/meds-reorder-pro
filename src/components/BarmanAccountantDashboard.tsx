@@ -12,6 +12,7 @@ import { Eye, Receipt, CheckCircle, Clock, AlertCircle, X, CreditCard, History, 
 import { useToast } from '@/hooks/use-toast';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import MobileBottomNav from '@/components/MobileBottomNav';
+import MobileHeader from '@/components/MobileHeader';
 
 interface Order {
   id: string;
@@ -276,25 +277,46 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
   }
 
   return (
-    <div className="min-h-screen bg-background" dir="rtl">
-      {/* Header */}
-      <header className="bg-card/95 backdrop-blur-sm border-b border-border/50 px-4 py-3 sticky top-0 z-40">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4 space-x-reverse">
-            <div className="p-2 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/20">
-              <CreditCard className="w-6 h-6 text-primary" />
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30">
+      {/* Mobile Header */}
+      <div className="block md:hidden">
+        <MobileHeader 
+          user={user}
+          pharmacy={null}
+          userRole="barman_accountant"
+          onSignOut={handleSignOut}
+        />
+      </div>
+
+      {/* Desktop Header */}
+      <header className="hidden md:block border-b border-border/60 bg-card/90 backdrop-blur-lg shadow-soft">
+        <div className="container mx-auto px-6 py-5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="relative p-3 rounded-2xl bg-gradient-to-br from-primary/10 to-secondary/10">
+                <CreditCard className="h-7 w-7 text-primary" />
+                <div className="absolute -bottom-1 -right-1 p-1 bg-secondary rounded-full">
+                  <BarChart3 className="h-3 w-3 text-white" />
+                </div>
+              </div>
+              <div className="text-right">
+                <h1 className="text-2xl font-bold text-gradient">پنل حسابدار بارمان</h1>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {user.email}
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-xl font-bold text-foreground">پنل حسابدار بارمان</h1>
-              <p className="text-sm text-muted-foreground">مدیریت پرداخت‌ها و مالی</p>
+            <div className="flex items-center gap-3">
+              <ThemeToggle />
+              <Button 
+                variant="outline" 
+                onClick={handleSignOut} 
+                className="gap-2 px-6 py-2.5 rounded-xl hover:bg-destructive/10 hover:text-destructive hover:border-destructive/20 transition-all duration-300"
+              >
+                <LogOut className="h-4 w-4" />
+                خروج
+              </Button>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-            <Button onClick={handleSignOut} variant="outline" size="sm" className="hidden md:flex">
-              <LogOut className="w-4 h-4 ml-2" />
-              خروج
-            </Button>
           </div>
         </div>
       </header>
