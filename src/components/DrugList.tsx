@@ -133,20 +133,23 @@ const DrugList: React.FC = () => {
     try {
       setLoading(true);
       
-      // Fetch from all three tables
+      // Fetch from all three tables with increased limits
       const [chemicalResult, medicalResult, naturalResult] = await Promise.all([
         supabase
           .from('chemical_drugs')
           .select('id, full_brand_name, irc, package_count, license_owner_company_name, erx_code, gtin')
-          .eq('is_active', true),
+          .eq('is_active', true)
+          .limit(50000), // Increase limit significantly
         supabase
           .from('medical_supplies')
           .select('id, title, irc, package_count, license_owner_company_name, erx_code, gtin')
-          .eq('is_active', true),
+          .eq('is_active', true)
+          .limit(50000), // Increase limit significantly
         supabase
           .from('natural_products')
           .select('id, full_en_brand_name, irc, package_count, license_owner_name, erx_code, gtin')
           .eq('is_active', true)
+          .limit(50000) // Increase limit significantly
       ]);
 
       const combinedDrugs: Drug[] = [
