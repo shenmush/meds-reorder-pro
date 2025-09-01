@@ -29,6 +29,64 @@ interface CartItem {
 
 const ITEMS_PER_PAGE = 12;
 
+// Drug Cart Controls Component
+const DrugCartControls: React.FC<{ drug: Drug; onAddToCart: (drug: Drug, quantity: number) => void }> = ({ drug, onAddToCart }) => {
+  const [quantity, setQuantity] = useState(1);
+
+  const handleQuantityChange = (newQuantity: number) => {
+    if (newQuantity >= 1) {
+      setQuantity(newQuantity);
+    }
+  };
+
+  const handleAddToCart = () => {
+    onAddToCart(drug, quantity);
+    setQuantity(1); // Reset after adding
+  };
+
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center gap-2">
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => handleQuantityChange(quantity - 1)}
+          className="h-8 w-8 p-0 rounded-lg"
+          disabled={quantity <= 1}
+        >
+          <Minus className="h-3 w-3" />
+        </Button>
+        
+        <Input
+          type="number"
+          min="1"
+          value={quantity}
+          onChange={(e) => handleQuantityChange(parseInt(e.target.value) || 1)}
+          className="w-16 text-center h-8 rounded-lg"
+        />
+        
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => handleQuantityChange(quantity + 1)}
+          className="h-8 w-8 p-0 rounded-lg"
+        >
+          <Plus className="h-3 w-3" />
+        </Button>
+      </div>
+
+      <Button
+        size="sm"
+        onClick={handleAddToCart}
+        className="gap-2 rounded-lg"
+      >
+        <ShoppingCart className="h-3 w-3" />
+        افزودن
+      </Button>
+    </div>
+  );
+};
+
 const DrugList: React.FC = () => {
   const [drugs, setDrugs] = useState<Drug[]>([]);
   const [filteredDrugs, setFilteredDrugs] = useState<Drug[]>([]);
@@ -145,20 +203,24 @@ const DrugList: React.FC = () => {
     return <Badge variant={config.variant}>{config.label}</Badge>;
   };
 
-  const addToCart = (drug: Drug) => {
+  const addToCartWithQuantity = (drug: Drug, quantity: number) => {
     setCart(prev => {
       const existingItem = prev.find(item => item.drug.id === drug.id);
       if (existingItem) {
         return prev.map(item =>
           item.drug.id === drug.id
-            ? { ...item, quantity: item.quantity + 1 }
+            ? { ...item, quantity: item.quantity + quantity }
             : item
         );
       } else {
-        return [...prev, { drug, quantity: 1 }];
+        return [...prev, { drug, quantity }];
       }
     });
-    toast.success(`${drug.name} به سبد خرید اضافه شد`);
+    toast.success(`${quantity} عدد ${drug.name} به سبد خرید اضافه شد`);
+  };
+
+  const addToCart = (drug: Drug) => {
+    addToCartWithQuantity(drug, 1);
   };
 
   const updateCartQuantity = (drugId: string, newQuantity: number) => {
@@ -307,58 +369,73 @@ const DrugList: React.FC = () => {
             </div>
           </div>
           
-          <div className="space-y-4">
-            {currentDrugs.length === 0 ? (
-              <div className="text-center py-8">
-                <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <p className="text-muted-foreground">
-                  {searchTerm || typeFilter !== "all" ? 'نتیجه‌ای یافت نشد' : 'هیچ دارویی در سیستم ثبت نشده است'}
-                </p>
-              </div>
-            ) : (
-              currentDrugs.map((drug) => (
-                <Card key={drug.id} className="hover:shadow-md transition-shadow">
-                  <CardContent className="pt-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <h3 className="font-semibold text-lg">{drug.name}</h3>
-                          {getDrugTypeBadge(drug.type)}
-                        </div>
-                        <div className="space-y-1 text-sm text-muted-foreground">
-                          <p><span className="font-medium">کد IRC:</span> {drug.irc}</p>
-                          {drug.company_name && (
-                            <p><span className="font-medium">شرکت سازنده:</span> {drug.company_name}</p>
-                          )}
-                          {drug.package_count && (
-                            <p><span className="font-medium">تعداد در بسته:</span> {drug.package_count}</p>
-                          )}
-                          {drug.erx_code && (
-                            <p><span className="font-medium">کد ERX:</span> {drug.erx_code}</p>
-                          )}
-                          {drug.gtin && (
-                            <p><span className="font-medium">کد GTIN:</span> {drug.gtin}</p>
-                          )}
-                        </div>
+          {currentDrugs.length === 0 ? (
+            <div className="text-center py-8">
+              <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <p className="text-muted-foreground">
+                {searchTerm || typeFilter !== "all" ? 'نتیجه‌ای یافت نشد' : 'هیچ دارویی در سیستم ثبت نشده است'}
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {currentDrugs.map((drug) => (
+                <Card key={drug.id} className="hover:shadow-md transition-shadow border-border/60 rounded-xl overflow-hidden">
+                  <CardContent className="p-4 space-y-4">
+                    <div className="space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        {getDrugTypeBadge(drug.type)}
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          onClick={() => addToCart(drug)}
-                          size="sm"
-                          className="gap-2"
-                        >
-                          <Plus className="h-4 w-4" />
-                          افزودن به سبد
-                        </Button>
+                      
+                      <h3 className="font-bold text-lg leading-tight text-foreground">
+                        {drug.name}
+                      </h3>
+                    </div>
+
+                    {drug.company_name && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Package className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        <span className="text-muted-foreground truncate">{drug.company_name}</span>
                       </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div className="bg-muted/20 p-2 rounded-lg">
+                        <div className="text-xs text-muted-foreground mb-1">کد IRC</div>
+                        <div className="font-mono text-xs">{drug.irc}</div>
+                      </div>
+
+                      {drug.package_count && (
+                        <div className="bg-muted/20 p-2 rounded-lg">
+                          <div className="text-xs text-muted-foreground mb-1">تعداد بسته</div>
+                          <div className="text-xs font-medium">{drug.package_count}</div>
+                        </div>
+                      )}
+
+                      {drug.erx_code && (
+                        <div className="bg-muted/20 p-2 rounded-lg">
+                          <div className="text-xs text-muted-foreground mb-1">کد ERX</div>
+                          <div className="font-mono text-xs">{drug.erx_code}</div>
+                        </div>
+                      )}
+
+                      {drug.gtin && (
+                        <div className="bg-muted/20 p-2 rounded-lg">
+                          <div className="text-xs text-muted-foreground mb-1">کد GTIN</div>
+                          <div className="font-mono text-xs">{drug.gtin}</div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="pt-2 border-t border-border/60">
+                      <DrugCartControls drug={drug} onAddToCart={addToCartWithQuantity} />
                     </div>
                   </CardContent>
                 </Card>
-              ))
-            )}
-          </div>
+              ))}
+            </div>
+          )}
 
-          {/* Pagination */}
+          {/* Smart Pagination */}
           {totalPages > 1 && (
             <div className="flex items-center justify-center gap-2 mt-6">
               <Button
@@ -373,17 +450,89 @@ const DrugList: React.FC = () => {
               </Button>
               
               <div className="flex items-center gap-1">
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                  <Button
-                    key={page}
-                    variant={currentPage === page ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => goToPage(page)}
-                    className="w-8"
-                  >
-                    {page}
-                  </Button>
-                ))}
+                {(() => {
+                  const pages = [];
+                  
+                  if (totalPages <= 7) {
+                    // Show all pages if 7 or fewer
+                    for (let i = 1; i <= totalPages; i++) {
+                      pages.push(
+                        <Button
+                          key={i}
+                          variant={currentPage === i ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => goToPage(i)}
+                          className="w-8"
+                        >
+                          {i}
+                        </Button>
+                      );
+                    }
+                  } else {
+                    // Show smart pagination
+                    // Always show first page
+                    pages.push(
+                      <Button
+                        key={1}
+                        variant={currentPage === 1 ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => goToPage(1)}
+                        className="w-8"
+                      >
+                        1
+                      </Button>
+                    );
+
+                    if (currentPage > 3) {
+                      pages.push(
+                        <span key="dots1" className="px-1 text-muted-foreground">...</span>
+                      );
+                    }
+
+                    // Show pages around current page
+                    const start = Math.max(2, currentPage - 1);
+                    const end = Math.min(totalPages - 1, currentPage + 1);
+                    
+                    for (let i = start; i <= end; i++) {
+                      if (i !== 1 && i !== totalPages) {
+                        pages.push(
+                          <Button
+                            key={i}
+                            variant={currentPage === i ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => goToPage(i)}
+                            className="w-8"
+                          >
+                            {i}
+                          </Button>
+                        );
+                      }
+                    }
+
+                    if (currentPage < totalPages - 2) {
+                      pages.push(
+                        <span key="dots2" className="px-1 text-muted-foreground">...</span>
+                      );
+                    }
+
+                    // Always show last page
+                    if (totalPages > 1) {
+                      pages.push(
+                        <Button
+                          key={totalPages}
+                          variant={currentPage === totalPages ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => goToPage(totalPages)}
+                          className="w-8"
+                        >
+                          {totalPages}
+                        </Button>
+                      );
+                    }
+                  }
+                  
+                  return pages;
+                })()}
               </div>
 
               <Button
