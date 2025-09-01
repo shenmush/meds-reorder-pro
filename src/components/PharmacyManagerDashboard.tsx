@@ -86,11 +86,16 @@ const PharmacyManagerDashboard: React.FC<PharmacyManagerDashboardProps> = ({ use
 
       if (roleError) {
         console.error('Error fetching user role:', roleError);
+        return;
       }
       
       // Set pharmacy data if user has a pharmacy role
       if (userRole?.pharmacies) {
+        console.log('Pharmacy found:', userRole.pharmacies);
         setPharmacy(userRole.pharmacies as any);
+      } else {
+        console.log('No pharmacy found for user');
+        setPharmacy(null);
       }
     } catch (error: any) {
       console.error('Error fetching pharmacy profile:', error);
