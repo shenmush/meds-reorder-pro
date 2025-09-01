@@ -117,7 +117,7 @@ const PharmacyManagerDashboard: React.FC<PharmacyManagerDashboardProps> = ({ use
       const { data, error } = await supabase
         .from('orders')
         .select('*')
-        .in('workflow_status', ['pending', 'needs_revision_pm'])
+        .in('workflow_status', ['pending', 'needs_revision_pm', 'approved_bs', 'needs_revision_pm_pricing', 'needs_revision_pa'])
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -201,20 +201,43 @@ const PharmacyManagerDashboard: React.FC<PharmacyManagerDashboardProps> = ({ use
     setExpandedOrders(newExpanded);
   };
 
-  const handleOrderAction = async (orderId: string, action: 'approve' | 'reject' | 'revision') => {
+  const handleOrderAction = async (orderId: string, action: 'approve' | 'reject' | 'revision' | 'issue_invoice') => {
     try {
-      const statusMap = {
-        approve: 'approved_pm',
-        reject: 'rejected',
-        revision: 'needs_revision_ps'
-      };
+      let newStatus = '';
+      
+      if (selectedOrder?.workflow_status === 'approved_bs') {
+        // Pricing phase actions
+        const statusMap = {
+          approve: 'invoice_issued',
+          reject: 'rejected', 
+          revision: 'needs_revision_bs'
+        };
+        newStatus = statusMap[action as keyof typeof statusMap];
+      } else if (selectedOrder?.workflow_status === 'needs_revision_pa') {
+        // Payment revision response
+        const statusMap = {
+          approve: 'invoice_issued',
+          reject: 'rejected',
+          revision: 'needs_revision_bs'
+        };
+        newStatus = statusMap[action as keyof typeof statusMap];
+      } else {
+        // Initial review phase actions
+        const statusMap = {
+          approve: 'approved_pm',
+          reject: 'rejected',
+          revision: 'needs_revision_ps'
+        };
+        newStatus = statusMap[action as keyof typeof statusMap];
+      }
 
       // Update order status
       const { error: orderError } = await supabase
         .from('orders')
         .update({ 
-          workflow_status: statusMap[action],
+          workflow_status: newStatus,
           notes: actionNotes || null,
+          pricing_notes: selectedOrder?.workflow_status === 'approved_bs' ? actionNotes || null : undefined,
           updated_at: new Date().toISOString()
         })
         .eq('id', orderId);
@@ -228,7 +251,7 @@ const PharmacyManagerDashboard: React.FC<PharmacyManagerDashboardProps> = ({ use
           order_id: orderId,
           user_id: (await supabase.auth.getUser()).data.user?.id,
           from_status: selectedOrder?.workflow_status || 'pending',
-          to_status: statusMap[action],
+          to_status: newStatus,
           notes: actionNotes || null
         });
 
@@ -256,6 +279,9 @@ const PharmacyManagerDashboard: React.FC<PharmacyManagerDashboardProps> = ({ use
     const statusMap = {
       'pending': { label: 'در انتظار بررسی', variant: 'secondary' as const },
       'needs_revision_pm': { label: 'نیاز به ویرایش مدیر', variant: 'destructive' as const },
+      'approved_bs': { label: 'در انتظار قیمت‌گذاری', variant: 'default' as const },
+      'needs_revision_pm_pricing': { label: 'نیاز به ویرایش قیمت‌گذاری', variant: 'destructive' as const },
+      'needs_revision_pa': { label: 'نیاز به ویرایش حسابداری', variant: 'destructive' as const },
     };
     
     const config = statusMap[status as keyof typeof statusMap] || { label: status, variant: 'secondary' as const };
@@ -263,11 +289,20 @@ const PharmacyManagerDashboard: React.FC<PharmacyManagerDashboardProps> = ({ use
   };
 
   const getActionLabel = () => {
-    switch (pendingAction) {
-      case 'approve': return 'تایید سفارش';
-      case 'reject': return 'رد سفارش';
-      case 'revision': return 'درخواست ویرایش';
-      default: return '';
+    if (selectedOrder?.workflow_status === 'approved_bs' || selectedOrder?.workflow_status === 'needs_revision_pa') {
+      switch (pendingAction) {
+        case 'approve': return 'صدور فاکتور';
+        case 'reject': return 'رد سفارش';
+        case 'revision': return 'درخواست ویرایش از بارمان';
+        default: return '';
+      }
+    } else {
+      switch (pendingAction) {
+        case 'approve': return 'تایید سفارش';
+        case 'reject': return 'رد سفارش';
+        case 'revision': return 'درخواست ویرایش';
+        default: return '';
+      }
     }
   };
 
@@ -321,30 +356,64 @@ const PharmacyManagerDashboard: React.FC<PharmacyManagerDashboardProps> = ({ use
                       <Eye className="h-4 w-4 mr-1" />
                       {expandedOrders.has(order.id) ? 'بستن' : 'مشاهده'}
                     </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => openActionDialog(order, 'approve')}
-                    >
-                      <CheckCircle className="h-4 w-4 mr-1" />
-                      تایید
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => openActionDialog(order, 'revision')}
-                    >
-                      <Edit className="h-4 w-4 mr-1" />
-                      ویرایش
-                    </Button>
-                    <Button 
-                      variant="destructive" 
-                      size="sm"
-                      onClick={() => openActionDialog(order, 'reject')}
-                    >
-                      <XCircle className="h-4 w-4 mr-1" />
-                      رد
-                    </Button>
+                    
+                    {(order.workflow_status === 'pending' || order.workflow_status === 'needs_revision_pm') && (
+                      <>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => openActionDialog(order, 'approve')}
+                        >
+                          <CheckCircle className="h-4 w-4 mr-1" />
+                          تایید
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => openActionDialog(order, 'revision')}
+                        >
+                          <Edit className="h-4 w-4 mr-1" />
+                          ویرایش
+                        </Button>
+                        <Button 
+                          variant="destructive" 
+                          size="sm"
+                          onClick={() => openActionDialog(order, 'reject')}
+                        >
+                          <XCircle className="h-4 w-4 mr-1" />
+                          رد
+                        </Button>
+                      </>
+                    )}
+                    
+                    {(order.workflow_status === 'approved_bs' || order.workflow_status === 'needs_revision_pa') && (
+                      <>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => openActionDialog(order, 'approve')}
+                        >
+                          <CheckCircle className="h-4 w-4 mr-1" />
+                          صدور فاکتور
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => openActionDialog(order, 'revision')}
+                        >
+                          <Edit className="h-4 w-4 mr-1" />
+                          ویرایش
+                        </Button>
+                        <Button 
+                          variant="destructive" 
+                          size="sm"
+                          onClick={() => openActionDialog(order, 'reject')}
+                        >
+                          <XCircle className="h-4 w-4 mr-1" />
+                          رد
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </div>
                 

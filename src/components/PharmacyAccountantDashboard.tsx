@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Upload, Receipt, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { Upload, Receipt, CheckCircle, Clock, AlertCircle, XCircle, Edit } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface Order {
@@ -18,6 +18,7 @@ interface Order {
   notes?: string;
   payment_proof_url?: string;
   payment_date?: string;
+  payment_rejection_reason?: string;
   pharmacy: {
     name: string;
   };
@@ -46,7 +47,7 @@ const PharmacyAccountantDashboard: React.FC<PharmacyAccountantDashboardProps> = 
           *,
           pharmacies!inner(name)
         `)
-        .eq('workflow_status', 'invoice_issued')
+        .in('workflow_status', ['invoice_issued', 'payment_rejected'])
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -137,6 +138,86 @@ const PharmacyAccountantDashboard: React.FC<PharmacyAccountantDashboardProps> = 
       });
     } finally {
       setUploadingOrderId(null);
+    }
+  };
+
+  const handleRejectOrder = async (orderId: string) => {
+    try {
+      // Update order status to rejected
+      const { error: updateError } = await supabase
+        .from('orders')
+        .update({
+          workflow_status: 'rejected'
+        })
+        .eq('id', orderId);
+
+      if (updateError) throw updateError;
+
+      // Create approval record
+      const { error: approvalError } = await supabase
+        .from('order_approvals')
+        .insert({
+          order_id: orderId,
+          user_id: user.id,
+          from_status: 'invoice_issued',
+          to_status: 'rejected',
+          notes: 'سفارش توسط حسابدار داروخانه رد شد'
+        });
+
+      if (approvalError) throw approvalError;
+
+      toast({
+        title: "موفق",
+        description: "سفارش با موفقیت رد شد",
+      });
+      fetchOrders();
+    } catch (error) {
+      console.error('Error rejecting order:', error);
+      toast({
+        title: "خطا",
+        description: "خطا در رد سفارش",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleRequestRevision = async (orderId: string) => {
+    try {
+      // Update order status to needs revision
+      const { error: updateError } = await supabase
+        .from('orders')
+        .update({
+          workflow_status: 'needs_revision_pa'
+        })
+        .eq('id', orderId);
+
+      if (updateError) throw updateError;
+
+      // Create approval record
+      const { error: approvalError } = await supabase
+        .from('order_approvals')
+        .insert({
+          order_id: orderId,
+          user_id: user.id,
+          from_status: 'invoice_issued',
+          to_status: 'needs_revision_pa',
+          notes: 'درخواست ویرایش توسط حسابدار داروخانه'
+        });
+
+      if (approvalError) throw approvalError;
+
+      toast({
+        title: "موفق",
+        description: "درخواست ویرایش ارسال شد",
+      });
+      fetchOrders();
+    } catch (error) {
+      console.error('Error requesting revision:', error);
+      toast({
+        title: "خطا",
+        description: "خطا در درخواست ویرایش",
+        variant: "destructive",
+      });
     }
   };
 
@@ -250,42 +331,78 @@ const PharmacyAccountantDashboard: React.FC<PharmacyAccountantDashboardProps> = 
                       {getStatusBadge(order.workflow_status)}
                     </div>
 
+                    {order.workflow_status === 'payment_rejected' && (
+                      <div className="mt-4 p-3 bg-destructive/10 rounded-lg">
+                        <p className="text-sm font-medium text-destructive">
+                          پرداخت رد شده
+                        </p>
+                        {order.payment_rejection_reason && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            دلیل: {order.payment_rejection_reason}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
                     {order.workflow_status === 'invoice_issued' && (
-                      <div className="mt-4">
-                        <Label htmlFor={`payment-${order.id}`} className="text-sm font-medium">
-                          آپلود رسید پرداخت
-                        </Label>
-                        <div className="mt-2 flex items-center gap-2">
-                          <Input
-                            id={`payment-${order.id}`}
-                            type="file"
-                            accept="image/*,.pdf"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) {
-                                handleFileUpload(order.id, file);
-                              }
-                            }}
-                            disabled={uploadingOrderId === order.id}
-                            className="flex-1"
-                          />
+                      <div className="mt-4 space-y-4">
+                        <div>
+                          <Label htmlFor={`payment-${order.id}`} className="text-sm font-medium">
+                            آپلود رسید پرداخت
+                          </Label>
+                          <div className="mt-2 flex items-center gap-2">
+                            <Input
+                              id={`payment-${order.id}`}
+                              type="file"
+                              accept="image/*,.pdf"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  handleFileUpload(order.id, file);
+                                }
+                              }}
+                              disabled={uploadingOrderId === order.id}
+                              className="flex-1"
+                            />
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={uploadingOrderId === order.id}
+                              className="gap-1"
+                            >
+                              {uploadingOrderId === order.id ? (
+                                <Clock size={16} className="animate-spin" />
+                              ) : (
+                                <Upload size={16} />
+                              )}
+                              آپلود
+                            </Button>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            فرمت‌های مجاز: تصاویر (JPG, PNG) و PDF
+                          </p>
+                        </div>
+                        
+                        <div className="flex gap-2">
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleRejectOrder(order.id)}
+                            className="gap-1"
+                          >
+                            <XCircle size={16} />
+                            رد سفارش
+                          </Button>
                           <Button
                             variant="outline"
                             size="sm"
-                            disabled={uploadingOrderId === order.id}
+                            onClick={() => handleRequestRevision(order.id)}
                             className="gap-1"
                           >
-                            {uploadingOrderId === order.id ? (
-                              <Clock size={16} className="animate-spin" />
-                            ) : (
-                              <Upload size={16} />
-                            )}
-                            آپلود
+                            <Edit size={16} />
+                            درخواست ویرایش
                           </Button>
                         </div>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          فرمت‌های مجاز: تصاویر (JPG, PNG) و PDF
-                        </p>
                       </div>
                     )}
 

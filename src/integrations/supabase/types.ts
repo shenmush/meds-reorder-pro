@@ -193,6 +193,47 @@ export type Database = {
           },
         ]
       }
+      order_item_pricing: {
+        Row: {
+          created_at: string
+          drug_id: string
+          id: string
+          notes: string | null
+          order_id: string
+          total_price: number
+          unit_price: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          drug_id: string
+          id?: string
+          notes?: string | null
+          order_id: string
+          total_price: number
+          unit_price: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          drug_id?: string
+          id?: string
+          notes?: string | null
+          order_id?: string
+          total_price?: number
+          unit_price?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_item_pricing_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       order_items: {
         Row: {
           created_at: string
@@ -229,10 +270,13 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          invoice_amount: number | null
           notes: string | null
           payment_date: string | null
           payment_proof_url: string | null
+          payment_rejection_reason: string | null
           pharmacy_id: string
+          pricing_notes: string | null
           status: string
           total_items: number
           updated_at: string
@@ -241,10 +285,13 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          invoice_amount?: number | null
           notes?: string | null
           payment_date?: string | null
           payment_proof_url?: string | null
+          payment_rejection_reason?: string | null
           pharmacy_id: string
+          pricing_notes?: string | null
           status?: string
           total_items?: number
           updated_at?: string
@@ -253,10 +300,13 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          invoice_amount?: number | null
           notes?: string | null
           payment_date?: string | null
           payment_proof_url?: string | null
+          payment_rejection_reason?: string | null
           pharmacy_id?: string
+          pricing_notes?: string | null
           status?: string
           total_items?: number
           updated_at?: string

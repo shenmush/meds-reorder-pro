@@ -52,10 +52,14 @@ const PharmacyStaffDashboard: React.FC<PharmacyStaffDashboardProps> = ({ user, o
       'pending': { label: 'در انتظار بررسی', variant: 'secondary' as const },
       'approved_pm': { label: 'تایید شده', variant: 'default' as const },
       'needs_revision_ps': { label: 'نیاز به ویرایش', variant: 'destructive' as const },
-      'approved_bs': { label: 'در حال پردازش', variant: 'default' as const },
       'needs_revision_pm': { label: 'نیاز به ویرایش مدیر', variant: 'destructive' as const },
-      'approved': { label: 'تایید نهایی', variant: 'default' as const },
+      'approved_bs': { label: 'در حال پردازش', variant: 'default' as const },
+      'invoice_issued': { label: 'فاکتور صادر شده', variant: 'secondary' as const },
+      'payment_uploaded': { label: 'رسید آپلود شده', variant: 'default' as const },
+      'payment_rejected': { label: 'پرداخت رد شده', variant: 'destructive' as const },
+      'payment_verified': { label: 'پرداخت تایید شده', variant: 'default' as const },
       'rejected': { label: 'رد شده', variant: 'destructive' as const },
+      'completed': { label: 'تکمیل شده', variant: 'default' as const },
     };
     
     const config = statusMap[status as keyof typeof statusMap] || { label: status, variant: 'secondary' as const };

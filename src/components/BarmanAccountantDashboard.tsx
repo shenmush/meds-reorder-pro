@@ -126,13 +126,12 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
 
     setProcessingOrderId(orderId);
     try {
-      // Update order status back to invoice_issued
+      // Update order status to payment_rejected
       const { error: updateError } = await supabase
         .from('orders')
         .update({
-          workflow_status: 'invoice_issued',
-          payment_proof_url: null,
-          payment_date: null
+          workflow_status: 'payment_rejected',
+          payment_rejection_reason: reviewNotes
         })
         .eq('id', orderId);
 
@@ -145,7 +144,7 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
           order_id: orderId,
           user_id: user.id,
           from_status: 'payment_uploaded',
-          to_status: 'invoice_issued',
+          to_status: 'payment_rejected',
           notes: `Payment rejected: ${reviewNotes}`
         });
 

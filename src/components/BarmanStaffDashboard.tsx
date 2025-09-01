@@ -64,17 +64,31 @@ const BarmanStaffDashboard: React.FC<BarmanStaffDashboardProps> = ({ user, onAut
 
   const handleOrderAction = async (orderId: string, action: 'approve' | 'reject' | 'revision') => {
     try {
-      const statusMap = {
-        approve: 'approved_bs',
-        reject: 'rejected',
-        revision: 'needs_revision_pm'
-      };
+      let newStatus = '';
+      
+      if (selectedOrder?.workflow_status === 'needs_revision_pm_pricing') {
+        // Coming back from pricing revision
+        const statusMap = {
+          approve: 'approved_bs',
+          reject: 'rejected',
+          revision: 'needs_revision_pm'
+        };
+        newStatus = statusMap[action];
+      } else {
+        // Normal flow from approved_pm or needs_revision_bs
+        const statusMap = {
+          approve: 'approved_bs',
+          reject: 'rejected',
+          revision: 'needs_revision_pm'
+        };
+        newStatus = statusMap[action];
+      }
 
       // Update order status
       const { error: orderError } = await supabase
         .from('orders')
         .update({ 
-          workflow_status: statusMap[action],
+          workflow_status: newStatus,
           notes: actionNotes || null,
           updated_at: new Date().toISOString()
         })
@@ -89,7 +103,7 @@ const BarmanStaffDashboard: React.FC<BarmanStaffDashboardProps> = ({ user, onAut
           order_id: orderId,
           user_id: (await supabase.auth.getUser()).data.user?.id,
           from_status: selectedOrder?.workflow_status || 'approved_pm',
-          to_status: statusMap[action],
+          to_status: newStatus,
           notes: actionNotes || null
         });
 
