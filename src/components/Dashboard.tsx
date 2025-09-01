@@ -143,10 +143,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
     return <PharmacyManagerDashboard user={user} onAuthChange={onAuthChange} />;
   }
 
-  if (userRole === 'pharmacy_staff') {
-    // Pharmacy staff uses the main dashboard with limited tabs
-    setActiveTab('drugs');
-  }
 
   if (userRole === 'barman_staff') {
     return <BarmanStaffDashboard user={user} onAuthChange={onAuthChange} />;
