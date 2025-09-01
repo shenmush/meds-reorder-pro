@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,8 +6,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Loader2, CheckCircle, XCircle, Edit, Eye } from "lucide-react";
+import { Loader2, CheckCircle, XCircle, Edit, Eye, LogOut, Pill, ShoppingCart, UserIcon, Building2, Users } from "lucide-react";
 import { toast } from "sonner";
+import { ThemeToggle } from '@/components/ui/theme-toggle';
+import PharmacyProfile from './PharmacyProfile';
+import PharmacyStaffManagement from './PharmacyStaffManagement';
+import OrderHistory from './OrderHistory';
+import MobileBottomNav from './MobileBottomNav';
+import MobileHeader from './MobileHeader';
 
 interface Order {
   id: string;
@@ -18,6 +24,14 @@ interface Order {
   total_items: number;
 }
 
+interface Pharmacy {
+  id: string;
+  name: string;
+  address?: string;
+  phone?: string;
+  license_number?: string;
+}
+
 interface PharmacyManagerDashboardProps {
   user: User;
   onAuthChange: (user: User | null) => void;
@@ -25,15 +39,50 @@ interface PharmacyManagerDashboardProps {
 
 const PharmacyManagerDashboard: React.FC<PharmacyManagerDashboardProps> = ({ user, onAuthChange }) => {
   const [orders, setOrders] = useState<Order[]>([]);
+  const [pharmacy, setPharmacy] = useState<Pharmacy | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [actionNotes, setActionNotes] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<'approve' | 'reject' | 'revision' | null>(null);
+  const [activeTab, setActiveTab] = useState<'orders' | 'profile' | 'staff' | 'history'>('orders');
 
   useEffect(() => {
     fetchOrders();
+    fetchPharmacyProfile();
   }, []);
+
+  const handleSignOut = async () => {
+    try {
+      await supabase.auth.signOut();
+      onAuthChange(null);
+      toast.success('با موفقیت از سیستم خارج شدید');
+    } catch (error: any) {
+      toast.error('خطا در خروج از سیستم');
+    }
+  };
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab as any);
+  };
+
+  const fetchPharmacyProfile = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('pharmacies')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error fetching pharmacy profile:', error);
+      }
+      
+      setPharmacy(data);
+    } catch (error: any) {
+      console.error('Error fetching pharmacy profile:', error);
+    }
+  };
 
   const fetchOrders = async () => {
     try {
@@ -126,21 +175,17 @@ const PharmacyManagerDashboard: React.FC<PharmacyManagerDashboardProps> = ({ use
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin" />
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Pill className="h-12 w-12 text-primary mx-auto mb-4 animate-pulse" />
+          <p className="text-muted-foreground">در حال بارگذاری...</p>
+        </div>
       </div>
     );
   }
 
-  return (
+  const OrdersTab = () => (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">پنل مدیر داروخانه</h1>
-          <p className="text-muted-foreground">بررسی و تایید سفارشات</p>
-        </div>
-      </div>
-
       <div className="grid gap-4">
         {orders.length === 0 ? (
           <Card>
@@ -205,7 +250,154 @@ const PharmacyManagerDashboard: React.FC<PharmacyManagerDashboardProps> = ({ use
           ))
         )}
       </div>
+    </div>
+  );
 
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30">
+      {/* Mobile Header */}
+      <div className="mobile-only">
+        <MobileHeader 
+          user={user}
+          pharmacy={pharmacy}
+          userRole="pharmacy_manager"
+          onSignOut={handleSignOut}
+        />
+      </div>
+
+      {/* Desktop Header */}
+      <header className="desktop-only border-b border-border/60 bg-card/90 backdrop-blur-lg shadow-soft">
+        <div className="container mx-auto px-6 py-5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="relative p-3 rounded-2xl bg-gradient-to-br from-primary/10 to-secondary/10">
+                <Pill className="h-7 w-7 text-primary" />
+                <div className="absolute -bottom-1 -right-1 p-1 bg-secondary rounded-full">
+                  <ShoppingCart className="h-3 w-3 text-white" />
+                </div>
+              </div>
+              <div className="text-right">
+                <h1 className="text-2xl font-bold text-gradient">پنل مدیر داروخانه</h1>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {pharmacy?.name || user.email}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <ThemeToggle />
+              <Button 
+                variant="outline" 
+                onClick={handleSignOut} 
+                className="gap-2 px-6 py-2.5 rounded-xl hover:bg-destructive/10 hover:text-destructive hover:border-destructive/20 transition-all duration-300"
+              >
+                <LogOut className="h-4 w-4" />
+                خروج
+              </Button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <div className="container mx-auto px-4 md:px-6 py-4 md:py-8 pb-20 md:pb-8">
+        {!pharmacy ? (
+          <PharmacyProfile 
+            user={user} 
+            pharmacy={pharmacy} 
+            onPharmacyUpdate={setPharmacy}
+            userRole="pharmacy_manager"
+          />
+        ) : (
+          <>
+            {/* Desktop Navigation */}
+            <div className="desktop-only mb-8">
+              <div className="bg-card/60 backdrop-blur-sm rounded-2xl p-2 border border-border/60 shadow-soft">
+                <div className="flex flex-wrap gap-1">
+                  <Button
+                    variant={activeTab === 'orders' ? 'default' : 'ghost'}
+                    onClick={() => setActiveTab('orders')}
+                    className={`gap-3 px-6 py-3 rounded-xl transition-all duration-300 ${
+                      activeTab === 'orders' 
+                        ? 'btn-primary shadow-medium' 
+                        : 'hover:bg-muted/60'
+                    }`}
+                  >
+                    <ShoppingCart className="h-5 w-5" />
+                    <span className="font-medium">سفارشات</span>
+                  </Button>
+                  <Button
+                    variant={activeTab === 'profile' ? 'default' : 'ghost'}
+                    onClick={() => setActiveTab('profile')}
+                    className={`gap-3 px-6 py-3 rounded-xl transition-all duration-300 ${
+                      activeTab === 'profile' 
+                        ? 'btn-primary shadow-medium' 
+                        : 'hover:bg-muted/60'
+                    }`}
+                  >
+                    <Building2 className="h-5 w-5" />
+                    <span className="font-medium">مشخصات داروخانه</span>
+                  </Button>
+                  <Button
+                    variant={activeTab === 'staff' ? 'default' : 'ghost'}
+                    onClick={() => setActiveTab('staff')}
+                    className={`gap-3 px-6 py-3 rounded-xl transition-all duration-300 ${
+                      activeTab === 'staff' 
+                        ? 'btn-primary shadow-medium' 
+                        : 'hover:bg-muted/60'
+                    }`}
+                  >
+                    <Users className="h-5 w-5" />
+                    <span className="font-medium">مدیریت کارمندان</span>
+                  </Button>
+                  <Button
+                    variant={activeTab === 'history' ? 'default' : 'ghost'}
+                    onClick={() => setActiveTab('history')}
+                    className={`gap-3 px-6 py-3 rounded-xl transition-all duration-300 ${
+                      activeTab === 'history' 
+                        ? 'btn-primary shadow-medium' 
+                        : 'hover:bg-muted/60'
+                    }`}
+                  >
+                    <UserIcon className="h-5 w-5" />
+                    <span className="font-medium">تاریخچه سفارشات</span>
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {/* Content Area */}
+            <div className="animate-in fade-in-50 duration-500 mobile-scroll">
+              {activeTab === 'orders' && <OrdersTab />}
+              {activeTab === 'profile' && (
+                <PharmacyProfile 
+                  user={user} 
+                  pharmacy={pharmacy} 
+                  onPharmacyUpdate={setPharmacy}
+                  userRole="pharmacy_manager"
+                />
+              )}
+              {activeTab === 'staff' && pharmacy && (
+                <PharmacyStaffManagement 
+                  user={user} 
+                  pharmacy={pharmacy} 
+                />
+              )}
+              {activeTab === 'history' && pharmacy && (
+                <OrderHistory pharmacyId={pharmacy.id} />
+              )}
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Mobile Bottom Navigation */}
+      <MobileBottomNav 
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
+        userRole="pharmacy_manager"
+      />
+
+      {/* Order Action Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent>
           <DialogHeader>
