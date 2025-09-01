@@ -155,6 +155,44 @@ export type Database = {
         }
         Relationships: []
       }
+      order_approvals: {
+        Row: {
+          created_at: string
+          from_status: string
+          id: string
+          notes: string | null
+          order_id: string
+          to_status: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          from_status: string
+          id?: string
+          notes?: string | null
+          order_id: string
+          to_status: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          from_status?: string
+          id?: string
+          notes?: string | null
+          order_id?: string
+          to_status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_approvals_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       order_items: {
         Row: {
           created_at: string
@@ -196,6 +234,7 @@ export type Database = {
           status: string
           total_items: number
           updated_at: string
+          workflow_status: string | null
         }
         Insert: {
           created_at?: string
@@ -205,6 +244,7 @@ export type Database = {
           status?: string
           total_items?: number
           updated_at?: string
+          workflow_status?: string | null
         }
         Update: {
           created_at?: string
@@ -214,6 +254,7 @@ export type Database = {
           status?: string
           total_items?: number
           updated_at?: string
+          workflow_status?: string | null
         }
         Relationships: [
           {
