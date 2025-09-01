@@ -104,7 +104,17 @@ const DrugList: React.FC = () => {
 
   useEffect(() => {
     fetchDrugs();
-  }, [currentPage, searchTerm, typeFilter]);
+  }, [currentPage, typeFilter]);
+
+  // Debounced search effect
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setCurrentPage(1); // Reset to first page on search
+      fetchDrugs();
+    }, 500); // Wait 500ms after user stops typing
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   const fetchDrugs = async () => {
     try {
@@ -380,16 +390,6 @@ const DrugList: React.FC = () => {
     setCurrentPage(page);
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-8">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
-          <p className="text-muted-foreground">در حال بارگذاری فهرست داروها...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
@@ -442,7 +442,14 @@ const DrugList: React.FC = () => {
             </div>
           </div>
           
-          {drugs.length === 0 ? (
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="text-center">
+                <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
+                <p className="text-muted-foreground">در حال جستجو...</p>
+              </div>
+            </div>
+          ) : drugs.length === 0 ? (
             <div className="text-center py-8">
               <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
               <p className="text-muted-foreground">
