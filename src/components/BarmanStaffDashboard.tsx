@@ -678,7 +678,7 @@ const BarmanStaffDashboard: React.FC<BarmanStaffDashboardProps> = ({ user, onAut
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30">
       {/* Mobile Header */}
-      <div className="mobile-only">
+      <div className="block md:hidden">
         <MobileHeader 
           user={user}
           pharmacy={null}
