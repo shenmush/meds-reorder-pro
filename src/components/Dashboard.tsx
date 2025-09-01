@@ -12,6 +12,10 @@ import AdminPharmacies from './AdminPharmacies';
 import AdminOrders from './AdminOrders';
 import AdminReports from './AdminReports';
 import OrderHistory from './OrderHistory';
+import PharmacyStaffDashboard from './PharmacyStaffDashboard';
+import PharmacyManagerDashboard from './PharmacyManagerDashboard';
+import BarmanStaffDashboard from './BarmanStaffDashboard';
+import BarmanManagerDashboard from './BarmanManagerDashboard';
 import MobileBottomNav from './MobileBottomNav';
 import MobileHeader from './MobileHeader';
 
@@ -44,6 +48,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
     // Set default tab based on user role
     if (userRole === 'admin') {
       setActiveTab('pharmacies');
+    } else if (['pharmacy_staff', 'pharmacy_manager', 'barman_staff', 'barman_manager'].includes(userRole || '')) {
+      // Role-specific users get their own dashboard, no tabs needed
+      return;
     } else {
       setActiveTab('drugs');
     }
@@ -116,6 +123,83 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
         <div className="text-center">
           <Pill className="h-12 w-12 text-primary mx-auto mb-4 animate-pulse" />
           <p className="text-muted-foreground">در حال بارگذاری...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Render role-specific dashboards
+  if (userRole === 'pharmacy_staff') {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <div className="container flex h-14 items-center justify-between px-4">
+            <h1 className="text-lg font-semibold">سیستم مدیریت داروخانه - کارمند</h1>
+            <Button variant="ghost" size="sm" onClick={handleSignOut}>
+              <LogOut className="h-4 w-4 mr-2" />
+              خروج
+            </Button>
+          </div>
+        </div>
+        <div className="container mx-auto p-4">
+          <PharmacyStaffDashboard />
+        </div>
+      </div>
+    );
+  }
+
+  if (userRole === 'pharmacy_manager') {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <div className="container flex h-14 items-center justify-between px-4">
+            <h1 className="text-lg font-semibold">سیستم مدیریت داروخانه - مدیر</h1>
+            <Button variant="ghost" size="sm" onClick={handleSignOut}>
+              <LogOut className="h-4 w-4 mr-2" />
+              خروج
+            </Button>
+          </div>
+        </div>
+        <div className="container mx-auto p-4">
+          <PharmacyManagerDashboard />
+        </div>
+      </div>
+    );
+  }
+
+  if (userRole === 'barman_staff') {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <div className="container flex h-14 items-center justify-between px-4">
+            <h1 className="text-lg font-semibold">سیستم مدیریت بارمان - کارمند</h1>
+            <Button variant="ghost" size="sm" onClick={handleSignOut}>
+              <LogOut className="h-4 w-4 mr-2" />
+              خروج
+            </Button>
+          </div>
+        </div>
+        <div className="container mx-auto p-4">
+          <BarmanStaffDashboard />
+        </div>
+      </div>
+    );
+  }
+
+  if (userRole === 'barman_manager') {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <div className="container flex h-14 items-center justify-between px-4">
+            <h1 className="text-lg font-semibold">سیستم مدیریت بارمان - مدیر</h1>
+            <Button variant="ghost" size="sm" onClick={handleSignOut}>
+              <LogOut className="h-4 w-4 mr-2" />
+              خروج
+            </Button>
+          </div>
+        </div>
+        <div className="container mx-auto p-4">
+          <BarmanManagerDashboard />
         </div>
       </div>
     );
