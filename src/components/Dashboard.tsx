@@ -50,8 +50,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
     // Set default tab based on user role
     if (userRole === 'admin') {
       setActiveTab('pharmacies');
-    } else if (['pharmacy_staff', 'pharmacy_manager', 'pharmacy_accountant', 'barman_staff', 'barman_manager', 'barman_accountant'].includes(userRole || '')) {
-      // Role-specific users get their own dashboard, no tabs needed
+    } else if (['pharmacy_manager', 'barman_staff', 'barman_manager', 'barman_accountant'].includes(userRole || '')) {
+      // These role-specific users get their own dashboard, no tabs needed
       return;
     } else {
       setActiveTab('drugs');
@@ -130,43 +130,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
     );
   }
 
-  // Render role-specific dashboards
-  if (userRole === 'pharmacy_staff') {
-    return (
-      <div className="min-h-screen bg-background">
-        <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-          <div className="container flex h-14 items-center justify-between px-4">
-            <h1 className="text-lg font-semibold">سیستم مدیریت داروخانه - کارمند</h1>
-            <Button variant="ghost" size="sm" onClick={handleSignOut}>
-              <LogOut className="h-4 w-4 mr-2" />
-              خروج
-            </Button>
-          </div>
-        </div>
-        <div className="container mx-auto p-4">
-          <PharmacyStaffDashboard user={user} onAuthChange={onAuthChange} />
-        </div>
-      </div>
-    );
-  }
 
   if (userRole === 'pharmacy_manager') {
-    return (
-      <div className="min-h-screen bg-background">
-        <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-          <div className="container flex h-14 items-center justify-between px-4">
-            <h1 className="text-lg font-semibold">سیستم مدیریت داروخانه - مدیر</h1>
-            <Button variant="ghost" size="sm" onClick={handleSignOut}>
-              <LogOut className="h-4 w-4 mr-2" />
-              خروج
-            </Button>
-          </div>
-        </div>
-        <div className="container mx-auto p-4">
-          <PharmacyManagerDashboard user={user} onAuthChange={onAuthChange} />
-        </div>
-      </div>
-    );
+    return <PharmacyManagerDashboard user={user} onAuthChange={onAuthChange} />;
   }
 
   if (userRole === 'barman_staff') {
@@ -253,7 +219,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
           <PharmacyProfile 
             user={user} 
             pharmacy={pharmacy} 
-            onPharmacyUpdate={setPharmacy} 
+            onPharmacyUpdate={setPharmacy}
+            userRole={userRole}
           />
         ) : (
           <>
@@ -376,7 +343,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
                     <PharmacyProfile 
                       user={user} 
                       pharmacy={pharmacy} 
-                      onPharmacyUpdate={setPharmacy} 
+                      onPharmacyUpdate={setPharmacy}
+                      userRole={userRole}
                     />
                   )}
                   {activeTab === 'orders' && pharmacy && (
