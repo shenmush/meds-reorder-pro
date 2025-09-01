@@ -149,11 +149,11 @@ const DrugList: React.FC = () => {
         if (typeFilter === "all" && allDrugs.length < ITEMS_PER_PAGE_SERVER) {
           // Fetch medical supplies
           let medicalQuery = supabase.from('medical_supplies')
-            .select('id, brand_name, irc, package_count, license_owner_company_name', { count: 'exact' })
+            .select('id, title, irc, package_count, license_owner_company_name', { count: 'exact' })
             .eq('is_active', true);
 
           if (searchTerm.trim() !== "") {
-            medicalQuery = medicalQuery.or(`brand_name.ilike.%${searchTerm}%,irc.ilike.%${searchTerm}%,license_owner_company_name.ilike.%${searchTerm}%`);
+            medicalQuery = medicalQuery.or(`title.ilike.%${searchTerm}%,irc.ilike.%${searchTerm}%,license_owner_company_name.ilike.%${searchTerm}%`);
           }
 
           const remainingItems = ITEMS_PER_PAGE_SERVER - allDrugs.length;
@@ -163,7 +163,7 @@ const DrugList: React.FC = () => {
           if (!medicalError && medicalData) {
             allDrugs.push(...medicalData.map((drug: any) => ({
               id: drug.id,
-              name: drug.brand_name,
+              name: drug.title,
               irc: drug.irc,
               package_count: drug.package_count,
               company_name: drug.license_owner_company_name,
@@ -175,11 +175,11 @@ const DrugList: React.FC = () => {
           // Fetch natural products if still have space
           if (allDrugs.length < ITEMS_PER_PAGE_SERVER) {
             let naturalQuery = supabase.from('natural_products')
-              .select('id, persian_name, code, company_name', { count: 'exact' })
+              .select('id, full_en_brand_name, irc, license_owner_name', { count: 'exact' })
               .eq('is_active', true);
 
             if (searchTerm.trim() !== "") {
-              naturalQuery = naturalQuery.or(`persian_name.ilike.%${searchTerm}%,code.ilike.%${searchTerm}%,company_name.ilike.%${searchTerm}%`);
+              naturalQuery = naturalQuery.or(`full_en_brand_name.ilike.%${searchTerm}%,irc.ilike.%${searchTerm}%,license_owner_name.ilike.%${searchTerm}%`);
             }
 
             const finalRemainingItems = ITEMS_PER_PAGE_SERVER - allDrugs.length;
@@ -189,10 +189,10 @@ const DrugList: React.FC = () => {
             if (!naturalError && naturalData) {
               allDrugs.push(...naturalData.map((drug: any) => ({
                 id: drug.id,
-                name: drug.persian_name,
-                irc: drug.code,
+                name: drug.full_en_brand_name,
+                irc: drug.irc,
                 package_count: null,
-                company_name: drug.company_name,
+                company_name: drug.license_owner_name,
                 type: 'natural' as const
               })));
               totalItems += naturalCount || 0;
@@ -205,11 +205,11 @@ const DrugList: React.FC = () => {
       } else if (typeFilter === "medical") {
         // Fetch only medical supplies
         let medicalQuery = supabase.from('medical_supplies')
-          .select('id, brand_name, irc, package_count, license_owner_company_name', { count: 'exact' })
+          .select('id, title, irc, package_count, license_owner_company_name', { count: 'exact' })
           .eq('is_active', true);
 
         if (searchTerm.trim() !== "") {
-          medicalQuery = medicalQuery.or(`brand_name.ilike.%${searchTerm}%,irc.ilike.%${searchTerm}%,license_owner_company_name.ilike.%${searchTerm}%`);
+          medicalQuery = medicalQuery.or(`title.ilike.%${searchTerm}%,irc.ilike.%${searchTerm}%,license_owner_company_name.ilike.%${searchTerm}%`);
         }
 
         const { data: medicalData, error: medicalError, count: medicalCount } = await medicalQuery
@@ -219,7 +219,7 @@ const DrugList: React.FC = () => {
 
         const mappedDrugs = medicalData?.map((drug: any) => ({
           id: drug.id,
-          name: drug.brand_name,
+          name: drug.title,
           irc: drug.irc,
           package_count: drug.package_count,
           company_name: drug.license_owner_company_name,
@@ -231,11 +231,11 @@ const DrugList: React.FC = () => {
       } else if (typeFilter === "natural") {
         // Fetch only natural products
         let naturalQuery = supabase.from('natural_products')
-          .select('id, persian_name, code, company_name', { count: 'exact' })
+          .select('id, full_en_brand_name, irc, license_owner_name', { count: 'exact' })
           .eq('is_active', true);
 
         if (searchTerm.trim() !== "") {
-          naturalQuery = naturalQuery.or(`persian_name.ilike.%${searchTerm}%,code.ilike.%${searchTerm}%,company_name.ilike.%${searchTerm}%`);
+          naturalQuery = naturalQuery.or(`full_en_brand_name.ilike.%${searchTerm}%,irc.ilike.%${searchTerm}%,license_owner_name.ilike.%${searchTerm}%`);
         }
 
         const { data: naturalData, error: naturalError, count: naturalCount } = await naturalQuery
@@ -245,10 +245,10 @@ const DrugList: React.FC = () => {
 
         const mappedDrugs = naturalData?.map((drug: any) => ({
           id: drug.id,
-          name: drug.persian_name,
-          irc: drug.code,
+          name: drug.full_en_brand_name,
+          irc: drug.irc,
           package_count: null,
-          company_name: drug.company_name,
+          company_name: drug.license_owner_name,
           type: 'natural' as const
         })) || [];
 
