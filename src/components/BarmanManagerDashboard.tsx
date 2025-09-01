@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { User } from '@supabase/supabase-js';
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -20,7 +21,12 @@ interface Order {
   };
 }
 
-const BarmanManagerDashboard = () => {
+interface BarmanManagerDashboardProps {
+  user: User;
+  onAuthChange: (user: User | null) => void;
+}
+
+const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, onAuthChange }) => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);

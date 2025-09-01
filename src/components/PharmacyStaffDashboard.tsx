@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { User } from '@supabase/supabase-js';
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +16,12 @@ interface Order {
   total_items: number;
 }
 
-const PharmacyStaffDashboard = () => {
+interface PharmacyStaffDashboardProps {
+  user: User;
+  onAuthChange: (user: User | null) => void;
+}
+
+const PharmacyStaffDashboard: React.FC<PharmacyStaffDashboardProps> = ({ user, onAuthChange }) => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 

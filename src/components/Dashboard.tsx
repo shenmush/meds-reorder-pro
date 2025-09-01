@@ -14,8 +14,10 @@ import AdminReports from './AdminReports';
 import OrderHistory from './OrderHistory';
 import PharmacyStaffDashboard from './PharmacyStaffDashboard';
 import PharmacyManagerDashboard from './PharmacyManagerDashboard';
+import PharmacyAccountantDashboard from './PharmacyAccountantDashboard';
 import BarmanStaffDashboard from './BarmanStaffDashboard';
 import BarmanManagerDashboard from './BarmanManagerDashboard';
+import BarmanAccountantDashboard from './BarmanAccountantDashboard';
 import MobileBottomNav from './MobileBottomNav';
 import MobileHeader from './MobileHeader';
 
@@ -48,7 +50,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
     // Set default tab based on user role
     if (userRole === 'admin') {
       setActiveTab('pharmacies');
-    } else if (['pharmacy_staff', 'pharmacy_manager', 'barman_staff', 'barman_manager'].includes(userRole || '')) {
+    } else if (['pharmacy_staff', 'pharmacy_manager', 'pharmacy_accountant', 'barman_staff', 'barman_manager', 'barman_accountant'].includes(userRole || '')) {
       // Role-specific users get their own dashboard, no tabs needed
       return;
     } else {
@@ -142,7 +144,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
           </div>
         </div>
         <div className="container mx-auto p-4">
-          <PharmacyStaffDashboard />
+          <PharmacyStaffDashboard user={user} onAuthChange={onAuthChange} />
         </div>
       </div>
     );
@@ -161,7 +163,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
           </div>
         </div>
         <div className="container mx-auto p-4">
-          <PharmacyManagerDashboard />
+          <PharmacyManagerDashboard user={user} onAuthChange={onAuthChange} />
         </div>
       </div>
     );
@@ -180,29 +182,22 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
           </div>
         </div>
         <div className="container mx-auto p-4">
-          <BarmanStaffDashboard />
+          <BarmanStaffDashboard user={user} onAuthChange={onAuthChange} />
         </div>
       </div>
     );
   }
 
   if (userRole === 'barman_manager') {
-    return (
-      <div className="min-h-screen bg-background">
-        <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-          <div className="container flex h-14 items-center justify-between px-4">
-            <h1 className="text-lg font-semibold">سیستم مدیریت بارمان - مدیر</h1>
-            <Button variant="ghost" size="sm" onClick={handleSignOut}>
-              <LogOut className="h-4 w-4 mr-2" />
-              خروج
-            </Button>
-          </div>
-        </div>
-        <div className="container mx-auto p-4">
-          <BarmanManagerDashboard />
-        </div>
-      </div>
-    );
+    return <BarmanManagerDashboard user={user} onAuthChange={onAuthChange} />;
+  }
+
+  if (userRole === 'pharmacy_accountant') {
+    return <PharmacyAccountantDashboard user={user} onAuthChange={onAuthChange} />;
+  }
+
+  if (userRole === 'barman_accountant') {
+    return <BarmanAccountantDashboard user={user} onAuthChange={onAuthChange} />;
   }
 
   return (
