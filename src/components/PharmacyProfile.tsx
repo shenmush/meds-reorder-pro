@@ -21,12 +21,14 @@ interface PharmacyProfileProps {
   user: User;
   pharmacy: Pharmacy | null;
   onPharmacyUpdate: (pharmacy: Pharmacy) => void;
+  userRole?: string;
 }
 
 const PharmacyProfile: React.FC<PharmacyProfileProps> = ({ 
   user, 
   pharmacy, 
-  onPharmacyUpdate 
+  onPharmacyUpdate,
+  userRole
 }) => {
   const [formData, setFormData] = useState({
     name: pharmacy?.name || '',
@@ -95,6 +97,8 @@ const PharmacyProfile: React.FC<PharmacyProfileProps> = ({
     }));
   };
 
+  const canEdit = userRole === 'pharmacy_manager' || userRole === 'admin' || !userRole;
+
   return (
     <Card className="max-w-2xl mx-auto shadow-[var(--shadow-medium)]">
       <CardHeader className="text-center">
@@ -124,6 +128,7 @@ const PharmacyProfile: React.FC<PharmacyProfileProps> = ({
               onChange={(e) => handleInputChange('name', e.target.value)}
               required
               className="text-right"
+              readOnly={!canEdit}
             />
           </div>
 
@@ -137,6 +142,7 @@ const PharmacyProfile: React.FC<PharmacyProfileProps> = ({
               value={formData.license_number}
               onChange={(e) => handleInputChange('license_number', e.target.value)}
               className="text-right"
+              readOnly={!canEdit}
             />
           </div>
 
@@ -151,6 +157,7 @@ const PharmacyProfile: React.FC<PharmacyProfileProps> = ({
               onChange={(e) => handleInputChange('phone', e.target.value)}
               className="text-right"
               dir="ltr"
+              readOnly={!canEdit}
             />
           </div>
 
@@ -164,27 +171,30 @@ const PharmacyProfile: React.FC<PharmacyProfileProps> = ({
               value={formData.address}
               onChange={(e) => handleInputChange('address', e.target.value)}
               className="text-right min-h-[100px]"
+              readOnly={!canEdit}
             />
           </div>
 
-          <Button
-            type="submit"
-            className="w-full text-lg gap-2"
-            disabled={loading}
-            style={{ background: 'var(--gradient-primary)' }}
-          >
-            {loading ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                در حال ذخیره...
-              </>
-            ) : (
-              <>
-                <Save className="h-4 w-4" />
-                {pharmacy ? 'بروزرسانی اطلاعات' : 'ثبت اطلاعات'}
-              </>
-            )}
-          </Button>
+          {canEdit && (
+            <Button
+              type="submit"
+              className="w-full text-lg gap-2"
+              disabled={loading}
+              style={{ background: 'var(--gradient-primary)' }}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  در حال ذخیره...
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4" />
+                  {pharmacy ? 'بروزرسانی اطلاعات' : 'ثبت اطلاعات'}
+                </>
+              )}
+            </Button>
+          )}
         </form>
       </CardContent>
     </Card>

@@ -5,12 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Loader2, CheckCircle, XCircle, Edit, Eye, Users, Building2, ShoppingCart, LogOut } from "lucide-react";
+import { Loader2, CheckCircle, XCircle, Edit, Eye } from "lucide-react";
 import { toast } from "sonner";
-import PharmacyProfile from './PharmacyProfile';
-import PharmacyStaffManagement from './PharmacyStaffManagement';
 
 interface Order {
   id: string;
@@ -21,14 +18,6 @@ interface Order {
   total_items: number;
 }
 
-interface Pharmacy {
-  id: string;
-  name: string;
-  address?: string;
-  phone?: string;
-  license_number?: string;
-}
-
 interface PharmacyManagerDashboardProps {
   user: User;
   onAuthChange: (user: User | null) => void;
@@ -36,7 +25,6 @@ interface PharmacyManagerDashboardProps {
 
 const PharmacyManagerDashboard: React.FC<PharmacyManagerDashboardProps> = ({ user, onAuthChange }) => {
   const [orders, setOrders] = useState<Order[]>([]);
-  const [pharmacy, setPharmacy] = useState<Pharmacy | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [actionNotes, setActionNotes] = useState("");
@@ -45,26 +33,7 @@ const PharmacyManagerDashboard: React.FC<PharmacyManagerDashboardProps> = ({ use
 
   useEffect(() => {
     fetchOrders();
-    fetchPharmacyProfile();
   }, []);
-
-  const fetchPharmacyProfile = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('pharmacies')
-        .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      if (error) {
-        console.error('Error fetching pharmacy profile:', error);
-      }
-      
-      setPharmacy(data);
-    } catch (error: any) {
-      console.error('Error fetching pharmacy profile:', error);
-    }
-  };
 
   const fetchOrders = async () => {
     try {
@@ -82,16 +51,6 @@ const PharmacyManagerDashboard: React.FC<PharmacyManagerDashboardProps> = ({ use
       toast.error('خطا در بارگذاری سفارشات');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleSignOut = async () => {
-    try {
-      await supabase.auth.signOut();
-      onAuthChange(null);
-      toast.success('با موفقیت از سیستم خارج شدید');
-    } catch (error: any) {
-      toast.error('خطا در خروج از سیستم');
     }
   };
 
@@ -173,8 +132,15 @@ const PharmacyManagerDashboard: React.FC<PharmacyManagerDashboardProps> = ({ use
     );
   }
 
-  const OrdersTab = () => (
+  return (
     <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">پنل مدیر داروخانه</h1>
+          <p className="text-muted-foreground">بررسی و تایید سفارشات</p>
+        </div>
+      </div>
+
       <div className="grid gap-4">
         {orders.length === 0 ? (
           <Card>
@@ -239,70 +205,7 @@ const PharmacyManagerDashboard: React.FC<PharmacyManagerDashboardProps> = ({ use
           ))
         )}
       </div>
-    </div>
-  );
 
-  return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-14 items-center justify-between px-4">
-          <h1 className="text-lg font-semibold">سیستم مدیریت داروخانه - مدیر</h1>
-          <Button variant="ghost" size="sm" onClick={handleSignOut}>
-            <LogOut className="h-4 w-4 mr-2" />
-            خروج
-          </Button>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="container mx-auto p-4">
-        {!pharmacy ? (
-          <PharmacyProfile 
-            user={user} 
-            pharmacy={pharmacy} 
-            onPharmacyUpdate={setPharmacy} 
-          />
-        ) : (
-          <Tabs defaultValue="orders" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="orders" className="gap-2">
-                <ShoppingCart className="h-4 w-4" />
-                سفارشات
-              </TabsTrigger>
-              <TabsTrigger value="profile" className="gap-2">
-                <Building2 className="h-4 w-4" />
-                مشخصات داروخانه
-              </TabsTrigger>
-              <TabsTrigger value="staff" className="gap-2">
-                <Users className="h-4 w-4" />
-                مدیریت کارمندان
-              </TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="orders" className="mt-6">
-              <OrdersTab />
-            </TabsContent>
-            
-            <TabsContent value="profile" className="mt-6">
-              <PharmacyProfile 
-                user={user} 
-                pharmacy={pharmacy} 
-                onPharmacyUpdate={setPharmacy} 
-              />
-            </TabsContent>
-            
-            <TabsContent value="staff" className="mt-6">
-              <PharmacyStaffManagement 
-                user={user} 
-                pharmacy={pharmacy} 
-              />
-            </TabsContent>
-          </Tabs>
-        )}
-      </div>
-
-      {/* Order Action Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent>
           <DialogHeader>
