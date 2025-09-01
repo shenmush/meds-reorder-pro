@@ -133,55 +133,102 @@ const DrugList: React.FC = () => {
     try {
       setLoading(true);
       
-      // Fetch from all three tables with increased limits
-      const [chemicalResult, medicalResult, naturalResult] = await Promise.all([
-        supabase
+      // Fetch with range-based pagination to get all records
+      const BATCH_SIZE = 1000;
+      let allChemicalDrugs: any[] = [];
+      let allMedicalSupplies: any[] = [];
+      let allNaturalProducts: any[] = [];
+
+      // Fetch chemical drugs in batches
+      let start = 0;
+      let hasMore = true;
+      while (hasMore) {
+        const { data, error } = await supabase
           .from('chemical_drugs')
           .select('id, full_brand_name, irc, package_count, license_owner_company_name, erx_code, gtin')
           .eq('is_active', true)
-          .limit(50000), // Increase limit significantly
-        supabase
+          .range(start, start + BATCH_SIZE - 1);
+        
+        if (error) throw error;
+        if (data && data.length > 0) {
+          allChemicalDrugs.push(...data);
+          start += BATCH_SIZE;
+          hasMore = data.length === BATCH_SIZE;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      // Fetch medical supplies in batches
+      start = 0;
+      hasMore = true;
+      while (hasMore) {
+        const { data, error } = await supabase
           .from('medical_supplies')
           .select('id, title, irc, package_count, license_owner_company_name, erx_code, gtin')
           .eq('is_active', true)
-          .limit(50000), // Increase limit significantly
-        supabase
+          .range(start, start + BATCH_SIZE - 1);
+        
+        if (error) throw error;
+        if (data && data.length > 0) {
+          allMedicalSupplies.push(...data);
+          start += BATCH_SIZE;
+          hasMore = data.length === BATCH_SIZE;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      // Fetch natural products in batches
+      start = 0;
+      hasMore = true;
+      while (hasMore) {
+        const { data, error } = await supabase
           .from('natural_products')
           .select('id, full_en_brand_name, irc, package_count, license_owner_name, erx_code, gtin')
           .eq('is_active', true)
-          .limit(50000) // Increase limit significantly
-      ]);
+          .range(start, start + BATCH_SIZE - 1);
+        
+        if (error) throw error;
+        if (data && data.length > 0) {
+          allNaturalProducts.push(...data);
+          start += BATCH_SIZE;
+          hasMore = data.length === BATCH_SIZE;
+        } else {
+          hasMore = false;
+        }
+      }
 
       const combinedDrugs: Drug[] = [
-        ...(chemicalResult.data || []).map(item => ({
-          id: item.id,
-          name: item.full_brand_name,
-          irc: item.irc,
-          package_count: item.package_count,
-          company_name: item.license_owner_company_name,
-          type: 'chemical' as const,
-          erx_code: item.erx_code || undefined,
-          gtin: item.gtin || undefined
+        ...allChemicalDrugs.map((drug: any) => ({
+          id: drug.id,
+          name: drug.full_brand_name,
+          irc: drug.irc,
+          package_count: drug.package_count,
+          company_name: drug.license_owner_company_name,
+          erx_code: drug.erx_code,
+          gtin: drug.gtin,
+          type: 'chemical' as const
         })),
-        ...(medicalResult.data || []).map(item => ({
-          id: item.id,
-          name: item.title,
-          irc: item.irc,
-          package_count: item.package_count,
-          company_name: item.license_owner_company_name,
-          type: 'medical' as const,
-          erx_code: item.erx_code || undefined,
-          gtin: item.gtin || undefined
+        ...allMedicalSupplies.map((supply: any) => ({
+          id: supply.id,
+          name: supply.title,
+          irc: supply.irc,
+          package_count: supply.package_count,
+          company_name: supply.license_owner_company_name,
+          erx_code: supply.erx_code,
+          gtin: supply.gtin,
+          type: 'medical' as const
         })),
-        ...(naturalResult.data || []).map(item => ({
-          id: item.id,
-          name: item.full_en_brand_name,
-          irc: item.irc,
-          package_count: item.package_count,
-          company_name: item.license_owner_name,
-          type: 'natural' as const,
-          erx_code: item.erx_code || undefined,
-          gtin: item.gtin || undefined
+        ...allNaturalProducts.map((product: any) => ({
+          id: product.id,
+          name: product.full_en_brand_name,
+          irc: product.irc,
+          package_count: product.package_count,
+          company_name: product.license_owner_name,
+          erx_code: product.erx_code,
+          gtin: product.gtin,
+          type: 'natural' as const
         }))
       ];
 
