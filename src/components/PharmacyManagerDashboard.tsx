@@ -9,8 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Loader2, CheckCircle, XCircle, Edit, Eye, LogOut, Pill, ShoppingCart, UserIcon, Building2, Users } from "lucide-react";
 import { toast } from "sonner";
 import { ThemeToggle } from '@/components/ui/theme-toggle';
-import PharmacyProfile from './PharmacyProfile';
-import PharmacyStaffManagement from './PharmacyStaffManagement';
+import PharmacyDetails from './PharmacyDetails';
 import OrderHistory from './OrderHistory';
 import DrugList from './DrugList';
 import MobileBottomNav from './MobileBottomNav';
@@ -55,7 +54,7 @@ const PharmacyManagerDashboard: React.FC<PharmacyManagerDashboardProps> = ({ use
   const [actionNotes, setActionNotes] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<'approve' | 'reject' | 'revision' | null>(null);
-  const [activeTab, setActiveTab] = useState<'orders' | 'profile' | 'staff' | 'history' | 'drugs'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'pharmacy' | 'history' | 'drugs'>('orders');
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -426,9 +425,9 @@ const PharmacyManagerDashboard: React.FC<PharmacyManagerDashboardProps> = ({ use
       {/* Main Content */}
       <div className="container mx-auto px-4 md:px-6 py-4 md:py-8 pb-20 md:pb-8">
         {!pharmacy ? (
-          <PharmacyProfile 
+          <PharmacyDetails 
             user={user} 
-            pharmacy={pharmacy} 
+            pharmacy={null} 
             onPharmacyUpdate={setPharmacy}
             userRole="pharmacy_manager"
           />
@@ -451,28 +450,16 @@ const PharmacyManagerDashboard: React.FC<PharmacyManagerDashboardProps> = ({ use
                     <span className="font-medium">سفارشات</span>
                   </Button>
                   <Button
-                    variant={activeTab === 'profile' ? 'default' : 'ghost'}
-                    onClick={() => setActiveTab('profile')}
+                    variant={activeTab === 'pharmacy' ? 'default' : 'ghost'}
+                    onClick={() => setActiveTab('pharmacy')}
                     className={`gap-3 px-6 py-3 rounded-xl transition-all duration-300 ${
-                      activeTab === 'profile' 
+                      activeTab === 'pharmacy' 
                         ? 'btn-primary shadow-medium' 
                         : 'hover:bg-muted/60'
                     }`}
                   >
                     <Building2 className="h-5 w-5" />
-                    <span className="font-medium">مشخصات داروخانه</span>
-                  </Button>
-                  <Button
-                    variant={activeTab === 'staff' ? 'default' : 'ghost'}
-                    onClick={() => setActiveTab('staff')}
-                    className={`gap-3 px-6 py-3 rounded-xl transition-all duration-300 ${
-                      activeTab === 'staff' 
-                        ? 'btn-primary shadow-medium' 
-                        : 'hover:bg-muted/60'
-                    }`}
-                  >
-                    <Users className="h-5 w-5" />
-                    <span className="font-medium">مدیریت کارمندان</span>
+                    <span className="font-medium">داروخانه</span>
                   </Button>
                   <Button
                     variant={activeTab === 'history' ? 'default' : 'ghost'}
@@ -505,18 +492,12 @@ const PharmacyManagerDashboard: React.FC<PharmacyManagerDashboardProps> = ({ use
             {/* Content Area */}
             <div className="animate-in fade-in-50 duration-500 mobile-scroll">
               {activeTab === 'orders' && <OrdersTab />}
-              {activeTab === 'profile' && (
-                <PharmacyProfile 
+              {activeTab === 'pharmacy' && (
+                <PharmacyDetails 
                   user={user} 
                   pharmacy={pharmacy} 
                   onPharmacyUpdate={setPharmacy}
                   userRole="pharmacy_manager"
-                />
-              )}
-              {activeTab === 'staff' && pharmacy && (
-                <PharmacyStaffManagement 
-                  user={user} 
-                  pharmacy={pharmacy} 
                 />
               )}
               {activeTab === 'history' && pharmacy && (
