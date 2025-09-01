@@ -89,7 +89,6 @@ const DrugCartControls: React.FC<{ drug: Drug; onAddToCart: (drug: Drug, quantit
 
 const DrugList: React.FC = () => {
   const [drugs, setDrugs] = useState<Drug[]>([]);
-  const [filteredDrugs, setFilteredDrugs] = useState<Drug[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [loading, setLoading] = useState(true);
@@ -98,145 +97,169 @@ const DrugList: React.FC = () => {
   const [orderNotes, setOrderNotes] = useState("");
   const [submittingOrder, setSubmittingOrder] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
 
-  const totalPages = Math.ceil(filteredDrugs.length / ITEMS_PER_PAGE);
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const endIndex = startIndex + ITEMS_PER_PAGE;
-  const currentDrugs = filteredDrugs.slice(startIndex, endIndex);
+  const ITEMS_PER_PAGE_SERVER = 50; // Items per page from server
+  const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE_SERVER);
 
   useEffect(() => {
     fetchDrugs();
-  }, []);
-
-  useEffect(() => {
-    let filtered = drugs;
-
-    // Apply search filter
-    if (searchTerm.trim() !== "") {
-      filtered = filtered.filter(drug => 
-        drug.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        drug.irc.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (drug.company_name && drug.company_name.toLowerCase().includes(searchTerm.toLowerCase()))
-      );
-    }
-
-    // Apply type filter
-    if (typeFilter !== "all") {
-      filtered = filtered.filter(drug => drug.type === typeFilter);
-    }
-
-    setFilteredDrugs(filtered);
-    setCurrentPage(1); // Reset to first page when filters change
-  }, [searchTerm, typeFilter, drugs]);
+  }, [currentPage, searchTerm, typeFilter]);
 
   const fetchDrugs = async () => {
     try {
       setLoading(true);
       
-      // Fetch with range-based pagination to get all records
-      const BATCH_SIZE = 1000;
-      let allChemicalDrugs: any[] = [];
-      let allMedicalSupplies: any[] = [];
-      let allNaturalProducts: any[] = [];
+      const startIndex = (currentPage - 1) * ITEMS_PER_PAGE_SERVER;
+      const endIndex = startIndex + ITEMS_PER_PAGE_SERVER - 1;
+      
+      let query = supabase.from('chemical_drugs')
+        .select('id, full_brand_name, irc, package_count, license_owner_company_name, erx_code, gtin', { count: 'exact' })
+        .eq('is_active', true);
 
-      // Fetch chemical drugs in batches
-      let start = 0;
-      let hasMore = true;
-      while (hasMore) {
-        const { data, error } = await supabase
-          .from('chemical_drugs')
-          .select('id, full_brand_name, irc, package_count, license_owner_company_name, erx_code, gtin')
-          .eq('is_active', true)
-          .range(start, start + BATCH_SIZE - 1);
-        
-        if (error) throw error;
-        if (data && data.length > 0) {
-          allChemicalDrugs.push(...data);
-          start += BATCH_SIZE;
-          hasMore = data.length === BATCH_SIZE;
-        } else {
-          hasMore = false;
-        }
+      // Apply search filter
+      if (searchTerm.trim() !== "") {
+        query = query.or(`full_brand_name.ilike.%${searchTerm}%,irc.ilike.%${searchTerm}%,license_owner_company_name.ilike.%${searchTerm}%`);
       }
 
-      // Fetch medical supplies in batches
-      start = 0;
-      hasMore = true;
-      while (hasMore) {
-        const { data, error } = await supabase
-          .from('medical_supplies')
-          .select('id, title, irc, package_count, license_owner_company_name, erx_code, gtin')
-          .eq('is_active', true)
-          .range(start, start + BATCH_SIZE - 1);
-        
-        if (error) throw error;
-        if (data && data.length > 0) {
-          allMedicalSupplies.push(...data);
-          start += BATCH_SIZE;
-          hasMore = data.length === BATCH_SIZE;
-        } else {
-          hasMore = false;
-        }
-      }
+      // Apply type filter for chemical drugs
+      if (typeFilter === "all" || typeFilter === "chemical") {
+        const { data: chemicalData, error: chemicalError, count: chemicalCount } = await query
+          .range(startIndex, endIndex);
 
-      // Fetch natural products in batches
-      start = 0;
-      hasMore = true;
-      while (hasMore) {
-        const { data, error } = await supabase
-          .from('natural_products')
-          .select('id, full_en_brand_name, irc, package_count, license_owner_name, erx_code, gtin')
-          .eq('is_active', true)
-          .range(start, start + BATCH_SIZE - 1);
-        
-        if (error) throw error;
-        if (data && data.length > 0) {
-          allNaturalProducts.push(...data);
-          start += BATCH_SIZE;
-          hasMore = data.length === BATCH_SIZE;
-        } else {
-          hasMore = false;
-        }
-      }
+        if (chemicalError) throw chemicalError;
 
-      const combinedDrugs: Drug[] = [
-        ...allChemicalDrugs.map((drug: any) => ({
+        let allDrugs: Drug[] = [];
+        let totalItems = chemicalCount || 0;
+
+        if (chemicalData) {
+          allDrugs.push(...chemicalData.map((drug: any) => ({
+            id: drug.id,
+            name: drug.full_brand_name,
+            irc: drug.irc,
+            package_count: drug.package_count,
+            company_name: drug.license_owner_company_name,
+            type: 'chemical' as const,
+            erx_code: drug.erx_code,
+            gtin: drug.gtin
+          })));
+        }
+
+        // If we have space and need other types, fetch them
+        if (typeFilter === "all" && allDrugs.length < ITEMS_PER_PAGE_SERVER) {
+          // Fetch medical supplies
+          let medicalQuery = supabase.from('medical_supplies')
+            .select('id, brand_name, irc, package_count, license_owner_company_name', { count: 'exact' })
+            .eq('is_active', true);
+
+          if (searchTerm.trim() !== "") {
+            medicalQuery = medicalQuery.or(`brand_name.ilike.%${searchTerm}%,irc.ilike.%${searchTerm}%,license_owner_company_name.ilike.%${searchTerm}%`);
+          }
+
+          const remainingItems = ITEMS_PER_PAGE_SERVER - allDrugs.length;
+          const { data: medicalData, error: medicalError, count: medicalCount } = await medicalQuery
+            .range(0, remainingItems - 1);
+
+          if (!medicalError && medicalData) {
+            allDrugs.push(...medicalData.map((drug: any) => ({
+              id: drug.id,
+              name: drug.brand_name,
+              irc: drug.irc,
+              package_count: drug.package_count,
+              company_name: drug.license_owner_company_name,
+              type: 'medical' as const
+            })));
+            totalItems += medicalCount || 0;
+          }
+
+          // Fetch natural products if still have space
+          if (allDrugs.length < ITEMS_PER_PAGE_SERVER) {
+            let naturalQuery = supabase.from('natural_products')
+              .select('id, persian_name, code, company_name', { count: 'exact' })
+              .eq('is_active', true);
+
+            if (searchTerm.trim() !== "") {
+              naturalQuery = naturalQuery.or(`persian_name.ilike.%${searchTerm}%,code.ilike.%${searchTerm}%,company_name.ilike.%${searchTerm}%`);
+            }
+
+            const finalRemainingItems = ITEMS_PER_PAGE_SERVER - allDrugs.length;
+            const { data: naturalData, error: naturalError, count: naturalCount } = await naturalQuery
+              .range(0, finalRemainingItems - 1);
+
+            if (!naturalError && naturalData) {
+              allDrugs.push(...naturalData.map((drug: any) => ({
+                id: drug.id,
+                name: drug.persian_name,
+                irc: drug.code,
+                package_count: null,
+                company_name: drug.company_name,
+                type: 'natural' as const
+              })));
+              totalItems += naturalCount || 0;
+            }
+          }
+        }
+
+        setDrugs(allDrugs);
+        setTotalCount(totalItems);
+      } else if (typeFilter === "medical") {
+        // Fetch only medical supplies
+        let medicalQuery = supabase.from('medical_supplies')
+          .select('id, brand_name, irc, package_count, license_owner_company_name', { count: 'exact' })
+          .eq('is_active', true);
+
+        if (searchTerm.trim() !== "") {
+          medicalQuery = medicalQuery.or(`brand_name.ilike.%${searchTerm}%,irc.ilike.%${searchTerm}%,license_owner_company_name.ilike.%${searchTerm}%`);
+        }
+
+        const { data: medicalData, error: medicalError, count: medicalCount } = await medicalQuery
+          .range(startIndex, endIndex);
+
+        if (medicalError) throw medicalError;
+
+        const mappedDrugs = medicalData?.map((drug: any) => ({
           id: drug.id,
-          name: drug.full_brand_name,
+          name: drug.brand_name,
           irc: drug.irc,
           package_count: drug.package_count,
           company_name: drug.license_owner_company_name,
-          erx_code: drug.erx_code,
-          gtin: drug.gtin,
-          type: 'chemical' as const
-        })),
-        ...allMedicalSupplies.map((supply: any) => ({
-          id: supply.id,
-          name: supply.title,
-          irc: supply.irc,
-          package_count: supply.package_count,
-          company_name: supply.license_owner_company_name,
-          erx_code: supply.erx_code,
-          gtin: supply.gtin,
           type: 'medical' as const
-        })),
-        ...allNaturalProducts.map((product: any) => ({
-          id: product.id,
-          name: product.full_en_brand_name,
-          irc: product.irc,
-          package_count: product.package_count,
-          company_name: product.license_owner_name,
-          erx_code: product.erx_code,
-          gtin: product.gtin,
-          type: 'natural' as const
-        }))
-      ];
+        })) || [];
 
-      setDrugs(combinedDrugs);
-      setFilteredDrugs(combinedDrugs);
+        setDrugs(mappedDrugs);
+        setTotalCount(medicalCount || 0);
+      } else if (typeFilter === "natural") {
+        // Fetch only natural products
+        let naturalQuery = supabase.from('natural_products')
+          .select('id, persian_name, code, company_name', { count: 'exact' })
+          .eq('is_active', true);
+
+        if (searchTerm.trim() !== "") {
+          naturalQuery = naturalQuery.or(`persian_name.ilike.%${searchTerm}%,code.ilike.%${searchTerm}%,company_name.ilike.%${searchTerm}%`);
+        }
+
+        const { data: naturalData, error: naturalError, count: naturalCount } = await naturalQuery
+          .range(startIndex, endIndex);
+
+        if (naturalError) throw naturalError;
+
+        const mappedDrugs = naturalData?.map((drug: any) => ({
+          id: drug.id,
+          name: drug.persian_name,
+          irc: drug.code,
+          package_count: null,
+          company_name: drug.company_name,
+          type: 'natural' as const
+        })) || [];
+
+        setDrugs(mappedDrugs);
+        setTotalCount(naturalCount || 0);
+      }
     } catch (error) {
       console.error('Error fetching drugs:', error);
-      toast.error('خطا در بارگذاری فهرست داروها');
+      toast.error('خطا در دریافت داروها');
+      setDrugs([]);
+      setTotalCount(0);
     } finally {
       setLoading(false);
     }
@@ -419,7 +442,7 @@ const DrugList: React.FC = () => {
             </div>
           </div>
           
-          {currentDrugs.length === 0 ? (
+          {drugs.length === 0 ? (
             <div className="text-center py-8">
               <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
               <p className="text-muted-foreground">
@@ -428,7 +451,7 @@ const DrugList: React.FC = () => {
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {currentDrugs.map((drug) => (
+              {drugs.map((drug) => (
                 <Card key={drug.id} className="hover:shadow-md transition-shadow border-border/60 rounded-xl overflow-hidden">
                   <CardContent className="p-4 space-y-4">
                     <div className="space-y-2">
@@ -600,7 +623,7 @@ const DrugList: React.FC = () => {
 
           {/* Results summary */}
           <div className="text-center text-sm text-muted-foreground mt-4">
-            نمایش {startIndex + 1} تا {Math.min(endIndex, filteredDrugs.length)} از {filteredDrugs.length} نتیجه
+            صفحه {currentPage} از {totalPages} - مجموع {totalCount} نتیجه
           </div>
         </CardContent>
       </Card>
