@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { User } from '@supabase/supabase-js';
-import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Upload, Receipt, CheckCircle, Clock, AlertCircle, XCircle, Edit } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Upload, Receipt, CheckCircle, Clock, AlertCircle, XCircle, Edit, FileText, Building2, LogOut, Calculator, BarChart3, History } from 'lucide-react';
+import { toast } from "sonner";
+import { ThemeToggle } from '@/components/ui/theme-toggle';
+import MobileBottomNav from './MobileBottomNav';
+import MobileHeader from './MobileHeader';
 
 interface Order {
   id: string;
@@ -19,6 +22,7 @@ interface Order {
   payment_proof_url?: string;
   payment_date?: string;
   payment_rejection_reason?: string;
+  invoice_amount?: number;
   pharmacy: {
     name: string;
   };
@@ -31,63 +35,118 @@ interface PharmacyAccountantDashboardProps {
 
 const PharmacyAccountantDashboard: React.FC<PharmacyAccountantDashboardProps> = ({ user, onAuthChange }) => {
   const [orders, setOrders] = useState<Order[]>([]);
+  const [paymentHistory, setPaymentHistory] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploadingOrderId, setUploadingOrderId] = useState<string | null>(null);
-  const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState<'payments' | 'history' | 'reports'>('payments');
 
   useEffect(() => {
-    fetchOrders();
+    const fetchData = async () => {
+      await Promise.all([
+        fetchOrders(),
+        fetchPaymentHistory()
+      ]);
+      setLoading(false);
+    };
+    
+    fetchData();
   }, []);
+
+  const handleSignOut = async () => {
+    try {
+      await supabase.auth.signOut();
+      onAuthChange(null);
+      toast.success('با موفقیت از سیستم خارج شدید');
+    } catch (error: any) {
+      toast.error('خطا در خروج از سیستم');
+    }
+  };
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab as any);
+  };
 
   const fetchOrders = async () => {
     try {
-      const { data, error } = await supabase
-        .from('orders')
-        .select(`
-          *,
-          pharmacies!inner(name)
-        `)
-        .in('workflow_status', ['invoice_issued', 'payment_rejected'])
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      // Filter orders for this user's pharmacy through user_roles
-      const { data: userRole } = await supabase
+      // Get user's pharmacy first
+      const { data: userRole, error: roleError } = await supabase
         .from('user_roles')
         .select('pharmacy_id')
         .eq('user_id', user.id)
         .eq('role', 'pharmacy_accountant')
-        .single();
+        .maybeSingle();
 
-      const filteredOrders = (data || []).filter(order => 
-        order.pharmacy_id === userRole?.pharmacy_id
-      );
+      if (roleError) throw roleError;
+      if (!userRole) return;
 
-      const ordersWithPharmacy = filteredOrders.map(order => ({
+      const { data, error } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          pharmacies!inner(
+            id,
+            name
+          )
+        `)
+        .in('workflow_status', ['invoice_issued', 'payment_rejected'])
+        .eq('pharmacies.id', userRole.pharmacy_id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setOrders(data?.map(order => ({
         ...order,
-        pharmacy: { name: order.pharmacies.name }
-      }));
-      setOrders(ordersWithPharmacy);
+        pharmacy: { name: order.pharmacies?.name || 'نامشخص' }
+      })) || []);
     } catch (error) {
       console.error('Error fetching orders:', error);
-      toast({
-        title: "خطا",
-        description: "خطا در دریافت سفارشات",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
+      toast.error('خطا در بارگذاری سفارشات');
+    }
+  };
+
+  const fetchPaymentHistory = async () => {
+    try {
+      // Get user's pharmacy first
+      const { data: userRole, error: roleError } = await supabase
+        .from('user_roles')
+        .select('pharmacy_id')
+        .eq('user_id', user.id)
+        .eq('role', 'pharmacy_accountant')
+        .maybeSingle();
+
+      if (roleError) throw roleError;
+      if (!userRole) return;
+
+      const { data, error } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          pharmacies!inner(
+            id,
+            name
+          )
+        `)
+        .in('workflow_status', ['payment_uploaded', 'payment_verified', 'completed'])
+        .eq('pharmacies.id', userRole.pharmacy_id)
+        .order('payment_date', { ascending: false });
+
+      if (error) throw error;
+      setPaymentHistory(data?.map(order => ({
+        ...order,
+        pharmacy: { name: order.pharmacies?.name || 'نامشخص' }
+      })) || []);
+    } catch (error) {
+      console.error('Error fetching payment history:', error);
+      toast.error('خطا در بارگذاری تاریخچه پرداخت‌ها');
     }
   };
 
   const handleFileUpload = async (orderId: string, file: File) => {
-    if (!file) return;
-
-    setUploadingOrderId(orderId);
     try {
+      setUploadingOrderId(orderId);
+
       // Upload file to Supabase Storage
       const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}/${orderId}_${Date.now()}.${fileExt}`;
+      const fileName = `${orderId}_${Date.now()}.${fileExt}`;
       
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('payment-proofs')
@@ -100,7 +159,7 @@ const PharmacyAccountantDashboard: React.FC<PharmacyAccountantDashboardProps> = 
         .from('payment-proofs')
         .getPublicUrl(fileName);
 
-      // Update order with payment proof
+      // Update order with payment proof URL and status
       const { error: updateError } = await supabase
         .from('orders')
         .update({
@@ -113,29 +172,24 @@ const PharmacyAccountantDashboard: React.FC<PharmacyAccountantDashboardProps> = 
       if (updateError) throw updateError;
 
       // Create approval record
-      await supabase
+      const { error: approvalError } = await supabase
         .from('order_approvals')
         .insert({
           order_id: orderId,
           user_id: user.id,
           from_status: 'invoice_issued',
           to_status: 'payment_uploaded',
-          notes: 'Payment proof uploaded by pharmacy accountant'
+          notes: 'رسید پرداخت آپلود شد'
         });
 
-      toast({
-        title: "موفق",
-        description: "رسید پرداخت با موفقیت آپلود شد",
-      });
+      if (approvalError) throw approvalError;
 
+      toast.success('رسید پرداخت با موفقیت آپلود شد');
       fetchOrders();
+      fetchPaymentHistory();
     } catch (error) {
       console.error('Error uploading payment proof:', error);
-      toast({
-        title: "خطا",
-        description: "خطا در آپلود رسید پرداخت",
-        variant: "destructive",
-      });
+      toast.error('خطا در آپلود رسید پرداخت');
     } finally {
       setUploadingOrderId(null);
     }
@@ -166,18 +220,11 @@ const PharmacyAccountantDashboard: React.FC<PharmacyAccountantDashboardProps> = 
 
       if (approvalError) throw approvalError;
 
-      toast({
-        title: "موفق",
-        description: "سفارش با موفقیت رد شد",
-      });
+      toast.success('سفارش با موفقیت رد شد');
       fetchOrders();
     } catch (error) {
       console.error('Error rejecting order:', error);
-      toast({
-        title: "خطا",
-        description: "خطا در رد سفارش",
-        variant: "destructive",
-      });
+      toast.error('خطا در رد سفارش');
     }
   };
 
@@ -206,96 +253,102 @@ const PharmacyAccountantDashboard: React.FC<PharmacyAccountantDashboardProps> = 
 
       if (approvalError) throw approvalError;
 
-      toast({
-        title: "موفق",
-        description: "درخواست ویرایش ارسال شد",
-      });
+      toast.success('درخواست ویرایش ارسال شد');
       fetchOrders();
     } catch (error) {
       console.error('Error requesting revision:', error);
-      toast({
-        title: "خطا",
-        description: "خطا در درخواست ویرایش",
-        variant: "destructive",
-      });
+      toast.error('خطا در درخواست ویرایش');
     }
-  };
-
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    onAuthChange(null);
   };
 
   const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'invoice_issued':
-        return <Badge variant="secondary" className="gap-1"><Receipt size={12} />صدور فاکتور</Badge>;
-      case 'payment_uploaded':
-        return <Badge variant="default" className="gap-1"><CheckCircle size={12} />رسید آپلود شده</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
-    }
+    const statusMap = {
+      'invoice_issued': { label: 'فاکتور صادر شده', variant: 'secondary' as const, icon: FileText },
+      'payment_uploaded': { label: 'رسید آپلود شده', variant: 'default' as const, icon: Upload },
+      'payment_rejected': { label: 'پرداخت رد شده', variant: 'destructive' as const, icon: XCircle },
+      'payment_verified': { label: 'پرداخت تایید شده', variant: 'default' as const, icon: CheckCircle },
+      'completed': { label: 'تکمیل شده', variant: 'default' as const, icon: CheckCircle },
+    };
+    
+    const config = statusMap[status as keyof typeof statusMap] || { 
+      label: status, 
+      variant: 'secondary' as const, 
+      icon: FileText 
+    };
+    
+    const Icon = config.icon;
+    
+    return (
+      <Badge variant={config.variant} className="gap-1">
+        <Icon size={12} />
+        {config.label}
+      </Badge>
+    );
+  };
+
+  const formatCurrency = (amount?: number) => {
+    if (!amount) return 'نامشخص';
+    return new Intl.NumberFormat('fa-IR').format(amount) + ' تومان';
   };
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <Calculator className="h-12 w-12 text-primary mx-auto mb-4 animate-pulse" />
           <p className="text-muted-foreground">در حال بارگذاری...</p>
         </div>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-background" dir="rtl">
-      {/* Header */}
-      <div className="bg-card border-b">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">پنل حسابدار داروخانه</h1>
-              <p className="text-muted-foreground">مدیریت پرداخت سفارشات</p>
-            </div>
-            <Button variant="outline" onClick={handleSignOut}>
-              خروج
-            </Button>
-          </div>
-        </div>
-      </div>
+  const PaymentsTab = () => {
+    const pendingPayment = orders.filter(o => o.workflow_status === 'invoice_issued' || o.workflow_status === 'payment_rejected').length;
+    const uploadedReceipts = orders.filter(o => o.workflow_status === 'payment_uploaded').length;
 
-      {/* Main Content */}
-      <div className="container mx-auto px-4 py-6">
-        {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">سفارشات نیازمند پرداخت</CardTitle>
-              <AlertCircle className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{orders.filter(o => o.workflow_status === 'invoice_issued').length}</div>
+    return (
+      <div className="space-y-6">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+          <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/50 dark:to-blue-900/50 border-blue-200 dark:border-blue-800">
+            <CardContent className="flex items-center p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-full bg-blue-500/20">
+                  <AlertCircle className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">{pendingPayment}</p>
+                  <p className="text-sm text-blue-600 dark:text-blue-400">در انتظار پرداخت</p>
+                </div>
+              </div>
             </CardContent>
           </Card>
-          
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">رسیدهای آپلود شده</CardTitle>
-              <CheckCircle className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{orders.filter(o => o.workflow_status === 'payment_uploaded').length}</div>
+
+          <Card className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950/50 dark:to-green-900/50 border-green-200 dark:border-green-800">
+            <CardContent className="flex items-center p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-full bg-green-500/20">
+                  <Upload className="h-6 w-6 text-green-600 dark:text-green-400" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-green-700 dark:text-green-300">{uploadedReceipts}</p>
+                  <p className="text-sm text-green-600 dark:text-green-400">رسید آپلود شده</p>
+                </div>
+              </div>
             </CardContent>
           </Card>
-          
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">کل سفارشات</CardTitle>
-              <Receipt className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{orders.length}</div>
+
+          <Card className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950/50 dark:to-purple-900/50 border-purple-200 dark:border-purple-800">
+            <CardContent className="flex items-center p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-full bg-purple-500/20">
+                  <Receipt className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-purple-700 dark:text-purple-300">{orders.length}</p>
+                  <p className="text-sm text-purple-600 dark:text-purple-400">کل سفارشات</p>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -303,30 +356,38 @@ const PharmacyAccountantDashboard: React.FC<PharmacyAccountantDashboardProps> = 
         {/* Orders List */}
         <Card>
           <CardHeader>
-            <CardTitle>سفارشات نیازمند پرداخت</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <Calculator className="h-5 w-5" />
+              سفارشات نیازمند پرداخت
+            </CardTitle>
             <CardDescription>
-              سفارشاتی که فاکتور آنها صادر شده و نیاز به آپلود رسید پرداخت دارند
+              فاکتورهای صادر شده که نیاز به پرداخت دارند
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               {orders.length === 0 ? (
                 <div className="text-center py-8">
-                  <Receipt className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                  <p className="text-muted-foreground">هیچ سفارشی برای پرداخت وجود ندارد</p>
+                  <Receipt className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <p className="text-muted-foreground">هیچ فاکتوری برای پرداخت وجود ندارد</p>
                 </div>
               ) : (
                 orders.map((order) => (
-                  <div key={order.id} className="border rounded-lg p-4">
-                    <div className="flex justify-between items-start mb-4">
+                  <div key={order.id} className="border rounded-lg p-4 space-y-4">
+                    <div className="flex items-center justify-between">
                       <div>
-                        <h3 className="font-semibold">سفارش #{order.id.slice(0, 8)}</h3>
+                        <h3 className="font-medium">سفارش #{order.id.slice(0, 8)}</h3>
                         <p className="text-sm text-muted-foreground">
-                          تاریخ: {new Date(order.created_at).toLocaleDateString('fa-IR')}
+                          تاریخ ثبت: {new Date(order.created_at).toLocaleDateString('fa-IR')}
                         </p>
                         <p className="text-sm text-muted-foreground">
                           تعداد اقلام: {order.total_items}
                         </p>
+                        {order.invoice_amount && (
+                          <p className="text-sm font-medium text-primary">
+                            مبلغ فاکتور: {formatCurrency(order.invoice_amount)}
+                          </p>
+                        )}
                       </div>
                       {getStatusBadge(order.workflow_status)}
                     </div>
@@ -344,7 +405,7 @@ const PharmacyAccountantDashboard: React.FC<PharmacyAccountantDashboardProps> = 
                       </div>
                     )}
 
-                    {order.workflow_status === 'invoice_issued' && (
+                    {(order.workflow_status === 'invoice_issued' || order.workflow_status === 'payment_rejected') && (
                       <div className="mt-4 space-y-4">
                         <div>
                           <Label htmlFor={`payment-${order.id}`} className="text-sm font-medium">
@@ -423,6 +484,263 @@ const PharmacyAccountantDashboard: React.FC<PharmacyAccountantDashboardProps> = 
           </CardContent>
         </Card>
       </div>
+    );
+  };
+
+  const HistoryTab = () => (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <History className="h-5 w-5" />
+            تاریخچه پرداخت‌ها
+          </CardTitle>
+          <CardDescription>
+            تاریخچه تمام پرداخت‌های انجام شده
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {paymentHistory.length === 0 ? (
+              <div className="text-center py-8">
+                <History className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <p className="text-muted-foreground">هیچ پرداختی ثبت نشده است</p>
+              </div>
+            ) : (
+              paymentHistory.map((order) => (
+                <div key={order.id} className="border rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-medium">سفارش #{order.id.slice(0, 8)}</h3>
+                      <p className="text-sm text-muted-foreground">
+                        تاریخ پرداخت: {order.payment_date ? new Date(order.payment_date).toLocaleDateString('fa-IR') : '-'}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        تعداد اقلام: {order.total_items}
+                      </p>
+                      {order.invoice_amount && (
+                        <p className="text-sm font-medium text-primary">
+                          مبلغ: {formatCurrency(order.invoice_amount)}
+                        </p>
+                      )}
+                    </div>
+                    {getStatusBadge(order.workflow_status)}
+                  </div>
+                  
+                  {order.payment_proof_url && (
+                    <div className="mt-3">
+                      <a 
+                        href={order.payment_proof_url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-sm text-primary hover:underline"
+                      >
+                        مشاهده رسید پرداخت
+                      </a>
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+
+  const ReportsTab = () => {
+    const totalPayments = paymentHistory.reduce((sum, order) => sum + (order.invoice_amount || 0), 0);
+    const thisMonthPayments = paymentHistory.filter(order => {
+      if (!order.payment_date) return false;
+      const paymentDate = new Date(order.payment_date);
+      const now = new Date();
+      return paymentDate.getMonth() === now.getMonth() && paymentDate.getFullYear() === now.getFullYear();
+    });
+    const thisMonthTotal = thisMonthPayments.reduce((sum, order) => sum + (order.invoice_amount || 0), 0);
+
+    return (
+      <div className="space-y-6">
+        {/* Financial Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+          <Card className="bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-950/50 dark:to-emerald-900/50 border-emerald-200 dark:border-emerald-800">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-full bg-emerald-500/20">
+                  <BarChart3 className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">
+                    {formatCurrency(totalPayments)}
+                  </p>
+                  <p className="text-sm text-emerald-600 dark:text-emerald-400">کل پرداخت‌ها</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-950/50 dark:to-orange-900/50 border-orange-200 dark:border-orange-800">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-full bg-orange-500/20">
+                  <Calculator className="h-6 w-6 text-orange-600 dark:text-orange-400" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-orange-700 dark:text-orange-300">
+                    {formatCurrency(thisMonthTotal)}
+                  </p>
+                  <p className="text-sm text-orange-600 dark:text-orange-400">پرداخت‌های این ماه</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5" />
+              گزارشات مالی
+            </CardTitle>
+            <CardDescription>
+              آمار و گزارشات مالی داروخانه
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="text-center p-4 border rounded-lg">
+                  <p className="text-2xl font-bold text-primary">{paymentHistory.length}</p>
+                  <p className="text-sm text-muted-foreground">کل تراکنش‌ها</p>
+                </div>
+                <div className="text-center p-4 border rounded-lg">
+                  <p className="text-2xl font-bold text-primary">{thisMonthPayments.length}</p>
+                  <p className="text-sm text-muted-foreground">تراکنش‌های این ماه</p>
+                </div>
+                <div className="text-center p-4 border rounded-lg">
+                  <p className="text-2xl font-bold text-primary">
+                    {paymentHistory.length > 0 ? formatCurrency(totalPayments / paymentHistory.length) : '۰ تومان'}
+                  </p>
+                  <p className="text-sm text-muted-foreground">میانگین تراکنش</p>
+                </div>
+                <div className="text-center p-4 border rounded-lg">
+                  <p className="text-2xl font-bold text-primary">
+                    {orders.filter(o => o.workflow_status === 'invoice_issued').length}
+                  </p>
+                  <p className="text-sm text-muted-foreground">در انتظار پرداخت</p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30">
+      {/* Mobile Header */}
+      <div className="mobile-only">
+        <MobileHeader 
+          user={user}
+          pharmacy={null}
+          userRole="pharmacy_accountant"
+          onSignOut={handleSignOut}
+        />
+      </div>
+
+      {/* Desktop Header */}
+      <header className="desktop-only border-b border-border/60 bg-card/90 backdrop-blur-lg shadow-soft">
+        <div className="container mx-auto px-6 py-5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="relative p-3 rounded-2xl bg-gradient-to-br from-primary/10 to-secondary/10">
+                <Calculator className="h-7 w-7 text-primary" />
+                <div className="absolute -bottom-1 -right-1 p-1 bg-secondary rounded-full">
+                  <Receipt className="h-3 w-3 text-white" />
+                </div>
+              </div>
+              <div className="text-right">
+                <h1 className="text-2xl font-bold text-gradient">پنل حسابدار داروخانه</h1>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {user.email}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <ThemeToggle />
+              <Button 
+                variant="outline" 
+                onClick={handleSignOut} 
+                className="gap-2 px-6 py-2.5 rounded-xl hover:bg-destructive/10 hover:text-destructive hover:border-destructive/20 transition-all duration-300"
+              >
+                <LogOut className="h-4 w-4" />
+                خروج
+              </Button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <div className="container mx-auto px-4 md:px-6 py-4 md:py-8 pb-20 md:pb-8">
+        {/* Desktop Navigation */}
+        <div className="desktop-only mb-8">
+          <div className="bg-card/60 backdrop-blur-sm rounded-2xl p-2 border border-border/60 shadow-soft">
+            <div className="flex flex-wrap gap-1">
+              <Button
+                variant={activeTab === 'payments' ? 'default' : 'ghost'}
+                onClick={() => setActiveTab('payments')}
+                className={`gap-3 px-6 py-3 rounded-xl transition-all duration-300 ${
+                  activeTab === 'payments' 
+                    ? 'btn-primary shadow-medium' 
+                    : 'hover:bg-muted/60'
+                }`}
+              >
+                <Calculator className="h-5 w-5" />
+                <span className="font-medium">پرداخت‌ها</span>
+              </Button>
+              <Button
+                variant={activeTab === 'history' ? 'default' : 'ghost'}
+                onClick={() => setActiveTab('history')}
+                className={`gap-3 px-6 py-3 rounded-xl transition-all duration-300 ${
+                  activeTab === 'history' 
+                    ? 'btn-primary shadow-medium' 
+                    : 'hover:bg-muted/60'
+                }`}
+              >
+                <History className="h-5 w-5" />
+                <span className="font-medium">تاریخچه</span>
+              </Button>
+              <Button
+                variant={activeTab === 'reports' ? 'default' : 'ghost'}
+                onClick={() => setActiveTab('reports')}
+                className={`gap-3 px-6 py-3 rounded-xl transition-all duration-300 ${
+                  activeTab === 'reports' 
+                    ? 'btn-primary shadow-medium' 
+                    : 'hover:bg-muted/60'
+                }`}
+              >
+                <BarChart3 className="h-5 w-5" />
+                <span className="font-medium">گزارشات</span>
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Content Area */}
+        <div className="animate-in fade-in-50 duration-500 mobile-scroll">
+          {activeTab === 'payments' && <PaymentsTab />}
+          {activeTab === 'history' && <HistoryTab />}
+          {activeTab === 'reports' && <ReportsTab />}
+        </div>
+      </div>
+
+      {/* Mobile Bottom Navigation */}
+      <MobileBottomNav 
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
+        userRole="pharmacy_accountant"
+      />
     </div>
   );
 };

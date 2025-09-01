@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pill, User, ShoppingCart, BarChart3, Building2, Users, UserIcon } from 'lucide-react';
+import { Pill, User, ShoppingCart, BarChart3, Building2, Users, UserIcon, Calculator, History } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface MobileBottomNavProps {
@@ -32,9 +32,22 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
     { id: 'orders', icon: ShoppingCart, label: 'سفارشات' }
   ];
 
+  const pharmacyAccountantTabs = [
+    { id: 'payments', icon: Calculator, label: 'پرداخت‌ها' },
+    { id: 'history', icon: History, label: 'تاریخچه' },
+    { id: 'reports', icon: BarChart3, label: 'گزارشات' }
+  ];
+
+  const barmanManagerTabs = [
+    { id: 'orders', icon: ShoppingCart, label: 'سفارشات' },
+    { id: 'reports', icon: BarChart3, label: 'گزارشات' }
+  ];
+
   const getTabs = () => {
     if (userRole === 'admin') return adminTabs;
     if (userRole === 'pharmacy_manager') return pharmacyManagerTabs;
+    if (userRole === 'pharmacy_accountant') return pharmacyAccountantTabs;
+    if (userRole === 'barman_manager') return barmanManagerTabs;
     return userTabs;
   };
 
