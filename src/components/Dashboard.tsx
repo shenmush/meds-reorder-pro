@@ -7,6 +7,7 @@ import { LogOut, Pill, ShoppingCart, User as UserIcon, BarChart3 } from 'lucide-
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import DrugList from './DrugList';
 import PharmacyProfile from './PharmacyProfile';
+import PharmacyStaffManagement from './PharmacyStaffManagement';
 import AdminAddDrug from './AdminAddDrug';
 import AdminPharmacies from './AdminPharmacies';
 import AdminOrders from './AdminOrders';
@@ -249,7 +250,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
 
       {/* Main Content */}
       <div className="container mx-auto px-4 md:px-6 py-4 md:py-8 pb-20 md:pb-8">
-        {!pharmacy && userRole !== 'admin' ? (
+        {(!pharmacy && userRole !== 'admin' && userRole === 'pharmacy_manager') ? (
           <PharmacyProfile 
             user={user} 
             pharmacy={pharmacy} 
