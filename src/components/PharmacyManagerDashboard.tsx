@@ -10,7 +10,7 @@ import { Loader2, CheckCircle, XCircle, Edit, Eye, LogOut, Pill, ShoppingCart, U
 import { toast } from "sonner";
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import PharmacyDetails from './PharmacyDetails';
-import OrderHistory from './OrderHistory';
+import OrdersManagement from './OrdersManagement';
 import DrugList from './DrugList';
 import MobileBottomNav from './MobileBottomNav';
 import MobileHeader from './MobileHeader';
@@ -54,7 +54,7 @@ const PharmacyManagerDashboard: React.FC<PharmacyManagerDashboardProps> = ({ use
   const [actionNotes, setActionNotes] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<'approve' | 'reject' | 'revision' | null>(null);
-  const [activeTab, setActiveTab] = useState<'orders' | 'pharmacy' | 'history' | 'drugs'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'pharmacy' | 'drugs'>('orders');
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -462,18 +462,6 @@ const PharmacyManagerDashboard: React.FC<PharmacyManagerDashboardProps> = ({ use
                     <span className="font-medium">داروخانه</span>
                   </Button>
                   <Button
-                    variant={activeTab === 'history' ? 'default' : 'ghost'}
-                    onClick={() => setActiveTab('history')}
-                    className={`gap-3 px-6 py-3 rounded-xl transition-all duration-300 ${
-                      activeTab === 'history' 
-                        ? 'btn-primary shadow-medium' 
-                        : 'hover:bg-muted/60'
-                    }`}
-                  >
-                    <UserIcon className="h-5 w-5" />
-                    <span className="font-medium">تاریخچه سفارشات</span>
-                  </Button>
-                  <Button
                     variant={activeTab === 'drugs' ? 'default' : 'ghost'}
                     onClick={() => setActiveTab('drugs')}
                     className={`gap-3 px-6 py-3 rounded-xl transition-all duration-300 ${
@@ -491,7 +479,13 @@ const PharmacyManagerDashboard: React.FC<PharmacyManagerDashboardProps> = ({ use
 
             {/* Content Area */}
             <div className="animate-in fade-in-50 duration-500 mobile-scroll">
-              {activeTab === 'orders' && <OrdersTab />}
+              {activeTab === 'orders' && (
+                <OrdersManagement 
+                  pharmacyId={pharmacy.id}
+                  onOrderAction={handleOrderAction}
+                  showActions={true}
+                />
+              )}
               {activeTab === 'pharmacy' && (
                 <PharmacyDetails 
                   user={user} 
@@ -499,9 +493,6 @@ const PharmacyManagerDashboard: React.FC<PharmacyManagerDashboardProps> = ({ use
                   onPharmacyUpdate={setPharmacy}
                   userRole="pharmacy_manager"
                 />
-              )}
-              {activeTab === 'history' && pharmacy && (
-                <OrderHistory pharmacyId={pharmacy.id} />
               )}
               {activeTab === 'drugs' && <DrugList />}
             </div>

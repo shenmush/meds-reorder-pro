@@ -23,7 +23,6 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   const pharmacyManagerTabs = [
     { id: 'orders', icon: ShoppingCart, label: 'سفارشات' },
     { id: 'pharmacy', icon: Building2, label: 'داروخانه' },
-    { id: 'history', icon: UserIcon, label: 'تاریخچه' },
     { id: 'drugs', icon: Pill, label: 'داروها' }
   ];
 
