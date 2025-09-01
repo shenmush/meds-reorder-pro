@@ -4,13 +4,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Calendar, Package, ShoppingCart, TrendingUp, Search, Clock, CheckCircle, XCircle, ChevronDown, ChevronUp, Building2, Filter } from 'lucide-react';
+import { Calendar, Package, ShoppingCart, TrendingUp, Search, Clock, CheckCircle, XCircle, ChevronDown, ChevronUp, Building2, Filter, Pill } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AdminMobileFilters from './AdminMobileFilters';
+import AdminDrugOrders from './AdminDrugOrders';
 
 interface Order {
   id: string;
@@ -48,6 +50,7 @@ const AdminOrders = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState('pharmacy');
   const { toast } = useToast();
   const isMobile = useIsMobile();
 
@@ -302,6 +305,21 @@ const AdminOrders = () => {
           </Badge>
         </div>
       </div>
+
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="pharmacy" className="flex items-center gap-2">
+            <Building2 className="h-4 w-4" />
+            بر اساس داروخانه
+          </TabsTrigger>
+          <TabsTrigger value="drug" className="flex items-center gap-2">
+            <Pill className="h-4 w-4" />
+            بر اساس دارو
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="pharmacy" className="space-y-6 mt-6">
 
       {/* Filters */}
       {isMobile ? (
@@ -603,6 +621,12 @@ const AdminOrders = () => {
           </p>
         </div>
       )}
+        </TabsContent>
+
+        <TabsContent value="drug" className="space-y-6 mt-6">
+          <AdminDrugOrders dateFilter={dateFilter} statusFilter={statusFilter} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
