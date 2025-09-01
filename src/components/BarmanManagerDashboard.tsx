@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,8 +6,15 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Loader2, CheckCircle, XCircle, Edit, Eye, RotateCcw } from "lucide-react";
+import { Loader2, CheckCircle, XCircle, Edit, Eye, RotateCcw, LogOut, Pill, ShoppingCart, UserIcon, BarChart3 } from "lucide-react";
 import { toast } from "sonner";
+import { ThemeToggle } from '@/components/ui/theme-toggle';
+import AdminPharmacies from './AdminPharmacies';
+import AdminOrders from './AdminOrders';
+import AdminReports from './AdminReports';
+import AdminAddDrug from './AdminAddDrug';
+import MobileBottomNav from './MobileBottomNav';
+import MobileHeader from './MobileHeader';
 
 interface Order {
   id: string;
@@ -33,10 +40,25 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
   const [actionNotes, setActionNotes] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<'approve' | 'reject' | 'revision_bs' | 'revision_pm' | null>(null);
+  const [activeTab, setActiveTab] = useState<'orders' | 'pharmacies' | 'reports' | 'upload'>('orders');
 
   useEffect(() => {
     fetchOrders();
   }, []);
+
+  const handleSignOut = async () => {
+    try {
+      await supabase.auth.signOut();
+      onAuthChange(null);
+      toast.success('با موفقیت از سیستم خارج شدید');
+    } catch (error: any) {
+      toast.error('خطا در خروج از سیستم');
+    }
+  };
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab as any);
+  };
 
   const fetchOrders = async () => {
     try {
@@ -130,21 +152,17 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin" />
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Pill className="h-12 w-12 text-primary mx-auto mb-4 animate-pulse" />
+          <p className="text-muted-foreground">در حال بارگذاری...</p>
+        </div>
       </div>
     );
   }
 
-  return (
+  const OrdersTab = () => (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">پنل مدیر بارمان</h1>
-          <p className="text-muted-foreground">تایید نهایی سفارشات</p>
-        </div>
-      </div>
-
       <div className="grid gap-4">
         {orders.length === 0 ? (
           <Card>
@@ -217,7 +235,127 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
           ))
         )}
       </div>
+    </div>
+  );
 
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30">
+      {/* Mobile Header */}
+      <div className="mobile-only">
+        <MobileHeader 
+          user={user}
+          pharmacy={null}
+          userRole="barman_manager"
+          onSignOut={handleSignOut}
+        />
+      </div>
+
+      {/* Desktop Header */}
+      <header className="desktop-only border-b border-border/60 bg-card/90 backdrop-blur-lg shadow-soft">
+        <div className="container mx-auto px-6 py-5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="relative p-3 rounded-2xl bg-gradient-to-br from-primary/10 to-secondary/10">
+                <Pill className="h-7 w-7 text-primary" />
+                <div className="absolute -bottom-1 -right-1 p-1 bg-secondary rounded-full">
+                  <ShoppingCart className="h-3 w-3 text-white" />
+                </div>
+              </div>
+              <div className="text-right">
+                <h1 className="text-2xl font-bold text-gradient">پنل مدیریت بارمان</h1>
+                <p className="text-sm text-muted-foreground mt-1">مدیر: {user.email}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <ThemeToggle />
+              <Button 
+                variant="outline" 
+                onClick={handleSignOut} 
+                className="gap-2 px-6 py-2.5 rounded-xl hover:bg-destructive/10 hover:text-destructive hover:border-destructive/20 transition-all duration-300"
+              >
+                <LogOut className="h-4 w-4" />
+                خروج
+              </Button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <div className="container mx-auto px-4 md:px-6 py-4 md:py-8 pb-20 md:pb-8">
+        {/* Desktop Navigation */}
+        <div className="desktop-only mb-8">
+          <div className="bg-card/60 backdrop-blur-sm rounded-2xl p-2 border border-border/60 shadow-soft">
+            <div className="flex flex-wrap gap-1">
+              <Button
+                variant={activeTab === 'orders' ? 'default' : 'ghost'}
+                onClick={() => setActiveTab('orders')}
+                className={`gap-3 px-6 py-3 rounded-xl transition-all duration-300 ${
+                  activeTab === 'orders' 
+                    ? 'btn-primary shadow-medium' 
+                    : 'hover:bg-muted/60'
+                }`}
+              >
+                <ShoppingCart className="h-5 w-5" />
+                <span className="font-medium">سفارشات</span>
+              </Button>
+              <Button
+                variant={activeTab === 'pharmacies' ? 'default' : 'ghost'}
+                onClick={() => setActiveTab('pharmacies')}
+                className={`gap-3 px-6 py-3 rounded-xl transition-all duration-300 ${
+                  activeTab === 'pharmacies' 
+                    ? 'btn-primary shadow-medium' 
+                    : 'hover:bg-muted/60'
+                }`}
+              >
+                <UserIcon className="h-5 w-5" />
+                <span className="font-medium">داروخانه‌ها</span>
+              </Button>
+              <Button
+                variant={activeTab === 'reports' ? 'default' : 'ghost'}
+                onClick={() => setActiveTab('reports')}
+                className={`gap-3 px-6 py-3 rounded-xl transition-all duration-300 ${
+                  activeTab === 'reports' 
+                    ? 'btn-primary shadow-medium' 
+                    : 'hover:bg-muted/60'
+                }`}
+              >
+                <BarChart3 className="h-5 w-5" />
+                <span className="font-medium">گزارشات</span>
+              </Button>
+              <Button
+                variant={activeTab === 'upload' ? 'default' : 'ghost'}
+                onClick={() => setActiveTab('upload')}
+                className={`gap-3 px-6 py-3 rounded-xl transition-all duration-300 ${
+                  activeTab === 'upload' 
+                    ? 'btn-primary shadow-medium' 
+                    : 'hover:bg-muted/60'
+                }`}
+              >
+                <Pill className="h-5 w-5" />
+                <span className="font-medium">افزودن دارو</span>
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Content Area */}
+        <div className="animate-in fade-in-50 duration-500 mobile-scroll">
+          {activeTab === 'orders' && <OrdersTab />}
+          {activeTab === 'pharmacies' && <AdminPharmacies />}
+          {activeTab === 'reports' && <AdminReports />}
+          {activeTab === 'upload' && <AdminAddDrug />}
+        </div>
+      </div>
+
+      {/* Mobile Bottom Navigation */}
+      <MobileBottomNav 
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
+        userRole="barman_manager"
+      />
+
+      {/* Order Action Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent>
           <DialogHeader>
