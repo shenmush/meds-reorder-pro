@@ -50,7 +50,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
     // Set default tab based on user role
     if (userRole === 'admin') {
       setActiveTab('pharmacies');
-    } else if (['pharmacy_manager', 'pharmacy_staff', 'barman_staff', 'barman_manager', 'barman_accountant', 'pharmacy_accountant'].includes(userRole || '')) {
+    } else if (['pharmacy_manager', 'barman_staff', 'barman_manager', 'barman_accountant', 'pharmacy_accountant'].includes(userRole || '')) {
       // These role-specific users get their own dashboard, no tabs needed
       return;
     } else {
@@ -144,7 +144,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
   }
 
   if (userRole === 'pharmacy_staff') {
-    return <PharmacyStaffDashboard user={user} onAuthChange={onAuthChange} />;
+    // Pharmacy staff uses the main dashboard with limited tabs
+    setActiveTab('drugs');
   }
 
   if (userRole === 'barman_staff') {
