@@ -23,7 +23,6 @@ interface Order {
   updated_at: string;
   pharmacies: {
     name: string;
-    user_id: string;
   };
 }
 
@@ -68,7 +67,7 @@ const AdminOrders = () => {
         .from('orders')
         .select(`
           *,
-          pharmacies!orders_pharmacy_id_fkey(name, user_id),
+          pharmacies(name),
           order_items(
             id,
             quantity,

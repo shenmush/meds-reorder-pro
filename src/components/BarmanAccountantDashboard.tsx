@@ -47,7 +47,7 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
         .from('orders')
         .select(`
           *,
-          pharmacies!inner(name, user_id)
+          pharmacies!inner(name)
         `)
         .eq('workflow_status', 'payment_uploaded')
         .order('created_at', { ascending: false });

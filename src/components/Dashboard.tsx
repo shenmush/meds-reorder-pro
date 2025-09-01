@@ -80,17 +80,25 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
 
   const fetchPharmacyProfile = async () => {
     try {
-      const { data, error } = await supabase
-        .from('pharmacies')
-        .select('*')
+      // Get user's pharmacy through user_roles table
+      const { data: userRole, error: roleError } = await supabase
+        .from('user_roles')
+        .select(`
+          pharmacy_id,
+          pharmacies(*)
+        `)
         .eq('user_id', user.id)
+        .in('role', ['pharmacy_staff', 'pharmacy_accountant', 'pharmacy_manager'])
         .maybeSingle();
 
-      if (error) {
-        console.error('Error fetching pharmacy profile:', error);
+      if (roleError) {
+        console.error('Error fetching user role:', roleError);
       }
       
-      setPharmacy(data);
+      // Set pharmacy data if user has a pharmacy role
+      if (userRole?.pharmacies) {
+        setPharmacy(userRole.pharmacies as any);
+      }
     } catch (error: any) {
       console.error('Error fetching pharmacy profile:', error);
     } finally {

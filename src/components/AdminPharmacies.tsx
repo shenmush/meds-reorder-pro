@@ -13,7 +13,7 @@ interface Pharmacy {
   phone?: string;
   license_number?: string;
   created_at: string;
-  user_id: string;
+  updated_at: string;
 }
 
 const AdminPharmacies = () => {
@@ -99,7 +99,7 @@ const AdminPharmacies = () => {
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="text-sm text-muted-foreground">
-                شناسه: {pharmacy.user_id.slice(0, 8)}...
+                شناسه: {pharmacy.id.slice(0, 8)}...
               </div>
 
               {pharmacy.address && (

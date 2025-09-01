@@ -44,14 +44,25 @@ const PharmacyAccountantDashboard: React.FC<PharmacyAccountantDashboardProps> = 
         .from('orders')
         .select(`
           *,
-          pharmacies!inner(name, user_id)
+          pharmacies!inner(name)
         `)
-        .eq('pharmacies.user_id', user.id)
         .eq('workflow_status', 'invoice_issued')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      const ordersWithPharmacy = (data || []).map(order => ({
+      // Filter orders for this user's pharmacy through user_roles
+      const { data: userRole } = await supabase
+        .from('user_roles')
+        .select('pharmacy_id')
+        .eq('user_id', user.id)
+        .eq('role', 'pharmacy_accountant')
+        .single();
+
+      const filteredOrders = (data || []).filter(order => 
+        order.pharmacy_id === userRole?.pharmacy_id
+      );
+
+      const ordersWithPharmacy = filteredOrders.map(order => ({
         ...order,
         pharmacy: { name: order.pharmacies.name }
       }));
