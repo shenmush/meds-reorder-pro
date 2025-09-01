@@ -41,14 +41,14 @@ const PharmacyStaffManagement: React.FC<PharmacyStaffManagementProps> = ({
     try {
       setLoading(true);
       
-      // Get staff roles for this specific pharmacy
+      // Get staff roles for this specific pharmacy  
       const { data: staffRoles, error: rolesError } = await supabase
         .from('user_roles')
         .select(`
           id,
           user_id,
           role,
-          profiles!inner(display_name)
+          profiles(display_name)
         `)
         .eq('pharmacy_id', pharmacy.id)
         .in('role', ['pharmacy_staff', 'pharmacy_accountant', 'pharmacy_manager']);
