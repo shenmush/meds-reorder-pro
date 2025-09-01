@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pill, User, ShoppingCart, BarChart3 } from 'lucide-react';
+import { Pill, User, ShoppingCart, BarChart3, Building2, Users, UserIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface MobileBottomNavProps {
@@ -20,13 +20,27 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
     { id: 'upload', icon: Pill, label: 'افزودن' }
   ];
 
+  const pharmacyManagerTabs = [
+    { id: 'orders', icon: ShoppingCart, label: 'سفارشات' },
+    { id: 'profile', icon: Building2, label: 'پروفایل' },
+    { id: 'staff', icon: Users, label: 'کارمندان' },
+    { id: 'history', icon: UserIcon, label: 'تاریخچه' },
+    { id: 'drugs', icon: Pill, label: 'داروها' }
+  ];
+
   const userTabs = [
     { id: 'drugs', icon: Pill, label: 'داروها' },
     { id: 'profile', icon: User, label: 'پروفایل' },
     { id: 'orders', icon: ShoppingCart, label: 'سفارشات' }
   ];
 
-  const tabs = userRole === 'admin' ? adminTabs : userTabs;
+  const getTabs = () => {
+    if (userRole === 'admin') return adminTabs;
+    if (userRole === 'pharmacy_manager') return pharmacyManagerTabs;
+    return userTabs;
+  };
+
+  const tabs = getTabs();
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 bg-card/95 backdrop-blur-lg border-t border-border/50 md:hidden">
