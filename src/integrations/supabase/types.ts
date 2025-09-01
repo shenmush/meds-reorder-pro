@@ -230,6 +230,8 @@ export type Database = {
           created_at: string
           id: string
           notes: string | null
+          payment_date: string | null
+          payment_proof_url: string | null
           pharmacy_id: string
           status: string
           total_items: number
@@ -240,6 +242,8 @@ export type Database = {
           created_at?: string
           id?: string
           notes?: string | null
+          payment_date?: string | null
+          payment_proof_url?: string | null
           pharmacy_id: string
           status?: string
           total_items?: number
@@ -250,6 +254,8 @@ export type Database = {
           created_at?: string
           id?: string
           notes?: string | null
+          payment_date?: string | null
+          payment_proof_url?: string | null
           pharmacy_id?: string
           status?: string
           total_items?: number
