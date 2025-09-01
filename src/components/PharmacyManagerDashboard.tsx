@@ -48,8 +48,13 @@ const PharmacyManagerDashboard: React.FC<PharmacyManagerDashboardProps> = ({ use
   const [activeTab, setActiveTab] = useState<'orders' | 'profile' | 'staff' | 'history'>('orders');
 
   useEffect(() => {
-    fetchOrders();
-    fetchPharmacyProfile();
+    const initializeDashboard = async () => {
+      await fetchPharmacyProfile();
+      await fetchOrders();
+      setLoading(false);
+    };
+    
+    initializeDashboard();
   }, []);
 
   const handleSignOut = async () => {
@@ -94,7 +99,6 @@ const PharmacyManagerDashboard: React.FC<PharmacyManagerDashboardProps> = ({ use
 
   const fetchOrders = async () => {
     try {
-      setLoading(true);
       const { data, error } = await supabase
         .from('orders')
         .select('*')
@@ -106,8 +110,6 @@ const PharmacyManagerDashboard: React.FC<PharmacyManagerDashboardProps> = ({ use
     } catch (error) {
       console.error('Error fetching orders:', error);
       toast.error('خطا در بارگذاری سفارشات');
-    } finally {
-      setLoading(false);
     }
   };
 
