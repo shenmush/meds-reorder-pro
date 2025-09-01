@@ -40,7 +40,7 @@ const PharmacyStaffManagement: React.FC<PharmacyStaffManagementProps> = ({
     try {
       setLoading(true);
       
-      // Get all users who have pharmacy roles
+      // Get staff roles for this specific pharmacy
       const { data: staffRoles, error: rolesError } = await supabase
         .from('user_roles')
         .select(`
@@ -49,20 +49,18 @@ const PharmacyStaffManagement: React.FC<PharmacyStaffManagementProps> = ({
           role,
           profiles!inner(display_name)
         `)
+        .eq('pharmacy_id', pharmacy.id)
         .in('role', ['pharmacy_staff', 'pharmacy_accountant', 'pharmacy_manager']);
 
       if (rolesError) throw rolesError;
 
-      // Get user emails from auth.users (this requires admin access or RLS adjustment)
-      const userIds = staffRoles?.map(role => role.user_id) || [];
-      
-      // For now, we'll just show the roles without emails since we can't access auth.users
+      // Transform data to match our interface
       const staffData: PharmacyStaff[] = staffRoles?.map(role => ({
         id: role.id,
         user_id: role.user_id,
         role: role.role,
         display_name: (role.profiles as any)?.display_name || 'Unknown User',
-        email: 'Email not available' // We'd need admin access to get emails
+        email: 'Email not available' // We'd need admin access to get emails from auth.users
       })) || [];
 
       setStaff(staffData);

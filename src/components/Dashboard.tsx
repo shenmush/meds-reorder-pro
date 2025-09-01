@@ -215,146 +215,137 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
 
       {/* Main Content */}
       <div className="container mx-auto px-4 md:px-6 py-4 md:py-8 pb-20 md:pb-8">
-        {!pharmacy && userRole !== 'admin' ? (
-          <PharmacyProfile 
-            user={user} 
-            pharmacy={pharmacy} 
-            onPharmacyUpdate={setPharmacy}
-            userRole={userRole}
-          />
-        ) : (
-          <>
-            {/* Desktop Navigation */}
-            <div className="desktop-only mb-8">
-              <div className="bg-card/60 backdrop-blur-sm rounded-2xl p-2 border border-border/60 shadow-soft">
-                <div className="flex flex-wrap gap-1">
-                  {userRole === 'admin' ? (
-                    // Admin Navigation
-                    <>
-                      <Button
-                        variant={activeTab === 'pharmacies' ? 'default' : 'ghost'}
-                        onClick={() => setActiveTab('pharmacies')}
-                        className={`gap-3 px-6 py-3 rounded-xl transition-all duration-300 ${
-                          activeTab === 'pharmacies' 
-                            ? 'btn-primary shadow-medium' 
-                            : 'hover:bg-muted/60'
-                        }`}
-                      >
-                        <UserIcon className="h-5 w-5" />
-                        <span className="font-medium">داروخانه‌ها</span>
-                      </Button>
-                      <Button
-                        variant={activeTab === 'orders' ? 'default' : 'ghost'}
-                        onClick={() => setActiveTab('orders')}
-                        className={`gap-3 px-6 py-3 rounded-xl transition-all duration-300 ${
-                          activeTab === 'orders' 
-                            ? 'btn-primary shadow-medium' 
-                            : 'hover:bg-muted/60'
-                        }`}
-                      >
-                        <ShoppingCart className="h-5 w-5" />
-                        <span className="font-medium">سفارشات</span>
-                      </Button>
-                      <Button
-                        variant={activeTab === 'reports' ? 'default' : 'ghost'}
-                        onClick={() => setActiveTab('reports')}
-                        className={`gap-3 px-6 py-3 rounded-xl transition-all duration-300 ${
-                          activeTab === 'reports' 
-                            ? 'btn-primary shadow-medium' 
-                            : 'hover:bg-muted/60'
-                        }`}
-                      >
-                        <BarChart3 className="h-5 w-5" />
-                        <span className="font-medium">گزارشات</span>
-                      </Button>
-                      <Button
-                        variant={activeTab === 'upload' ? 'default' : 'ghost'}
-                        onClick={() => setActiveTab('upload')}
-                        className={`gap-3 px-6 py-3 rounded-xl transition-all duration-300 ${
-                          activeTab === 'upload' 
-                            ? 'btn-primary shadow-medium' 
-                            : 'hover:bg-muted/60'
-                        }`}
-                      >
-                        <Pill className="h-5 w-5" />
-                        <span className="font-medium">افزودن دارو</span>
-                      </Button>
-                    </>
-                  ) : (
-                    // Regular User Navigation
-                    <>
-                      <Button
-                        variant={activeTab === 'drugs' ? 'default' : 'ghost'}
-                        onClick={() => setActiveTab('drugs')}
-                        className={`gap-3 px-6 py-3 rounded-xl transition-all duration-300 ${
-                          activeTab === 'drugs' 
-                            ? 'btn-primary shadow-medium' 
-                            : 'hover:bg-muted/60'
-                        }`}
-                      >
-                        <Pill className="h-5 w-5" />
-                        <span className="font-medium">فهرست داروها</span>
-                      </Button>
-                      <Button
-                        variant={activeTab === 'profile' ? 'default' : 'ghost'}
-                        onClick={() => setActiveTab('profile')}
-                        className={`gap-3 px-6 py-3 rounded-xl transition-all duration-300 ${
-                          activeTab === 'profile' 
-                            ? 'btn-primary shadow-medium' 
-                            : 'hover:bg-muted/60'
-                        }`}
-                      >
-                        <UserIcon className="h-5 w-5" />
-                        <span className="font-medium">مشخصات داروخانه</span>
-                      </Button>
-                      <Button
-                        variant={activeTab === 'orders' ? 'default' : 'ghost'}
-                        onClick={() => setActiveTab('orders')}
-                        className={`gap-3 px-6 py-3 rounded-xl transition-all duration-300 ${
-                          activeTab === 'orders' 
-                            ? 'btn-primary shadow-medium' 
-                            : 'hover:bg-muted/60'
-                        }`}
-                      >
-                        <ShoppingCart className="h-5 w-5" />
-                        <span className="font-medium">سفارشات من</span>
-                      </Button>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Content Area */}
-            <div className="animate-in fade-in-50 duration-500 mobile-scroll">
+        {/* Desktop Navigation */}
+        <div className="desktop-only mb-8">
+          <div className="bg-card/60 backdrop-blur-sm rounded-2xl p-2 border border-border/60 shadow-soft">
+            <div className="flex flex-wrap gap-1">
               {userRole === 'admin' ? (
-                // Admin Content
+                // Admin Navigation
                 <>
-                  {activeTab === 'pharmacies' && <AdminPharmacies />}
-                  {activeTab === 'orders' && <AdminOrders />}
-                  {activeTab === 'reports' && <AdminReports />}
-                  {activeTab === 'upload' && <AdminAddDrug />}
+                  <Button
+                    variant={activeTab === 'pharmacies' ? 'default' : 'ghost'}
+                    onClick={() => setActiveTab('pharmacies')}
+                    className={`gap-3 px-6 py-3 rounded-xl transition-all duration-300 ${
+                      activeTab === 'pharmacies' 
+                        ? 'btn-primary shadow-medium' 
+                        : 'hover:bg-muted/60'
+                    }`}
+                  >
+                    <UserIcon className="h-5 w-5" />
+                    <span className="font-medium">داروخانه‌ها</span>
+                  </Button>
+                  <Button
+                    variant={activeTab === 'orders' ? 'default' : 'ghost'}
+                    onClick={() => setActiveTab('orders')}
+                    className={`gap-3 px-6 py-3 rounded-xl transition-all duration-300 ${
+                      activeTab === 'orders' 
+                        ? 'btn-primary shadow-medium' 
+                        : 'hover:bg-muted/60'
+                    }`}
+                  >
+                    <ShoppingCart className="h-5 w-5" />
+                    <span className="font-medium">سفارشات</span>
+                  </Button>
+                  <Button
+                    variant={activeTab === 'reports' ? 'default' : 'ghost'}
+                    onClick={() => setActiveTab('reports')}
+                    className={`gap-3 px-6 py-3 rounded-xl transition-all duration-300 ${
+                      activeTab === 'reports' 
+                        ? 'btn-primary shadow-medium' 
+                        : 'hover:bg-muted/60'
+                    }`}
+                  >
+                    <BarChart3 className="h-5 w-5" />
+                    <span className="font-medium">گزارشات</span>
+                  </Button>
+                  <Button
+                    variant={activeTab === 'upload' ? 'default' : 'ghost'}
+                    onClick={() => setActiveTab('upload')}
+                    className={`gap-3 px-6 py-3 rounded-xl transition-all duration-300 ${
+                      activeTab === 'upload' 
+                        ? 'btn-primary shadow-medium' 
+                        : 'hover:bg-muted/60'
+                    }`}
+                  >
+                    <Pill className="h-5 w-5" />
+                    <span className="font-medium">افزودن دارو</span>
+                  </Button>
                 </>
               ) : (
-                // Regular User Content
+                // Regular User Navigation - Remove profile tab for pharmacy_staff
                 <>
-                  {activeTab === 'drugs' && <DrugList pharmacy={pharmacy} />}
-                  {activeTab === 'profile' && (
-                    <PharmacyProfile 
-                      user={user} 
-                      pharmacy={pharmacy} 
-                      onPharmacyUpdate={setPharmacy}
-                      userRole={userRole}
-                    />
+                  <Button
+                    variant={activeTab === 'drugs' ? 'default' : 'ghost'}
+                    onClick={() => setActiveTab('drugs')}
+                    className={`gap-3 px-6 py-3 rounded-xl transition-all duration-300 ${
+                      activeTab === 'drugs' 
+                        ? 'btn-primary shadow-medium' 
+                        : 'hover:bg-muted/60'
+                    }`}
+                  >
+                    <Pill className="h-5 w-5" />
+                    <span className="font-medium">فهرست داروها</span>
+                  </Button>
+                  {userRole !== 'pharmacy_staff' && userRole !== 'pharmacy_accountant' && (
+                    <Button
+                      variant={activeTab === 'profile' ? 'default' : 'ghost'}
+                      onClick={() => setActiveTab('profile')}
+                      className={`gap-3 px-6 py-3 rounded-xl transition-all duration-300 ${
+                        activeTab === 'profile' 
+                          ? 'btn-primary shadow-medium' 
+                          : 'hover:bg-muted/60'
+                      }`}
+                    >
+                      <UserIcon className="h-5 w-5" />
+                      <span className="font-medium">مشخصات داروخانه</span>
+                    </Button>
                   )}
-                  {activeTab === 'orders' && pharmacy && (
-                    <OrderHistory pharmacyId={pharmacy.id} />
-                  )}
+                  <Button
+                    variant={activeTab === 'orders' ? 'default' : 'ghost'}
+                    onClick={() => setActiveTab('orders')}
+                    className={`gap-3 px-6 py-3 rounded-xl transition-all duration-300 ${
+                      activeTab === 'orders' 
+                        ? 'btn-primary shadow-medium' 
+                        : 'hover:bg-muted/60'
+                    }`}
+                  >
+                    <ShoppingCart className="h-5 w-5" />
+                    <span className="font-medium">سفارشات من</span>
+                  </Button>
                 </>
               )}
             </div>
-          </>
-        )}
+          </div>
+        </div>
+
+        {/* Content Area */}
+        <div className="animate-in fade-in-50 duration-500 mobile-scroll">
+          {userRole === 'admin' ? (
+            // Admin Content
+            <>
+              {activeTab === 'pharmacies' && <AdminPharmacies />}
+              {activeTab === 'orders' && <AdminOrders />}
+              {activeTab === 'reports' && <AdminReports />}
+              {activeTab === 'upload' && <AdminAddDrug />}
+            </>
+          ) : (
+            // Regular User Content
+            <>
+              {activeTab === 'drugs' && <DrugList pharmacy={pharmacy} />}
+              {activeTab === 'profile' && userRole !== 'pharmacy_staff' && userRole !== 'pharmacy_accountant' && (
+                <PharmacyProfile 
+                  user={user} 
+                  pharmacy={pharmacy} 
+                  onPharmacyUpdate={setPharmacy}
+                  userRole={userRole}
+                />
+              )}
+              {activeTab === 'orders' && pharmacy && (
+                <OrderHistory pharmacyId={pharmacy.id} />
+              )}
+            </>
+          )}
+        </div>
       </div>
 
       {/* Mobile Bottom Navigation */}
