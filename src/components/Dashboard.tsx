@@ -339,7 +339,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
           ) : (
             // Regular User Content
             <>
-              {activeTab === 'drugs' && <DrugList pharmacy={pharmacy} />}
+              {activeTab === 'drugs' && <DrugList />}
               {activeTab === 'profile' && userRole !== 'pharmacy_staff' && userRole !== 'pharmacy_accountant' && (
                 <PharmacyProfile 
                   user={user} 

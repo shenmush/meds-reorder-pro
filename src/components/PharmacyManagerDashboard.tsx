@@ -12,8 +12,17 @@ import { ThemeToggle } from '@/components/ui/theme-toggle';
 import PharmacyProfile from './PharmacyProfile';
 import PharmacyStaffManagement from './PharmacyStaffManagement';
 import OrderHistory from './OrderHistory';
+import DrugList from './DrugList';
 import MobileBottomNav from './MobileBottomNav';
 import MobileHeader from './MobileHeader';
+
+interface OrderItem {
+  id: string;
+  quantity: number;
+  drug_id: string;
+  drug_name: string;
+  drug_type: string;
+}
 
 interface Order {
   id: string;
@@ -22,6 +31,7 @@ interface Order {
   created_at: string;
   updated_at: string;
   total_items: number;
+  items?: OrderItem[];
 }
 
 interface Pharmacy {
@@ -45,7 +55,8 @@ const PharmacyManagerDashboard: React.FC<PharmacyManagerDashboardProps> = ({ use
   const [actionNotes, setActionNotes] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<'approve' | 'reject' | 'revision' | null>(null);
-  const [activeTab, setActiveTab] = useState<'orders' | 'profile' | 'staff' | 'history'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'profile' | 'staff' | 'history' | 'drugs'>('orders');
+  const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const initializeDashboard = async () => {
@@ -116,6 +127,79 @@ const PharmacyManagerDashboard: React.FC<PharmacyManagerDashboardProps> = ({ use
       console.error('Error fetching orders:', error);
       toast.error('خطا در بارگذاری سفارشات');
     }
+  };
+
+  const fetchOrderItems = async (orderId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('order_items')
+        .select(`
+          id,
+          quantity,
+          drug_id
+        `)
+        .eq('order_id', orderId);
+
+      if (error) throw error;
+
+      // Fetch drug details for each item
+      const itemsWithDrugs = await Promise.all((data || []).map(async (item) => {
+        // Try to find the drug in each table
+        const [chemical, medical, natural] = await Promise.all([
+          supabase.from('chemical_drugs').select('full_brand_name').eq('id', item.drug_id).single(),
+          supabase.from('medical_supplies').select('title').eq('id', item.drug_id).single(),
+          supabase.from('natural_products').select('full_en_brand_name').eq('id', item.drug_id).single()
+        ]);
+
+        let drugName = 'نامشخص';
+        let drugType = 'نامشخص';
+
+        if (chemical.data) {
+          drugName = chemical.data.full_brand_name;
+          drugType = 'دارو';
+        } else if (medical.data) {
+          drugName = medical.data.title;
+          drugType = 'تجهیزات پزشکی';
+        } else if (natural.data) {
+          drugName = natural.data.full_en_brand_name;
+          drugType = 'محصولات طبیعی';
+        }
+
+        return {
+          ...item,
+          drug_name: drugName,
+          drug_type: drugType
+        };
+      }));
+
+      return itemsWithDrugs;
+    } catch (error) {
+      console.error('Error fetching order items:', error);
+      return [];
+    }
+  };
+
+  const toggleOrderExpansion = async (orderId: string) => {
+    const newExpanded = new Set(expandedOrders);
+    
+    if (expandedOrders.has(orderId)) {
+      newExpanded.delete(orderId);
+    } else {
+      newExpanded.add(orderId);
+      
+      // Fetch order items if not already loaded
+      const order = orders.find(o => o.id === orderId);
+      if (order && !order.items) {
+        const items = await fetchOrderItems(orderId);
+        setOrders(prevOrders => 
+          prevOrders.map(o => 
+            o.id === orderId ? { ...o, items } : o
+          )
+        );
+      }
+    }
+    
+    setExpandedOrders(newExpanded);
   };
 
   const handleOrderAction = async (orderId: string, action: 'approve' | 'reject' | 'revision') => {
@@ -230,9 +314,13 @@ const PharmacyManagerDashboard: React.FC<PharmacyManagerDashboardProps> = ({ use
                     )}
                   </div>
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => toggleOrderExpansion(order.id)}
+                    >
                       <Eye className="h-4 w-4 mr-1" />
-                      مشاهده
+                      {expandedOrders.has(order.id) ? 'بستن' : 'مشاهده'}
                     </Button>
                     <Button 
                       variant="outline" 
@@ -260,6 +348,28 @@ const PharmacyManagerDashboard: React.FC<PharmacyManagerDashboardProps> = ({ use
                     </Button>
                   </div>
                 </div>
+                
+                {/* Order Items Details */}
+                {expandedOrders.has(order.id) && (
+                  <div className="mt-4 pt-4 border-t border-border">
+                    <h4 className="font-medium mb-3">جزئیات سفارش:</h4>
+                    {order.items && order.items.length > 0 ? (
+                      <div className="space-y-2">
+                        {order.items.map((item) => (
+                          <div key={item.id} className="flex justify-between items-center p-3 bg-muted/30 rounded-lg">
+                            <div>
+                              <p className="font-medium">{item.drug_name}</p>
+                              <p className="text-sm text-muted-foreground">{item.drug_type}</p>
+                            </div>
+                            <Badge variant="outline">تعداد: {item.quantity}</Badge>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">در حال بارگذاری...</p>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           ))
@@ -376,6 +486,18 @@ const PharmacyManagerDashboard: React.FC<PharmacyManagerDashboardProps> = ({ use
                     <UserIcon className="h-5 w-5" />
                     <span className="font-medium">تاریخچه سفارشات</span>
                   </Button>
+                  <Button
+                    variant={activeTab === 'drugs' ? 'default' : 'ghost'}
+                    onClick={() => setActiveTab('drugs')}
+                    className={`gap-3 px-6 py-3 rounded-xl transition-all duration-300 ${
+                      activeTab === 'drugs' 
+                        ? 'btn-primary shadow-medium' 
+                        : 'hover:bg-muted/60'
+                    }`}
+                  >
+                    <Pill className="h-5 w-5" />
+                    <span className="font-medium">فهرست داروها</span>
+                  </Button>
                 </div>
               </div>
             </div>
@@ -400,6 +522,7 @@ const PharmacyManagerDashboard: React.FC<PharmacyManagerDashboardProps> = ({ use
               {activeTab === 'history' && pharmacy && (
                 <OrderHistory pharmacyId={pharmacy.id} />
               )}
+              {activeTab === 'drugs' && <DrugList />}
             </div>
           </>
         )}

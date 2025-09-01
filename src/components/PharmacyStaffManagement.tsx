@@ -12,6 +12,7 @@ interface PharmacyStaff {
   role: string;
   display_name?: string;
   email?: string;
+  last_sign_in_at?: string | null;
 }
 
 interface Pharmacy {
@@ -54,16 +55,36 @@ const PharmacyStaffManagement: React.FC<PharmacyStaffManagementProps> = ({
 
       if (rolesError) throw rolesError;
 
-      // Transform data to match our interface
-      const staffData: PharmacyStaff[] = staffRoles?.map(role => ({
-        id: role.id,
-        user_id: role.user_id,
-        role: role.role,
-        display_name: (role.profiles as any)?.display_name || 'Unknown User',
-        email: 'Email not available' // We'd need admin access to get emails from auth.users
-      })) || [];
+      // Get user emails and last sign in from auth metadata
+      const staffWithDetails = await Promise.all(
+        (staffRoles || []).map(async (staff) => {
+          try {
+            // Get user email and last sign in from auth metadata
+            const { data: authData } = await supabase.auth.admin.getUserById(staff.user_id);
+            
+            return {
+              id: staff.id,
+              user_id: staff.user_id,
+              role: staff.role,
+              display_name: (staff.profiles as any)?.display_name || 'نام نمایشی تنظیم نشده',
+              email: authData.user?.email || 'نامشخص',
+              last_sign_in_at: authData.user?.last_sign_in_at || null
+            };
+          } catch (authError) {
+            console.error('Error fetching auth data for user:', staff.user_id, authError);
+            return {
+              id: staff.id,
+              user_id: staff.user_id,
+              role: staff.role,
+              display_name: (staff.profiles as any)?.display_name || 'نام نمایشی تنظیم نشده',
+              email: 'نامشخص',
+              last_sign_in_at: null
+            };
+          }
+        })
+      );
 
-      setStaff(staffData);
+      setStaff(staffWithDetails);
     } catch (error: any) {
       toast({
         title: "خطا",
@@ -150,12 +171,24 @@ const PharmacyStaffManagement: React.FC<PharmacyStaffManagementProps> = ({
               >
                 <div className="flex items-center gap-3">
                   {getRoleIcon(member.role)}
-                  <div>
+                  <div className="flex-1">
                     <p className="font-medium text-right">
                       {member.display_name}
                     </p>
                     <p className="text-sm text-muted-foreground text-right">
                       {member.email}
+                    </p>
+                    <p className="text-xs text-muted-foreground text-right">
+                      آخرین ورود: {member.last_sign_in_at 
+                        ? new Date(member.last_sign_in_at).toLocaleDateString('fa-IR', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })
+                        : 'هرگز'
+                      }
                     </p>
                   </div>
                 </div>
