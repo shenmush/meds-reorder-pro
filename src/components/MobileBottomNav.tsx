@@ -49,12 +49,19 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
     { id: 'reports', icon: BarChart3, label: 'گزارشات' }
   ];
 
+  const barmanAccountantTabs = [
+    { id: 'payments', icon: Calculator, label: 'پرداخت‌ها' },
+    { id: 'history', icon: History, label: 'تاریخچه' },
+    { id: 'reports', icon: BarChart3, label: 'گزارشات' }
+  ];
+
   const getTabs = () => {
     if (userRole === 'admin') return adminTabs;
     if (userRole === 'pharmacy_manager') return pharmacyManagerTabs;
     if (userRole === 'pharmacy_accountant') return pharmacyAccountantTabs;
     if (userRole === 'barman_staff') return barmanStaffTabs;
     if (userRole === 'barman_manager') return barmanManagerTabs;
+    if (userRole === 'barman_accountant') return barmanAccountantTabs;
     return userTabs;
   };
 
