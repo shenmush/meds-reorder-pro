@@ -6,15 +6,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Loader2, CheckCircle, XCircle, Edit, Eye, RotateCcw, LogOut, Pill, ShoppingCart, UserIcon, BarChart3, Calculator, FileText, ChevronDown, ChevronUp } from "lucide-react";
+import { Loader2, CheckCircle, XCircle, Edit, Eye, RotateCcw, LogOut, Pill, ShoppingCart, UserIcon, BarChart3, Calculator, FileText, ChevronDown, ChevronUp, History, Clock } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { ThemeToggle } from '@/components/ui/theme-toggle';
-import AdminPharmacies from './AdminPharmacies';
-import AdminOrders from './AdminOrders';
-import AdminReports from './AdminReports';
-import AdminAddDrug from './AdminAddDrug';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import MobileBottomNav from './MobileBottomNav';
 import MobileHeader from './MobileHeader';
 
@@ -26,6 +23,11 @@ interface OrderItem {
   drug_type?: string;
   unit_price?: number;
   total_price?: number;
+  company_name?: string;
+  package_count?: number;
+  irc?: string;
+  gtin?: string;
+  erx_code?: string;
 }
 
 interface Order {
@@ -48,18 +50,19 @@ interface BarmanManagerDashboardProps {
 }
 
 const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, onAuthChange }) => {
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [finalApprovalOrders, setFinalApprovalOrders] = useState<Order[]>([]);
+  const [activeOrders, setActiveOrders] = useState<Order[]>([]);
+  const [historyOrders, setHistoryOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [actionNotes, setActionNotes] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<'approve' | 'reject' | 'revision_bs' | 'revision_pm' | null>(null);
-  const [activeTab, setActiveTab] = useState<'orders' | 'pharmacies' | 'reports' | 'upload'>('orders');
   const [pricingDialogOpen, setPricingDialogOpen] = useState(false);
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    fetchOrders();
+    fetchAllOrders();
   }, []);
 
   const handleSignOut = async () => {
@@ -72,14 +75,12 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
     }
   };
 
-  const handleTabChange = (tab: string) => {
-    setActiveTab(tab as any);
-  };
-
-  const fetchOrders = async () => {
+  const fetchAllOrders = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      
+      // Fetch orders ready for final approval (approved by barman accountant)
+      const { data: finalData, error: finalError } = await supabase
         .from('orders')
         .select(`
           *,
@@ -87,11 +88,41 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
             name
           )
         `)
-        .in('workflow_status', ['approved_bs', 'approved'])
+        .eq('workflow_status', 'approved_bs')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      setOrders(data || []);
+      if (finalError) throw finalError;
+
+      // Fetch all active/incomplete orders
+      const { data: activeData, error: activeError } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          pharmacies (
+            name
+          )
+        `)
+        .in('workflow_status', ['pending', 'needs_revision_pm', 'needs_revision_bs', 'approved', 'approved_bs'])
+        .order('created_at', { ascending: false });
+
+      if (activeError) throw activeError;
+
+      // Fetch order history (all orders)
+      const { data: historyData, error: historyError } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          pharmacies (
+            name
+          )
+        `)
+        .order('created_at', { ascending: false });
+
+      if (historyError) throw historyError;
+
+      setFinalApprovalOrders(finalData || []);
+      setActiveOrders(activeData || []);
+      setHistoryOrders(historyData || []);
     } catch (error) {
       console.error('Error fetching orders:', error);
       toast.error('خطا در بارگذاری سفارشات');
@@ -222,15 +253,33 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
       newExpanded.add(orderId);
       
       // Fetch order items if not already loaded
-      const order = orders.find(o => o.id === orderId);
+      const allOrders = [...finalApprovalOrders, ...activeOrders, ...historyOrders];
+      const order = allOrders.find(o => o.id === orderId);
       if (order && !order.items) {
         const items = await fetchOrderItems(orderId);
         
-        setOrders(prevOrders => 
-          prevOrders.map(o => 
-            o.id === orderId ? { ...o, items } : o
-          )
-        );
+        // Update the appropriate order list
+        if (finalApprovalOrders.find(o => o.id === orderId)) {
+          setFinalApprovalOrders(prevOrders => 
+            prevOrders.map(o => 
+              o.id === orderId ? { ...o, items } : o
+            )
+          );
+        }
+        if (activeOrders.find(o => o.id === orderId)) {
+          setActiveOrders(prevOrders => 
+            prevOrders.map(o => 
+              o.id === orderId ? { ...o, items } : o
+            )
+          );
+        }
+        if (historyOrders.find(o => o.id === orderId)) {
+          setHistoryOrders(prevOrders => 
+            prevOrders.map(o => 
+              o.id === orderId ? { ...o, items } : o
+            )
+          );
+        }
       }
     }
     
@@ -241,11 +290,29 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
     setSelectedOrder(order);
     if (!order.items) {
       const items = await fetchOrderItems(order.id);
-      setOrders(prevOrders => 
-        prevOrders.map(o => 
-          o.id === order.id ? { ...o, items } : o
-        )
-      );
+      
+      // Update the appropriate order list
+      if (finalApprovalOrders.find(o => o.id === order.id)) {
+        setFinalApprovalOrders(prevOrders => 
+          prevOrders.map(o => 
+            o.id === order.id ? { ...o, items } : o
+          )
+        );
+      }
+      if (activeOrders.find(o => o.id === order.id)) {
+        setActiveOrders(prevOrders => 
+          prevOrders.map(o => 
+            o.id === order.id ? { ...o, items } : o
+          )
+        );
+      }
+      if (historyOrders.find(o => o.id === order.id)) {
+        setHistoryOrders(prevOrders => 
+          prevOrders.map(o => 
+            o.id === order.id ? { ...o, items } : o
+          )
+        );
+      }
     }
     setPricingDialogOpen(true);
   };
@@ -286,7 +353,7 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
 
       toast.success('قیمت‌گذاری با موفقیت ذخیره شد');
       setPricingDialogOpen(false);
-      fetchOrders();
+      fetchAllOrders();
     } catch (error) {
       console.error('Error saving pricing:', error);
       toast.error('خطا در ذخیره قیمت‌گذاری');
@@ -298,20 +365,55 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
     
     const totalPrice = unitPrice * quantity;
     
-    setOrders(prevOrders => 
-      prevOrders.map(order => 
-        order.id === selectedOrder.id 
-          ? {
-              ...order,
-              items: order.items?.map(item => 
-                item.id === itemId 
-                  ? { ...item, unit_price: unitPrice, total_price: totalPrice }
-                  : item
-              )
-            }
-          : order
-      )
-    );
+    // Update the appropriate order list
+    if (finalApprovalOrders.find(o => o.id === selectedOrder.id)) {
+      setFinalApprovalOrders(prevOrders => 
+        prevOrders.map(order => 
+          order.id === selectedOrder.id 
+            ? {
+                ...order,
+                items: order.items?.map(item => 
+                  item.id === itemId 
+                    ? { ...item, unit_price: unitPrice, total_price: totalPrice }
+                    : item
+                )
+              }
+            : order
+        )
+      );
+    }
+    if (activeOrders.find(o => o.id === selectedOrder.id)) {
+      setActiveOrders(prevOrders => 
+        prevOrders.map(order => 
+          order.id === selectedOrder.id 
+            ? {
+                ...order,
+                items: order.items?.map(item => 
+                  item.id === itemId 
+                    ? { ...item, unit_price: unitPrice, total_price: totalPrice }
+                    : item
+                )
+              }
+            : order
+        )
+      );
+    }
+    if (historyOrders.find(o => o.id === selectedOrder.id)) {
+      setHistoryOrders(prevOrders => 
+        prevOrders.map(order => 
+          order.id === selectedOrder.id 
+            ? {
+                ...order,
+                items: order.items?.map(item => 
+                  item.id === itemId 
+                    ? { ...item, unit_price: unitPrice, total_price: totalPrice }
+                    : item
+                )
+              }
+            : order
+        )
+      );
+    }
 
     setSelectedOrder(prev => prev ? {
       ...prev,
@@ -349,7 +451,7 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
       if (approvalError) throw approvalError;
 
       toast.success('فاکتور با موفقیت صادر شد');
-      fetchOrders();
+      fetchAllOrders();
     } catch (error) {
       console.error('Error issuing invoice:', error);
       toast.error('خطا در صدور فاکتور');
@@ -395,7 +497,7 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
       setActionNotes("");
       setSelectedOrder(null);
       setPendingAction(null);
-      fetchOrders();
+      fetchAllOrders();
     } catch (error) {
       console.error('Error updating order:', error);
       toast.error('خطا در به‌روزرسانی سفارش');
@@ -409,7 +511,18 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
   };
 
   const getStatusBadge = (status: string) => {
-    return <Badge variant="secondary">آماده تایید نهایی</Badge>;
+    const statusMap: { [key: string]: { label: string; variant: "default" | "secondary" | "destructive" | "outline" } } = {
+      'pending': { label: 'در انتظار', variant: 'outline' },
+      'needs_revision_pm': { label: 'نیاز به اصلاح - مدیر داروخانه', variant: 'destructive' },
+      'needs_revision_bs': { label: 'نیاز به اصلاح - کارمند بارمان', variant: 'destructive' },
+      'approved': { label: 'تایید مدیر داروخانه', variant: 'secondary' },
+      'approved_bs': { label: 'آماده تایید نهایی', variant: 'default' },
+      'invoice_issued': { label: 'فاکتور صادر شده', variant: 'secondary' },
+      'rejected': { label: 'رد شده', variant: 'destructive' }
+    };
+
+    const statusInfo = statusMap[status] || { label: status, variant: 'outline' };
+    return <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>;
   };
 
   const getActionLabel = () => {
@@ -433,10 +546,162 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
     );
   }
 
-  const OrdersTab = () => (
+  const renderOrderCard = (order: Order, showActions: boolean = true) => (
+    <Card key={order.id}>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <div>
+          <CardTitle className="text-base">سفارش #{order.id.slice(0, 8)}</CardTitle>
+          <CardDescription>
+            داروخانه: {order.pharmacies?.name} | تاریخ: {new Date(order.created_at).toLocaleDateString('fa-IR')}
+          </CardDescription>
+        </div>
+        {getStatusBadge(order.workflow_status)}
+      </CardHeader>
+      <CardContent>
+        <div className="flex items-center justify-between">
+          <div className="space-y-1">
+            <p className="text-sm">تعداد اقلام: {order.total_items}</p>
+            {order.invoice_amount && (
+              <p className="text-sm font-medium">مبلغ فاکتور: {order.invoice_amount.toLocaleString('fa-IR')} تومان</p>
+            )}
+            {order.notes && (
+              <p className="text-sm text-muted-foreground">یادداشت: {order.notes}</p>
+            )}
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => toggleOrderExpansion(order.id)}
+            >
+              {expandedOrders.has(order.id) ? (
+                <>
+                  <ChevronUp className="h-4 w-4 mr-1" />
+                  بستن
+                </>
+              ) : (
+                <>
+                  <Eye className="h-4 w-4 mr-1" />
+                  جزئیات
+                </>
+              )}
+            </Button>
+            {showActions && (
+              <>
+                <Button 
+                  variant="default" 
+                  size="sm"
+                  onClick={() => openPricingDialog(order)}
+                >
+                  <Calculator className="h-4 w-4 mr-1" />
+                  قیمت‌گذاری
+                </Button>
+                {order.workflow_status === 'approved_bs' && order.invoice_amount && order.invoice_amount > 0 && (
+                  <Button 
+                    variant="secondary" 
+                    size="sm"
+                    onClick={() => issueInvoice(order.id)}
+                  >
+                    <FileText className="h-4 w-4 mr-1" />
+                    صدور فاکتور
+                  </Button>
+                )}
+                {order.workflow_status === 'approved_bs' && (
+                  <>
+                    <Button 
+                      variant="default" 
+                      size="sm"
+                      onClick={() => openActionDialog(order, 'approve')}
+                    >
+                      <CheckCircle className="h-4 w-4 mr-1" />
+                      تایید نهایی
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => openActionDialog(order, 'revision_pm')}
+                    >
+                      <RotateCcw className="h-4 w-4 mr-1" />
+                      ارجاع به مدیر داروخانه
+                    </Button>
+                    <Button 
+                      variant="destructive" 
+                      size="sm"
+                      onClick={() => openActionDialog(order, 'reject')}
+                    >
+                      <XCircle className="h-4 w-4 mr-1" />
+                      رد
+                    </Button>
+                  </>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+        
+        {expandedOrders.has(order.id) && order.items && (
+          <div className="mt-4 border-t pt-4">
+            <h4 className="font-medium mb-3">جزئیات اقلام سفارش:</h4>
+            <div className="space-y-3">
+              {order.items.map((item) => (
+                <div key={item.id} className="border rounded-lg p-3 bg-muted/30">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <span className="font-medium">نام دارو:</span> {item.drug_name}
+                    </div>
+                    <div>
+                      <span className="font-medium">نوع:</span> {item.drug_type}
+                    </div>
+                    <div>
+                      <span className="font-medium">شرکت سازنده:</span> {item.company_name}
+                    </div>
+                    <div>
+                      <span className="font-medium">تعداد:</span> {item.quantity}
+                    </div>
+                    {item.package_count && (
+                      <div>
+                        <span className="font-medium">تعداد در بسته:</span> {item.package_count}
+                      </div>
+                    )}
+                    {item.irc && (
+                      <div>
+                        <span className="font-medium">کد IRC:</span> {item.irc}
+                      </div>
+                    )}
+                    {item.gtin && (
+                      <div>
+                        <span className="font-medium">کد GTIN:</span> {item.gtin}
+                      </div>
+                    )}
+                    {item.erx_code && (
+                      <div>
+                        <span className="font-medium">کد ERX:</span> {item.erx_code}
+                      </div>
+                    )}
+                    {item.unit_price && item.unit_price > 0 && (
+                      <>
+                        <div>
+                          <span className="font-medium">قیمت واحد:</span> {item.unit_price.toLocaleString('fa-IR')} تومان
+                        </div>
+                        <div>
+                          <span className="font-medium">قیمت کل:</span> {(item.total_price || 0).toLocaleString('fa-IR')} تومان
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+
+  const FinalApprovalTab = () => (
     <div className="space-y-6">
       <div className="grid gap-4">
-        {orders.length === 0 ? (
+        {finalApprovalOrders.length === 0 ? (
           <Card>
             <CardContent className="pt-6 text-center">
               <CheckCircle className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
@@ -444,124 +709,41 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
             </CardContent>
           </Card>
         ) : (
-          orders.map((order) => (
-            <Card key={order.id}>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <div>
-                  <CardTitle className="text-base">سفارش #{order.id.slice(0, 8)}</CardTitle>
-                  <CardDescription>
-                    داروخانه: {order.pharmacies?.name} | تاریخ: {new Date(order.created_at).toLocaleDateString('fa-IR')}
-                  </CardDescription>
-                </div>
-                {getStatusBadge(order.workflow_status)}
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between">
-                  <div className="space-y-1">
-                    <p className="text-sm">تعداد اقلام: {order.total_items}</p>
-                    {order.notes && (
-                      <p className="text-sm text-muted-foreground">یادداشت: {order.notes}</p>
-                    )}
-                  </div>
-                  <div className="flex gap-2 flex-wrap">
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => toggleOrderExpansion(order.id)}
-                    >
-                      {expandedOrders.has(order.id) ? (
-                        <>
-                          <ChevronUp className="h-4 w-4 mr-1" />
-                          بستن
-                        </>
-                      ) : (
-                        <>
-                          <Eye className="h-4 w-4 mr-1" />
-                          جزئیات
-                        </>
-                      )}
-                    </Button>
-                    <Button 
-                      variant="default" 
-                      size="sm"
-                      onClick={() => openPricingDialog(order)}
-                    >
-                      <Calculator className="h-4 w-4 mr-1" />
-                      قیمت‌گذاری
-                    </Button>
-                    {order.invoice_amount && order.invoice_amount > 0 && (
-                      <Button 
-                        variant="secondary" 
-                        size="sm"
-                        onClick={() => issueInvoice(order.id)}
-                      >
-                        <FileText className="h-4 w-4 mr-1" />
-                        صدور فاکتور
-                      </Button>
-                    )}
-                  </div>
-                </div>
-                
-                {/* Expanded Order Details */}
-                {expandedOrders.has(order.id) && order.items && (
-                  <div className="mt-4 pt-4 border-t border-border/60">
-                    <h4 className="font-medium mb-3">اقلام سفارش:</h4>
-                    <div className="space-y-3">
-                      {order.items.map((item: any) => (
-                        <div key={item.id} className="bg-muted/50 p-3 rounded-lg space-y-2">
-                          <div className="flex justify-between items-start">
-                            <div className="flex-1">
-                              <div className="font-medium text-foreground">{item.drug_name}</div>
-                              <div className="text-sm text-muted-foreground">نوع: {item.drug_type}</div>
-                              <div className="text-sm text-muted-foreground">شرکت: {item.company_name}</div>
-                              {item.package_count && (
-                                <div className="text-sm text-muted-foreground">تعداد در بسته: {item.package_count}</div>
-                              )}
-                            </div>
-                            <div className="text-left">
-                              <div className="font-medium">تعداد: {item.quantity}</div>
-                              {item.unit_price > 0 && (
-                                <>
-                                  <div className="text-sm">قیمت واحد: {item.unit_price?.toLocaleString()} تومان</div>
-                                  <div className="text-sm font-medium">جمع: {item.total_price?.toLocaleString()} تومان</div>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                          {(item.irc || item.gtin || item.erx_code) && (
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-2 pt-2 border-t border-border">
-                              {item.irc && (
-                                <div className="text-xs text-muted-foreground">
-                                  <span className="font-medium">IRC:</span> {item.irc}
-                                </div>
-                              )}
-                              {item.gtin && (
-                                <div className="text-xs text-muted-foreground">
-                                  <span className="font-medium">GTIN:</span> {item.gtin}
-                                </div>
-                              )}
-                              {item.erx_code && (
-                                <div className="text-xs text-muted-foreground">
-                                  <span className="font-medium">ERX Code:</span> {item.erx_code}
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                      {order.invoice_amount && order.invoice_amount > 0 && (
-                        <div className="pt-2 mt-4 border-t border-border/60">
-                          <p className="text-lg font-bold text-left">
-                            مجموع کل: {order.invoice_amount.toLocaleString()} تومان
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                 )}
-              </CardContent>
-            </Card>
-          ))
+          finalApprovalOrders.map((order) => renderOrderCard(order, true))
+        )}
+      </div>
+    </div>
+  );
+
+  const ActiveOrdersTab = () => (
+    <div className="space-y-6">
+      <div className="grid gap-4">
+        {activeOrders.length === 0 ? (
+          <Card>
+            <CardContent className="pt-6 text-center">
+              <Clock className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <p className="text-muted-foreground">هیچ سفارش فعالی وجود ندارد</p>
+            </CardContent>
+          </Card>
+        ) : (
+          activeOrders.map((order) => renderOrderCard(order, false))
+        )}
+      </div>
+    </div>
+  );
+
+  const HistoryTab = () => (
+    <div className="space-y-6">
+      <div className="grid gap-4">
+        {historyOrders.length === 0 ? (
+          <Card>
+            <CardContent className="pt-6 text-center">
+              <History className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <p className="text-muted-foreground">هیچ سفارشی در تاریخچه وجود ندارد</p>
+            </CardContent>
+          </Card>
+        ) : (
+          historyOrders.map((order) => renderOrderCard(order, false))
         )}
       </div>
     </div>
@@ -612,75 +794,41 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
 
       {/* Main Content */}
       <div className="container mx-auto px-4 md:px-6 py-4 md:py-8 pb-20 md:pb-8">
-        {/* Desktop Navigation */}
-        <div className="desktop-only mb-8">
-          <div className="bg-card/60 backdrop-blur-sm rounded-2xl p-2 border border-border/60 shadow-soft">
-            <div className="flex flex-wrap gap-1">
-              <Button
-                variant={activeTab === 'orders' ? 'default' : 'ghost'}
-                onClick={() => setActiveTab('orders')}
-                className={`gap-3 px-6 py-3 rounded-xl transition-all duration-300 ${
-                  activeTab === 'orders' 
-                    ? 'btn-primary shadow-medium' 
-                    : 'hover:bg-muted/60'
-                }`}
-              >
-                <ShoppingCart className="h-5 w-5" />
-                <span className="font-medium">سفارشات</span>
-              </Button>
-              <Button
-                variant={activeTab === 'pharmacies' ? 'default' : 'ghost'}
-                onClick={() => setActiveTab('pharmacies')}
-                className={`gap-3 px-6 py-3 rounded-xl transition-all duration-300 ${
-                  activeTab === 'pharmacies' 
-                    ? 'btn-primary shadow-medium' 
-                    : 'hover:bg-muted/60'
-                }`}
-              >
-                <UserIcon className="h-5 w-5" />
-                <span className="font-medium">داروخانه‌ها</span>
-              </Button>
-              <Button
-                variant={activeTab === 'reports' ? 'default' : 'ghost'}
-                onClick={() => setActiveTab('reports')}
-                className={`gap-3 px-6 py-3 rounded-xl transition-all duration-300 ${
-                  activeTab === 'reports' 
-                    ? 'btn-primary shadow-medium' 
-                    : 'hover:bg-muted/60'
-                }`}
-              >
-                <BarChart3 className="h-5 w-5" />
-                <span className="font-medium">گزارشات</span>
-              </Button>
-              <Button
-                variant={activeTab === 'upload' ? 'default' : 'ghost'}
-                onClick={() => setActiveTab('upload')}
-                className={`gap-3 px-6 py-3 rounded-xl transition-all duration-300 ${
-                  activeTab === 'upload' 
-                    ? 'btn-primary shadow-medium' 
-                    : 'hover:bg-muted/60'
-                }`}
-              >
-                <Pill className="h-5 w-5" />
-                <span className="font-medium">افزودن دارو</span>
-              </Button>
-            </div>
-          </div>
-        </div>
+        {/* Order Management Tabs */}
+        <Tabs defaultValue="final-approval" className="w-full">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="final-approval" className="gap-2">
+              <CheckCircle className="h-4 w-4" />
+              تایید نهایی
+            </TabsTrigger>
+            <TabsTrigger value="active" className="gap-2">
+              <Clock className="h-4 w-4" />
+              سفارشات فعال
+            </TabsTrigger>
+            <TabsTrigger value="history" className="gap-2">
+              <History className="h-4 w-4" />
+              تاریخچه
+            </TabsTrigger>
+          </TabsList>
 
-        {/* Content Area */}
-        <div className="animate-in fade-in-50 duration-500 mobile-scroll">
-          {activeTab === 'orders' && <OrdersTab />}
-          {activeTab === 'pharmacies' && <AdminPharmacies />}
-          {activeTab === 'reports' && <AdminReports />}
-          {activeTab === 'upload' && <AdminAddDrug />}
-        </div>
+          <TabsContent value="final-approval" className="mt-6">
+            <FinalApprovalTab />
+          </TabsContent>
+
+          <TabsContent value="active" className="mt-6">
+            <ActiveOrdersTab />
+          </TabsContent>
+
+          <TabsContent value="history" className="mt-6">
+            <HistoryTab />
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* Mobile Bottom Navigation */}
       <MobileBottomNav 
-        activeTab={activeTab}
-        onTabChange={handleTabChange}
+        activeTab="orders"
+        onTabChange={() => {}}
         userRole="barman_manager"
       />
 
