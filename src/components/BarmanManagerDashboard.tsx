@@ -103,91 +103,107 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
   const fetchOrderItems = async (orderId: string) => {
     try {
       console.log('Fetching order items for order:', orderId);
-      const { data, error } = await supabase
+      
+      // Get all drug IDs from order items first
+      const { data: orderItems, error: orderItemsError } = await supabase
         .from('order_items')
-        .select(`
-          id,
-          quantity,
-          drug_id
-        `)
+        .select('*')
         .eq('order_id', orderId);
 
-      if (error) {
-        console.error('Error fetching order items:', error);
-        throw error;
+      if (orderItemsError) {
+        console.error('Error fetching order items:', orderItemsError);
+        throw orderItemsError;
       }
 
-      console.log('Order items data:', data);
-
-      if (!data || data.length === 0) {
+      if (!orderItems || orderItems.length === 0) {
         console.log('No order items found');
         return [];
       }
 
-      // Fetch drug details for each item with complete information
-      const itemsWithDrugs = await Promise.all((data || []).map(async (item) => {
-        console.log('Processing item:', item);
-        // Try to find the drug in each table with complete details
-        const [chemical, medical, natural] = await Promise.all([
-          supabase.from('chemical_drugs').select('full_brand_name, license_owner_company_name, package_count, irc, gtin, erx_code').eq('id', item.drug_id).maybeSingle(),
-          supabase.from('medical_supplies').select('title, license_owner_company_name, package_count, irc, gtin, erx_code').eq('id', item.drug_id).maybeSingle(),
-          supabase.from('natural_products').select('full_en_brand_name, license_owner_name, package_count, irc, gtin, erx_code').eq('id', item.drug_id).maybeSingle()
-        ]);
-
-        console.log('Drug lookup results:', { chemical: chemical.data, medical: medical.data, natural: natural.data });
-
-        let drugName = 'نامشخص';
-        let drugType = 'نامشخص';
-        let companyName = 'نامشخص';
-        let packageCount = null;
-        let irc = null;
-        let gtin = null;
-        let erxCode = null;
-
-        if (chemical.data) {
-          drugName = chemical.data.full_brand_name;
-          drugType = 'دارو';
-          companyName = chemical.data.license_owner_company_name || 'نامشخص';
-          packageCount = chemical.data.package_count;
-          irc = chemical.data.irc;
-          gtin = chemical.data.gtin;
-          erxCode = chemical.data.erx_code;
-        } else if (medical.data) {
-          drugName = medical.data.title;
-          drugType = 'تجهیزات پزشکی';
-          companyName = medical.data.license_owner_company_name || 'نامشخص';
-          packageCount = medical.data.package_count;
-          irc = medical.data.irc;
-          gtin = medical.data.gtin;
-          erxCode = medical.data.erx_code;
-        } else if (natural.data) {
-          drugName = natural.data.full_en_brand_name;
-          drugType = 'محصولات طبیعی';
-          companyName = natural.data.license_owner_name || 'نامشخص';
-          packageCount = natural.data.package_count;
-          irc = natural.data.irc;
-          gtin = natural.data.gtin;
-          erxCode = natural.data.erx_code;
-        }
-
-        // Check if pricing exists
-        const { data: pricingData } = await supabase
+      const drugIds = orderItems.map(item => item.drug_id);
+      
+      // Fetch all drugs and pricing data in parallel with single queries
+      const [chemicalDrugs, medicalSupplies, naturalProducts, pricingData] = await Promise.all([
+        supabase
+          .from('chemical_drugs')
+          .select('id, full_brand_name, license_owner_company_name, package_count, irc, gtin, erx_code')
+          .in('id', drugIds),
+        supabase
+          .from('medical_supplies')
+          .select('id, title, license_owner_company_name, package_count, irc, gtin, erx_code')
+          .in('id', drugIds),
+        supabase
+          .from('natural_products')
+          .select('id, full_en_brand_name, license_owner_name, package_count, irc, gtin, erx_code')
+          .in('id', drugIds),
+        supabase
           .from('order_item_pricing')
-          .select('unit_price, total_price')
+          .select('drug_id, unit_price, total_price')
           .eq('order_id', orderId)
-          .eq('drug_id', item.drug_id)
-          .maybeSingle();
+      ]);
 
-        console.log('Pricing data for item:', item.drug_id, pricingData);
+      // Create lookup maps for fast access
+      const chemicalMap = new Map(chemicalDrugs.data?.map(d => [d.id, d]) || []);
+      const medicalMap = new Map(medicalSupplies.data?.map(d => [d.id, d]) || []);
+      const naturalMap = new Map(naturalProducts.data?.map(d => [d.id, d]) || []);
+      const pricingMap = new Map(pricingData.data?.map(p => [p.drug_id, p]) || []);
+
+      // Combine all data efficiently
+      const itemsWithDrugs = orderItems.map(item => {
+        const chemical = chemicalMap.get(item.drug_id);
+        const medical = medicalMap.get(item.drug_id);
+        const natural = naturalMap.get(item.drug_id);
+        const pricing = pricingMap.get(item.drug_id);
+
+        let drugInfo = {
+          drug_name: 'نامشخص',
+          drug_type: 'نامشخص',
+          company_name: 'نامشخص',
+          package_count: null,
+          irc: null,
+          gtin: null,
+          erx_code: null
+        };
+
+        if (chemical) {
+          drugInfo = {
+            drug_name: chemical.full_brand_name,
+            drug_type: 'دارو',
+            company_name: chemical.license_owner_company_name || 'نامشخص',
+            package_count: chemical.package_count,
+            irc: chemical.irc,
+            gtin: chemical.gtin,
+            erx_code: chemical.erx_code
+          };
+        } else if (medical) {
+          drugInfo = {
+            drug_name: medical.title,
+            drug_type: 'تجهیزات پزشکی',
+            company_name: medical.license_owner_company_name || 'نامشخص',
+            package_count: medical.package_count,
+            irc: medical.irc,
+            gtin: medical.gtin,
+            erx_code: medical.erx_code
+          };
+        } else if (natural) {
+          drugInfo = {
+            drug_name: natural.full_en_brand_name,
+            drug_type: 'محصولات طبیعی',
+            company_name: natural.license_owner_name || 'نامشخص',
+            package_count: natural.package_count,
+            irc: natural.irc,
+            gtin: natural.gtin,
+            erx_code: natural.erx_code
+          };
+        }
 
         return {
           ...item,
-          drug_name: drugName,
-          drug_type: drugType,
-          unit_price: pricingData?.unit_price || 0,
-          total_price: pricingData?.total_price || 0
+          ...drugInfo,
+          unit_price: pricing?.unit_price || 0,
+          total_price: pricing?.total_price || 0
         };
-      }));
+      });
 
       console.log('Final items with drugs:', itemsWithDrugs);
       return itemsWithDrugs;
