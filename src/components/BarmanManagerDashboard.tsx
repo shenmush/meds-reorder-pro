@@ -87,7 +87,7 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
             name
           )
         `)
-        .eq('workflow_status', 'approved_bs')
+        .in('workflow_status', ['approved_bs', 'approved'])
         .order('created_at', { ascending: false });
 
       if (error) throw error;
