@@ -103,7 +103,7 @@ const BarmanStaffDashboard: React.FC<BarmanStaffDashboardProps> = ({ user, onAut
           *,
           pharmacies(name)
         `)
-        .in('workflow_status', ['approved_bs', 'rejected', 'invoice_issued', 'payment_uploaded', 'payment_verified', 'completed'])
+        .in('workflow_status', ['approved_bs', 'rejected', 'invoice_issued', 'payment_uploaded', 'payment_verified', 'completed', 'approved'])
         .order('updated_at', { ascending: false })
         .limit(50);
 
@@ -275,6 +275,7 @@ const BarmanStaffDashboard: React.FC<BarmanStaffDashboardProps> = ({ user, onAut
       'needs_revision_bs': { label: 'نیاز به ویرایش بارمان', variant: 'destructive' as const, icon: AlertTriangle },
       'needs_revision_pm_pricing': { label: 'ویرایش قیمت‌گذاری', variant: 'destructive' as const, icon: Edit },
       'approved_bs': { label: 'تایید شده بارمان', variant: 'default' as const, icon: CheckCircle },
+      'approved': { label: 'تایید شده', variant: 'default' as const, icon: CheckCircle },
       'rejected': { label: 'رد شده', variant: 'destructive' as const, icon: XCircle },
       'invoice_issued': { label: 'فاکتور صادر شده', variant: 'secondary' as const, icon: Package },
       'payment_uploaded': { label: 'رسید آپلود شده', variant: 'default' as const, icon: CheckCircle },
@@ -564,6 +565,7 @@ const BarmanStaffDashboard: React.FC<BarmanStaffDashboardProps> = ({ user, onAut
   const ReportsTab = () => {
     const totalProcessed = processedOrders.length;
     const approved = processedOrders.filter(o => o.workflow_status === 'approved_bs' || 
+                                              o.workflow_status === 'approved' ||
                                               o.workflow_status === 'invoice_issued' || 
                                               o.workflow_status === 'payment_uploaded' ||
                                               o.workflow_status === 'payment_verified' ||
