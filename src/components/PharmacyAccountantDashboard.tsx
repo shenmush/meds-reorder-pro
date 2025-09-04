@@ -6,11 +6,26 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Upload, Receipt, CheckCircle, Clock, AlertCircle, XCircle, Edit, FileText, Building2, LogOut, Calculator, BarChart3, History } from 'lucide-react';
+import { Upload, Receipt, CheckCircle, Clock, AlertCircle, XCircle, Edit, FileText, Building2, LogOut, Calculator, BarChart3, History, Eye, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from "sonner";
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import MobileBottomNav from './MobileBottomNav';
 import MobileHeader from './MobileHeader';
+
+interface OrderItem {
+  id: string;
+  quantity: number;
+  drug_id: string;
+  drug_name?: string;
+  drug_type?: string;
+  unit_price?: number;
+  total_price?: number;
+  company_name?: string;
+  package_count?: number;
+  irc?: string;
+  gtin?: string;
+  erx_code?: string;
+}
 
 interface Order {
   id: string;
@@ -23,6 +38,7 @@ interface Order {
   payment_date?: string;
   payment_rejection_reason?: string;
   invoice_amount?: number;
+  items?: OrderItem[];
   pharmacy: {
     name: string;
   };
@@ -39,6 +55,7 @@ const PharmacyAccountantDashboard: React.FC<PharmacyAccountantDashboardProps> = 
   const [loading, setLoading] = useState(true);
   const [uploadingOrderId, setUploadingOrderId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'payments' | 'history' | 'reports'>('payments');
+  const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const fetchData = async () => {
@@ -286,6 +303,153 @@ const PharmacyAccountantDashboard: React.FC<PharmacyAccountantDashboardProps> = 
     );
   };
 
+  const fetchOrderItems = async (orderId: string) => {
+    try {
+      console.log('Fetching order items for order:', orderId);
+      
+      // Get all drug IDs from order items first
+      const { data: orderItems, error: orderItemsError } = await supabase
+        .from('order_items')
+        .select('*')
+        .eq('order_id', orderId);
+
+      if (orderItemsError) {
+        console.error('Error fetching order items:', orderItemsError);
+        throw orderItemsError;
+      }
+
+      if (!orderItems || orderItems.length === 0) {
+        console.log('No order items found');
+        return [];
+      }
+
+      const drugIds = orderItems.map(item => item.drug_id);
+      
+      // Fetch all drugs and pricing data in parallel with single queries
+      const [chemicalDrugs, medicalSupplies, naturalProducts, pricingData] = await Promise.all([
+        supabase
+          .from('chemical_drugs')
+          .select('id, full_brand_name, license_owner_company_name, package_count, irc, gtin, erx_code')
+          .in('id', drugIds),
+        supabase
+          .from('medical_supplies')
+          .select('id, title, license_owner_company_name, package_count, irc, gtin, erx_code')
+          .in('id', drugIds),
+        supabase
+          .from('natural_products')
+          .select('id, full_en_brand_name, license_owner_name, package_count, irc, gtin, erx_code')
+          .in('id', drugIds),
+        supabase
+          .from('order_item_pricing')
+          .select('drug_id, unit_price, total_price')
+          .eq('order_id', orderId)
+      ]);
+
+      // Create lookup maps for fast access
+      const chemicalMap = new Map(chemicalDrugs.data?.map(d => [d.id, d]) || []);
+      const medicalMap = new Map(medicalSupplies.data?.map(d => [d.id, d]) || []);
+      const naturalMap = new Map(naturalProducts.data?.map(d => [d.id, d]) || []);
+      const pricingMap = new Map(pricingData.data?.map(p => [p.drug_id, p]) || []);
+
+      // Combine all data efficiently
+      const itemsWithDrugs = orderItems.map(item => {
+        const chemical = chemicalMap.get(item.drug_id);
+        const medical = medicalMap.get(item.drug_id);
+        const natural = naturalMap.get(item.drug_id);
+        const pricing = pricingMap.get(item.drug_id);
+
+        let drugInfo = {
+          drug_name: 'نامشخص',
+          drug_type: 'نامشخص',
+          company_name: 'نامشخص',
+          package_count: null,
+          irc: null,
+          gtin: null,
+          erx_code: null
+        };
+
+        if (chemical) {
+          drugInfo = {
+            drug_name: chemical.full_brand_name,
+            drug_type: 'دارو',
+            company_name: chemical.license_owner_company_name || 'نامشخص',
+            package_count: chemical.package_count,
+            irc: chemical.irc,
+            gtin: chemical.gtin,
+            erx_code: chemical.erx_code
+          };
+        } else if (medical) {
+          drugInfo = {
+            drug_name: medical.title,
+            drug_type: 'تجهیزات پزشکی',
+            company_name: medical.license_owner_company_name || 'نامشخص',
+            package_count: medical.package_count,
+            irc: medical.irc,
+            gtin: medical.gtin,
+            erx_code: medical.erx_code
+          };
+        } else if (natural) {
+          drugInfo = {
+            drug_name: natural.full_en_brand_name,
+            drug_type: 'محصولات طبیعی',
+            company_name: natural.license_owner_name || 'نامشخص',
+            package_count: natural.package_count,
+            irc: natural.irc,
+            gtin: natural.gtin,
+            erx_code: natural.erx_code
+          };
+        }
+
+        return {
+          ...item,
+          ...drugInfo,
+          unit_price: pricing?.unit_price || 0,
+          total_price: pricing?.total_price || 0
+        };
+      });
+
+      console.log('Final items with drugs:', itemsWithDrugs);
+      return itemsWithDrugs;
+    } catch (error) {
+      console.error('Error fetching order items:', error);
+      return [];
+    }
+  };
+
+  const toggleOrderExpansion = async (orderId: string) => {
+    const newExpanded = new Set(expandedOrders);
+    
+    if (expandedOrders.has(orderId)) {
+      newExpanded.delete(orderId);
+    } else {
+      newExpanded.add(orderId);
+      
+      // Fetch order items if not already loaded
+      const order = orders.find(o => o.id === orderId) || paymentHistory.find(o => o.id === orderId);
+      if (order && !order.items) {
+        const items = await fetchOrderItems(orderId);
+        
+        // Update the appropriate order list
+        if (orders.find(o => o.id === orderId)) {
+          setOrders(prevOrders => 
+            prevOrders.map(o => 
+              o.id === orderId ? { ...o, items } : o
+            )
+          );
+        }
+        if (paymentHistory.find(o => o.id === orderId)) {
+          setPaymentHistory(prevOrders => 
+            prevOrders.map(o => 
+              o.id === orderId ? { ...o, items } : o
+            )
+          );
+        }
+      }
+    }
+    
+    setExpandedOrders(newExpanded);
+  };
+
   const formatCurrency = (amount?: number) => {
     if (!amount) return 'نامشخص';
     return new Intl.NumberFormat('fa-IR').format(amount) + ' تومان';
@@ -389,7 +553,27 @@ const PharmacyAccountantDashboard: React.FC<PharmacyAccountantDashboardProps> = 
                           </p>
                         )}
                       </div>
-                      {getStatusBadge(order.workflow_status)}
+                      <div className="flex flex-col gap-2 items-end">
+                        {getStatusBadge(order.workflow_status)}
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => toggleOrderExpansion(order.id)}
+                          className="gap-1"
+                        >
+                          {expandedOrders.has(order.id) ? (
+                            <>
+                              <ChevronUp className="h-4 w-4" />
+                              بستن جزئیات
+                            </>
+                          ) : (
+                            <>
+                              <Eye className="h-4 w-4" />
+                              مشاهده جزئیات فاکتور
+                            </>
+                          )}
+                        </Button>
+                      </div>
                     </div>
 
                     {order.workflow_status === 'payment_rejected' && (
@@ -402,6 +586,71 @@ const PharmacyAccountantDashboard: React.FC<PharmacyAccountantDashboardProps> = 
                             دلیل: {order.payment_rejection_reason}
                           </p>
                         )}
+                      </div>
+                    )}
+
+                    
+                    {/* Invoice Details */}
+                    {expandedOrders.has(order.id) && order.items && (
+                      <div className="mt-4 border-t pt-4">
+                        <h4 className="font-medium mb-3">جزئیات فاکتور:</h4>
+                        <div className="space-y-3">
+                          {order.items.map((item) => (
+                            <div key={item.id} className="border rounded-lg p-3 bg-muted/30">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                                <div>
+                                  <span className="font-medium">نام دارو:</span> {item.drug_name}
+                                </div>
+                                <div>
+                                  <span className="font-medium">نوع:</span> {item.drug_type}
+                                </div>
+                                <div>
+                                  <span className="font-medium">شرکت سازنده:</span> {item.company_name}
+                                </div>
+                                <div>
+                                  <span className="font-medium">تعداد:</span> {item.quantity}
+                                </div>
+                                {item.package_count && (
+                                  <div>
+                                    <span className="font-medium">تعداد در بسته:</span> {item.package_count}
+                                  </div>
+                                )}
+                                {item.irc && (
+                                  <div>
+                                    <span className="font-medium">کد IRC:</span> {item.irc}
+                                  </div>
+                                )}
+                                {item.gtin && (
+                                  <div>
+                                    <span className="font-medium">کد GTIN:</span> {item.gtin}
+                                  </div>
+                                )}
+                                {item.erx_code && (
+                                  <div>
+                                    <span className="font-medium">کد ERX:</span> {item.erx_code}
+                                  </div>
+                                )}
+                                {item.unit_price && item.unit_price > 0 && (
+                                  <>
+                                    <div>
+                                      <span className="font-medium">قیمت واحد:</span> {item.unit_price.toLocaleString('fa-IR')} تومان
+                                    </div>
+                                    <div>
+                                      <span className="font-medium">قیمت کل:</span> {(item.total_price || 0).toLocaleString('fa-IR')} تومان
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                          {order.invoice_amount && order.invoice_amount > 0 && (
+                            <div className="pt-3 mt-4 border-t border-border/60">
+                              <p className="text-lg font-bold text-left">
+                                مجموع کل فاکتور: {order.invoice_amount.toLocaleString('fa-IR')} تومان
+                              </p>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
 
@@ -508,7 +757,7 @@ const PharmacyAccountantDashboard: React.FC<PharmacyAccountantDashboardProps> = 
               </div>
             ) : (
               paymentHistory.map((order) => (
-                <div key={order.id} className="border rounded-lg p-4">
+                <div key={order.id} className="border rounded-lg p-4 space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="font-medium">سفارش #{order.id.slice(0, 8)}</h3>
@@ -524,8 +773,92 @@ const PharmacyAccountantDashboard: React.FC<PharmacyAccountantDashboardProps> = 
                         </p>
                       )}
                     </div>
-                    {getStatusBadge(order.workflow_status)}
+                    <div className="flex flex-col gap-2 items-end">
+                      {getStatusBadge(order.workflow_status)}
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => toggleOrderExpansion(order.id)}
+                        className="gap-1"
+                      >
+                        {expandedOrders.has(order.id) ? (
+                          <>
+                            <ChevronUp className="h-4 w-4" />
+                            بستن جزئیات
+                          </>
+                        ) : (
+                          <>
+                            <Eye className="h-4 w-4" />
+                            مشاهده جزئیات فاکتور
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </div>
+                  
+                  {/* Invoice Details */}
+                  {expandedOrders.has(order.id) && order.items && (
+                    <div className="mt-4 border-t pt-4">
+                      <h4 className="font-medium mb-3">جزئیات فاکتور:</h4>
+                      <div className="space-y-3">
+                        {order.items.map((item) => (
+                          <div key={item.id} className="border rounded-lg p-3 bg-muted/30">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                              <div>
+                                <span className="font-medium">نام دارو:</span> {item.drug_name}
+                              </div>
+                              <div>
+                                <span className="font-medium">نوع:</span> {item.drug_type}
+                              </div>
+                              <div>
+                                <span className="font-medium">شرکت سازنده:</span> {item.company_name}
+                              </div>
+                              <div>
+                                <span className="font-medium">تعداد:</span> {item.quantity}
+                              </div>
+                              {item.package_count && (
+                                <div>
+                                  <span className="font-medium">تعداد در بسته:</span> {item.package_count}
+                                </div>
+                              )}
+                              {item.irc && (
+                                <div>
+                                  <span className="font-medium">کد IRC:</span> {item.irc}
+                                </div>
+                              )}
+                              {item.gtin && (
+                                <div>
+                                  <span className="font-medium">کد GTIN:</span> {item.gtin}
+                                </div>
+                              )}
+                              {item.erx_code && (
+                                <div>
+                                  <span className="font-medium">کد ERX:</span> {item.erx_code}
+                                </div>
+                              )}
+                              {item.unit_price && item.unit_price > 0 && (
+                                <>
+                                  <div>
+                                    <span className="font-medium">قیمت واحد:</span> {item.unit_price.toLocaleString('fa-IR')} تومان
+                                  </div>
+                                  <div>
+                                    <span className="font-medium">قیمت کل:</span> {(item.total_price || 0).toLocaleString('fa-IR')} تومان
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                        {order.invoice_amount && order.invoice_amount > 0 && (
+                          <div className="pt-3 mt-4 border-t border-border/60">
+                            <p className="text-lg font-bold text-left">
+                              مجموع کل فاکتور: {order.invoice_amount.toLocaleString('fa-IR')} تومان
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                   
                   {order.payment_proof_url && (
                     <div className="mt-3">
