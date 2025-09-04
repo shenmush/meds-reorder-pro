@@ -124,30 +124,50 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
         return [];
       }
 
-      // Fetch drug details for each item
+      // Fetch drug details for each item with complete information
       const itemsWithDrugs = await Promise.all((data || []).map(async (item) => {
         console.log('Processing item:', item);
-        // Try to find the drug in each table
+        // Try to find the drug in each table with complete details
         const [chemical, medical, natural] = await Promise.all([
-          supabase.from('chemical_drugs').select('full_brand_name').eq('id', item.drug_id).maybeSingle(),
-          supabase.from('medical_supplies').select('title').eq('id', item.drug_id).maybeSingle(),
-          supabase.from('natural_products').select('full_en_brand_name').eq('id', item.drug_id).maybeSingle()
+          supabase.from('chemical_drugs').select('full_brand_name, license_owner_company_name, package_count, irc, gtin, erx_code').eq('id', item.drug_id).maybeSingle(),
+          supabase.from('medical_supplies').select('title, license_owner_company_name, package_count, irc, gtin, erx_code').eq('id', item.drug_id).maybeSingle(),
+          supabase.from('natural_products').select('full_en_brand_name, license_owner_name, package_count, irc, gtin, erx_code').eq('id', item.drug_id).maybeSingle()
         ]);
 
         console.log('Drug lookup results:', { chemical: chemical.data, medical: medical.data, natural: natural.data });
 
         let drugName = 'نامشخص';
         let drugType = 'نامشخص';
+        let companyName = 'نامشخص';
+        let packageCount = null;
+        let irc = null;
+        let gtin = null;
+        let erxCode = null;
 
         if (chemical.data) {
           drugName = chemical.data.full_brand_name;
           drugType = 'دارو';
+          companyName = chemical.data.license_owner_company_name || 'نامشخص';
+          packageCount = chemical.data.package_count;
+          irc = chemical.data.irc;
+          gtin = chemical.data.gtin;
+          erxCode = chemical.data.erx_code;
         } else if (medical.data) {
           drugName = medical.data.title;
           drugType = 'تجهیزات پزشکی';
+          companyName = medical.data.license_owner_company_name || 'نامشخص';
+          packageCount = medical.data.package_count;
+          irc = medical.data.irc;
+          gtin = medical.data.gtin;
+          erxCode = medical.data.erx_code;
         } else if (natural.data) {
           drugName = natural.data.full_en_brand_name;
           drugType = 'محصولات طبیعی';
+          companyName = natural.data.license_owner_name || 'نامشخص';
+          packageCount = natural.data.package_count;
+          irc = natural.data.irc;
+          gtin = natural.data.gtin;
+          erxCode = natural.data.erx_code;
         }
 
         // Check if pricing exists
@@ -470,22 +490,47 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
                 {expandedOrders.has(order.id) && order.items && (
                   <div className="mt-4 pt-4 border-t border-border/60">
                     <h4 className="font-medium mb-3">اقلام سفارش:</h4>
-                    <div className="space-y-2">
-                      {order.items.map((item) => (
-                        <div key={item.id} className="flex justify-between items-center p-3 bg-muted/30 rounded-lg">
-                          <div>
-                            <p className="font-medium">{item.drug_name}</p>
-                            <p className="text-sm text-muted-foreground">{item.drug_type}</p>
+                    <div className="space-y-3">
+                      {order.items.map((item: any) => (
+                        <div key={item.id} className="bg-muted/50 p-3 rounded-lg space-y-2">
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1">
+                              <div className="font-medium text-foreground">{item.drug_name}</div>
+                              <div className="text-sm text-muted-foreground">نوع: {item.drug_type}</div>
+                              <div className="text-sm text-muted-foreground">شرکت: {item.company_name}</div>
+                              {item.package_count && (
+                                <div className="text-sm text-muted-foreground">تعداد در بسته: {item.package_count}</div>
+                              )}
+                            </div>
+                            <div className="text-left">
+                              <div className="font-medium">تعداد: {item.quantity}</div>
+                              {item.unit_price > 0 && (
+                                <>
+                                  <div className="text-sm">قیمت واحد: {item.unit_price?.toLocaleString()} تومان</div>
+                                  <div className="text-sm font-medium">جمع: {item.total_price?.toLocaleString()} تومان</div>
+                                </>
+                              )}
+                            </div>
                           </div>
-                          <div className="text-left">
-                            <p className="text-sm">تعداد: {item.quantity}</p>
-                            {item.unit_price > 0 && (
-                              <>
-                                <p className="text-sm">قیمت واحد: {item.unit_price?.toLocaleString()} تومان</p>
-                                <p className="text-sm font-medium">جمع: {item.total_price?.toLocaleString()} تومان</p>
-                              </>
-                            )}
-                          </div>
+                          {(item.irc || item.gtin || item.erx_code) && (
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-2 pt-2 border-t border-border">
+                              {item.irc && (
+                                <div className="text-xs text-muted-foreground">
+                                  <span className="font-medium">IRC:</span> {item.irc}
+                                </div>
+                              )}
+                              {item.gtin && (
+                                <div className="text-xs text-muted-foreground">
+                                  <span className="font-medium">GTIN:</span> {item.gtin}
+                                </div>
+                              )}
+                              {item.erx_code && (
+                                <div className="text-xs text-muted-foreground">
+                                  <span className="font-medium">ERX Code:</span> {item.erx_code}
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       ))}
                       {order.invoice_amount && order.invoice_amount > 0 && (
@@ -661,13 +706,17 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
           </DialogHeader>
           {selectedOrder?.items && (
             <div className="space-y-4">
-              {selectedOrder.items.map((item) => (
+              {selectedOrder.items.map((item: any) => (
                 <div key={item.id} className="p-4 border rounded-lg space-y-3">
                   <div className="flex justify-between items-start">
                     <div>
                       <h4 className="font-medium">{item.drug_name}</h4>
-                      <p className="text-sm text-muted-foreground">{item.drug_type}</p>
+                      <p className="text-sm text-muted-foreground">نوع: {item.drug_type}</p>
+                      <p className="text-sm text-muted-foreground">شرکت: {item.company_name}</p>
                       <p className="text-sm">تعداد: {item.quantity}</p>
+                      {item.package_count && (
+                        <p className="text-sm text-muted-foreground">تعداد در بسته: {item.package_count}</p>
+                      )}
                     </div>
                     <div className="text-left space-y-2">
                       <div>
