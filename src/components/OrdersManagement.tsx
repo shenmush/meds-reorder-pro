@@ -234,64 +234,75 @@ const OrdersManagement: React.FC<OrdersManagementProps> = ({
     });
   };
 
-  const renderOrderCard = (order: Order, ordersList: Order[], setOrdersList: React.Dispatch<React.SetStateAction<Order[]>>) => (
-    <Card key={order.id} className="hover:shadow-md transition-shadow">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <div>
-          <CardTitle className="text-base">سفارش #{order.id.slice(0, 8)}</CardTitle>
-          <CardDescription>
-            تاریخ ثبت: {formatDate(order.created_at)}
-          </CardDescription>
-        </div>
-        {getStatusBadge(order.workflow_status)}
-      </CardHeader>
-      <CardContent>
-        <div className="flex items-center justify-between">
-          <div className="space-y-1">
-            <p className="text-sm">تعداد اقلام: {order.total_items}</p>
-            {order.notes && (
-              <p className="text-sm text-muted-foreground">یادداشت: {order.notes}</p>
-            )}
+  // Function to determine if user can act on order based on workflow status
+  const canUserActOnOrder = (workflowStatus: string) => {
+    // Only show actions for pending orders or orders that need revision
+    const actionableStatuses = ['pending', 'needs_revision_pm', 'needs_revision_ps'];
+    return actionableStatuses.includes(workflowStatus);
+  };
+
+  const renderOrderCard = (order: Order, ordersList: Order[], setOrdersList: React.Dispatch<React.SetStateAction<Order[]>>) => {
+    // Determine if actions should be shown based on order status and user actions
+    const shouldShowActions = showActions && canUserActOnOrder(order.workflow_status);
+    
+    return (
+      <Card key={order.id} className="hover:shadow-md transition-shadow">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <div>
+            <CardTitle className="text-base">سفارش #{order.id.slice(0, 8)}</CardTitle>
+            <CardDescription>
+              تاریخ ثبت: {formatDate(order.created_at)}
+            </CardDescription>
           </div>
-          <div className="flex gap-2">
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => toggleOrderExpansion(order.id, ordersList, setOrdersList)}
-            >
-              <Eye className="h-4 w-4 mr-1" />
-              {expandedOrders.has(order.id) ? 'بستن' : 'مشاهده'}
-            </Button>
-            {showActions && (
-              <>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => onOrderAction?.(order.id, 'approve')}
-                >
-                  <CheckCircle className="h-4 w-4 mr-1" />
-                  تایید
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => onOrderAction?.(order.id, 'revision')}
-                >
-                  <Edit className="h-4 w-4 mr-1" />
-                  ویرایش
-                </Button>
-                <Button 
-                  variant="destructive" 
-                  size="sm"
-                  onClick={() => onOrderAction?.(order.id, 'reject')}
-                >
-                  <XCircle className="h-4 w-4 mr-1" />
-                  رد
-                </Button>
-              </>
-            )}
+          {getStatusBadge(order.workflow_status)}
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <p className="text-sm">تعداد اقلام: {order.total_items}</p>
+              {order.notes && (
+                <p className="text-sm text-muted-foreground">یادداشت: {order.notes}</p>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => toggleOrderExpansion(order.id, ordersList, setOrdersList)}
+              >
+                <Eye className="h-4 w-4 mr-1" />
+                {expandedOrders.has(order.id) ? 'بستن' : 'مشاهده'}
+              </Button>
+              {shouldShowActions && (
+                <>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => onOrderAction?.(order.id, 'approve')}
+                  >
+                    <CheckCircle className="h-4 w-4 mr-1" />
+                    تایید
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => onOrderAction?.(order.id, 'revision')}
+                  >
+                    <Edit className="h-4 w-4 mr-1" />
+                    ویرایش
+                  </Button>
+                  <Button 
+                    variant="destructive" 
+                    size="sm"
+                    onClick={() => onOrderAction?.(order.id, 'reject')}
+                  >
+                    <XCircle className="h-4 w-4 mr-1" />
+                    رد
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
-        </div>
         
         {expandedOrders.has(order.id) && (
           <div className="mt-4 pt-4 border-t border-border">
@@ -315,7 +326,8 @@ const OrdersManagement: React.FC<OrdersManagementProps> = ({
         )}
       </CardContent>
     </Card>
-  );
+    );
+  };
 
   if (loading) {
     return (

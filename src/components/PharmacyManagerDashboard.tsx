@@ -306,6 +306,21 @@ const PharmacyManagerDashboard: React.FC<PharmacyManagerDashboardProps> = ({ use
     }
   };
 
+  // Function to determine if manager can act on order
+  const canManagerActOnOrder = (workflowStatus: string) => {
+    // Manager can only act on pending orders or orders that need manager revision
+    const actionableStatuses = ['pending', 'needs_revision_pm', 'approved_bs', 'needs_revision_pa'];
+    return actionableStatuses.includes(workflowStatus);
+  };
+
+  // Function to get appropriate button label based on status
+  const getActionButtonLabel = (workflowStatus: string, action: string) => {
+    if (workflowStatus === 'approved_bs' || workflowStatus === 'needs_revision_pa') {
+      return action === 'approve' ? 'صدور فاکتور' : 'تایید';
+    }
+    return 'تایید';
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -357,7 +372,7 @@ const PharmacyManagerDashboard: React.FC<PharmacyManagerDashboardProps> = ({ use
                       {expandedOrders.has(order.id) ? 'بستن' : 'مشاهده'}
                     </Button>
                     
-                    {(order.workflow_status === 'pending' || order.workflow_status === 'needs_revision_pm') && (
+                    {canManagerActOnOrder(order.workflow_status) && (
                       <>
                         <Button 
                           variant="outline" 
@@ -365,36 +380,7 @@ const PharmacyManagerDashboard: React.FC<PharmacyManagerDashboardProps> = ({ use
                           onClick={() => openActionDialog(order, 'approve')}
                         >
                           <CheckCircle className="h-4 w-4 mr-1" />
-                          تایید
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => openActionDialog(order, 'revision')}
-                        >
-                          <Edit className="h-4 w-4 mr-1" />
-                          ویرایش
-                        </Button>
-                        <Button 
-                          variant="destructive" 
-                          size="sm"
-                          onClick={() => openActionDialog(order, 'reject')}
-                        >
-                          <XCircle className="h-4 w-4 mr-1" />
-                          رد
-                        </Button>
-                      </>
-                    )}
-                    
-                    {(order.workflow_status === 'approved_bs' || order.workflow_status === 'needs_revision_pa') && (
-                      <>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => openActionDialog(order, 'approve')}
-                        >
-                          <CheckCircle className="h-4 w-4 mr-1" />
-                          صدور فاکتور
+                          {getActionButtonLabel(order.workflow_status, 'approve')}
                         </Button>
                         <Button 
                           variant="outline" 
