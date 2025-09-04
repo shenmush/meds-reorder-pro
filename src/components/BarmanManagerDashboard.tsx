@@ -102,6 +102,7 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
 
   const fetchOrderItems = async (orderId: string) => {
     try {
+      console.log('Fetching order items for order:', orderId);
       const { data, error } = await supabase
         .from('order_items')
         .select(`
@@ -111,16 +112,29 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
         `)
         .eq('order_id', orderId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching order items:', error);
+        throw error;
+      }
+
+      console.log('Order items data:', data);
+
+      if (!data || data.length === 0) {
+        console.log('No order items found');
+        return [];
+      }
 
       // Fetch drug details for each item
       const itemsWithDrugs = await Promise.all((data || []).map(async (item) => {
+        console.log('Processing item:', item);
         // Try to find the drug in each table
         const [chemical, medical, natural] = await Promise.all([
           supabase.from('chemical_drugs').select('full_brand_name').eq('id', item.drug_id).maybeSingle(),
           supabase.from('medical_supplies').select('title').eq('id', item.drug_id).maybeSingle(),
           supabase.from('natural_products').select('full_en_brand_name').eq('id', item.drug_id).maybeSingle()
         ]);
+
+        console.log('Drug lookup results:', { chemical: chemical.data, medical: medical.data, natural: natural.data });
 
         let drugName = 'نامشخص';
         let drugType = 'نامشخص';
@@ -144,6 +158,8 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
           .eq('drug_id', item.drug_id)
           .maybeSingle();
 
+        console.log('Pricing data for item:', item.drug_id, pricingData);
+
         return {
           ...item,
           drug_name: drugName,
@@ -153,6 +169,7 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
         };
       }));
 
+      console.log('Final items with drugs:', itemsWithDrugs);
       return itemsWithDrugs;
     } catch (error) {
       console.error('Error fetching order items:', error);
