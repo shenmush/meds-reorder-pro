@@ -105,7 +105,7 @@ const PharmacyAccountantDashboard: React.FC<PharmacyAccountantDashboardProps> = 
             name
           )
         `)
-        .in('workflow_status', ['invoice_issued', 'payment_rejected'])
+        .in('workflow_status', ['invoice_issued', 'payment_rejected', 'payment_uploaded'])
         .eq('pharmacies.id', userRole.pharmacy_id)
         .order('created_at', { ascending: false });
 
@@ -161,9 +161,9 @@ const PharmacyAccountantDashboard: React.FC<PharmacyAccountantDashboardProps> = 
     try {
       setUploadingOrderId(orderId);
 
-      // Upload file to Supabase Storage
+      // Upload file to Supabase Storage with user folder structure
       const fileExt = file.name.split('.').pop();
-      const fileName = `${orderId}_${Date.now()}.${fileExt}`;
+      const fileName = `${user.id}/${orderId}_${Date.now()}.${fileExt}`;
       
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('payment-proofs')
@@ -209,6 +209,40 @@ const PharmacyAccountantDashboard: React.FC<PharmacyAccountantDashboardProps> = 
       toast.error('خطا در آپلود رسید پرداخت');
     } finally {
       setUploadingOrderId(null);
+    }
+  };
+
+  const handleConfirmPayment = async (orderId: string) => {
+    try {
+      // Update order status to payment verified
+      const { error: updateError } = await supabase
+        .from('orders')
+        .update({
+          workflow_status: 'payment_verified'
+        })
+        .eq('id', orderId);
+
+      if (updateError) throw updateError;
+
+      // Create approval record
+      const { error: approvalError } = await supabase
+        .from('order_approvals')
+        .insert({
+          order_id: orderId,
+          user_id: user.id,
+          from_status: 'payment_uploaded',
+          to_status: 'payment_verified',
+          notes: 'پرداخت توسط حسابدار داروخانه تایید شد'
+        });
+
+      if (approvalError) throw approvalError;
+
+      toast.success('پرداخت تایید شد و به حسابدار بارمان ارسال شد');
+      fetchOrders();
+      fetchPaymentHistory();
+    } catch (error) {
+      console.error('Error confirming payment:', error);
+      toast.error('خطا در تایید پرداخت');
     }
   };
 
@@ -281,7 +315,7 @@ const PharmacyAccountantDashboard: React.FC<PharmacyAccountantDashboardProps> = 
   const getStatusBadge = (status: string) => {
     const statusMap = {
       'invoice_issued': { label: 'فاکتور صادر شده', variant: 'secondary' as const, icon: FileText },
-      'payment_uploaded': { label: 'رسید آپلود شده', variant: 'default' as const, icon: Upload },
+      'payment_uploaded': { label: 'رسید آپلود شده - نیاز به تایید', variant: 'default' as const, icon: Upload },
       'payment_rejected': { label: 'پرداخت رد شده', variant: 'destructive' as const, icon: XCircle },
       'payment_verified': { label: 'پرداخت تایید شده', variant: 'default' as const, icon: CheckCircle },
       'completed': { label: 'تکمیل شده', variant: 'default' as const, icon: CheckCircle },
@@ -654,6 +688,22 @@ const PharmacyAccountantDashboard: React.FC<PharmacyAccountantDashboardProps> = 
                       </div>
                     )}
 
+                    {/* Payment Actions */}
+                    {order.workflow_status === 'payment_uploaded' && (
+                      <div className="mt-4 p-3 bg-green-50 dark:bg-green-950/50 rounded-lg">
+                        <p className="text-sm font-medium text-green-700 dark:text-green-300 mb-3">
+                          رسید پرداخت آپلود شده - آماده تایید
+                        </p>
+                        <Button
+                          onClick={() => handleConfirmPayment(order.id)}
+                          className="w-full gap-2"
+                        >
+                          <CheckCircle className="h-4 w-4" />
+                          تایید پرداخت و ارسال به حسابدار بارمان
+                        </Button>
+                      </div>
+                    )}
+
                     {(order.workflow_status === 'invoice_issued' || order.workflow_status === 'payment_rejected') && (
                       <div className="mt-4 space-y-4">
                         <div>
@@ -716,7 +766,7 @@ const PharmacyAccountantDashboard: React.FC<PharmacyAccountantDashboardProps> = 
                       </div>
                     )}
 
-                    {order.payment_proof_url && (
+                    {order.payment_proof_url && order.workflow_status !== 'payment_uploaded' && (
                       <div className="mt-4 p-3 bg-muted rounded-lg">
                         <p className="text-sm font-medium text-success">
                           ✓ رسید پرداخت آپلود شده
