@@ -135,9 +135,9 @@ const BarmanStaffDashboard: React.FC<BarmanStaffDashboardProps> = ({ user, onAut
       const itemsWithDrugs = await Promise.all((data || []).map(async (item) => {
         // Try to find the drug in each table
         const [chemical, medical, natural] = await Promise.all([
-          supabase.from('chemical_drugs').select('full_brand_name').eq('id', item.drug_id).single(),
-          supabase.from('medical_supplies').select('title').eq('id', item.drug_id).single(),
-          supabase.from('natural_products').select('full_en_brand_name').eq('id', item.drug_id).single()
+          supabase.from('chemical_drugs').select('full_brand_name').eq('id', item.drug_id).maybeSingle(),
+          supabase.from('medical_supplies').select('title').eq('id', item.drug_id).maybeSingle(),
+          supabase.from('natural_products').select('full_en_brand_name').eq('id', item.drug_id).maybeSingle()
         ]);
 
         let drugName = 'نامشخص';

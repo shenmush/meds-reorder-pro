@@ -6,7 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Loader2, CheckCircle, XCircle, Edit, Eye, RotateCcw, LogOut, Pill, ShoppingCart, UserIcon, BarChart3 } from "lucide-react";
+import { Loader2, CheckCircle, XCircle, Edit, Eye, RotateCcw, LogOut, Pill, ShoppingCart, UserIcon, BarChart3, Calculator, FileText, ChevronDown, ChevronUp } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import AdminPharmacies from './AdminPharmacies';
@@ -16,6 +18,16 @@ import AdminAddDrug from './AdminAddDrug';
 import MobileBottomNav from './MobileBottomNav';
 import MobileHeader from './MobileHeader';
 
+interface OrderItem {
+  id: string;
+  quantity: number;
+  drug_id: string;
+  drug_name?: string;
+  drug_type?: string;
+  unit_price?: number;
+  total_price?: number;
+}
+
 interface Order {
   id: string;
   workflow_status: string;
@@ -23,9 +35,11 @@ interface Order {
   created_at: string;
   updated_at: string;
   total_items: number;
+  invoice_amount?: number;
   pharmacies: {
     name: string;
   };
+  items?: OrderItem[];
 }
 
 interface BarmanManagerDashboardProps {
@@ -41,6 +55,8 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<'approve' | 'reject' | 'revision_bs' | 'revision_pm' | null>(null);
   const [activeTab, setActiveTab] = useState<'orders' | 'pharmacies' | 'reports' | 'upload'>('orders');
+  const [pricingDialogOpen, setPricingDialogOpen] = useState(false);
+  const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetchOrders();
@@ -81,6 +97,209 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
       toast.error('خطا در بارگذاری سفارشات');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchOrderItems = async (orderId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('order_items')
+        .select(`
+          id,
+          quantity,
+          drug_id
+        `)
+        .eq('order_id', orderId);
+
+      if (error) throw error;
+
+      // Fetch drug details for each item
+      const itemsWithDrugs = await Promise.all((data || []).map(async (item) => {
+        // Try to find the drug in each table
+        const [chemical, medical, natural] = await Promise.all([
+          supabase.from('chemical_drugs').select('full_brand_name').eq('id', item.drug_id).maybeSingle(),
+          supabase.from('medical_supplies').select('title').eq('id', item.drug_id).maybeSingle(),
+          supabase.from('natural_products').select('full_en_brand_name').eq('id', item.drug_id).maybeSingle()
+        ]);
+
+        let drugName = 'نامشخص';
+        let drugType = 'نامشخص';
+
+        if (chemical.data) {
+          drugName = chemical.data.full_brand_name;
+          drugType = 'دارو';
+        } else if (medical.data) {
+          drugName = medical.data.title;
+          drugType = 'تجهیزات پزشکی';
+        } else if (natural.data) {
+          drugName = natural.data.full_en_brand_name;
+          drugType = 'محصولات طبیعی';
+        }
+
+        // Check if pricing exists
+        const { data: pricingData } = await supabase
+          .from('order_item_pricing')
+          .select('unit_price, total_price')
+          .eq('order_id', orderId)
+          .eq('drug_id', item.drug_id)
+          .maybeSingle();
+
+        return {
+          ...item,
+          drug_name: drugName,
+          drug_type: drugType,
+          unit_price: pricingData?.unit_price || 0,
+          total_price: pricingData?.total_price || 0
+        };
+      }));
+
+      return itemsWithDrugs;
+    } catch (error) {
+      console.error('Error fetching order items:', error);
+      return [];
+    }
+  };
+
+  const toggleOrderExpansion = async (orderId: string) => {
+    const newExpanded = new Set(expandedOrders);
+    
+    if (expandedOrders.has(orderId)) {
+      newExpanded.delete(orderId);
+    } else {
+      newExpanded.add(orderId);
+      
+      // Fetch order items if not already loaded
+      const order = orders.find(o => o.id === orderId);
+      if (order && !order.items) {
+        const items = await fetchOrderItems(orderId);
+        
+        setOrders(prevOrders => 
+          prevOrders.map(o => 
+            o.id === orderId ? { ...o, items } : o
+          )
+        );
+      }
+    }
+    
+    setExpandedOrders(newExpanded);
+  };
+
+  const openPricingDialog = async (order: Order) => {
+    setSelectedOrder(order);
+    if (!order.items) {
+      const items = await fetchOrderItems(order.id);
+      setOrders(prevOrders => 
+        prevOrders.map(o => 
+          o.id === order.id ? { ...o, items } : o
+        )
+      );
+    }
+    setPricingDialogOpen(true);
+  };
+
+  const savePricing = async () => {
+    if (!selectedOrder || !selectedOrder.items) return;
+
+    try {
+      const totalAmount = selectedOrder.items.reduce((sum, item) => sum + (item.total_price || 0), 0);
+
+      // Save or update pricing for each item
+      const pricingPromises = selectedOrder.items.map(item => {
+        if ((item.unit_price || 0) > 0) {
+          return supabase
+            .from('order_item_pricing')
+            .upsert({
+              order_id: selectedOrder.id,
+              drug_id: item.drug_id,
+              unit_price: item.unit_price || 0,
+              total_price: item.total_price || 0
+            });
+        }
+        return Promise.resolve();
+      });
+
+      await Promise.all(pricingPromises);
+
+      // Update order with total amount
+      const { error: orderError } = await supabase
+        .from('orders')
+        .update({ 
+          invoice_amount: totalAmount,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', selectedOrder.id);
+
+      if (orderError) throw orderError;
+
+      toast.success('قیمت‌گذاری با موفقیت ذخیره شد');
+      setPricingDialogOpen(false);
+      fetchOrders();
+    } catch (error) {
+      console.error('Error saving pricing:', error);
+      toast.error('خطا در ذخیره قیمت‌گذاری');
+    }
+  };
+
+  const updateItemPrice = (itemId: string, unitPrice: number, quantity: number) => {
+    if (!selectedOrder) return;
+    
+    const totalPrice = unitPrice * quantity;
+    
+    setOrders(prevOrders => 
+      prevOrders.map(order => 
+        order.id === selectedOrder.id 
+          ? {
+              ...order,
+              items: order.items?.map(item => 
+                item.id === itemId 
+                  ? { ...item, unit_price: unitPrice, total_price: totalPrice }
+                  : item
+              )
+            }
+          : order
+      )
+    );
+
+    setSelectedOrder(prev => prev ? {
+      ...prev,
+      items: prev.items?.map(item => 
+        item.id === itemId 
+          ? { ...item, unit_price: unitPrice, total_price: totalPrice }
+          : item
+      )
+    } : null);
+  };
+
+  const issueInvoice = async (orderId: string) => {
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ 
+          workflow_status: 'invoice_issued',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', orderId);
+
+      if (error) throw error;
+
+      // Record approval action
+      const { error: approvalError } = await supabase
+        .from('order_approvals')
+        .insert({
+          order_id: orderId,
+          user_id: user.id,
+          from_status: 'approved_bs',
+          to_status: 'invoice_issued',
+          notes: 'فاکتور صادر شد'
+        });
+
+      if (approvalError) throw approvalError;
+
+      toast.success('فاکتور با موفقیت صادر شد');
+      fetchOrders();
+    } catch (error) {
+      console.error('Error issuing invoice:', error);
+      toast.error('خطا در صدور فاکتور');
     }
   };
 
@@ -192,44 +411,76 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
                     )}
                   </div>
                   <div className="flex gap-2 flex-wrap">
-                    <Button variant="outline" size="sm">
-                      <Eye className="h-4 w-4 mr-1" />
-                      مشاهده
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => toggleOrderExpansion(order.id)}
+                    >
+                      {expandedOrders.has(order.id) ? (
+                        <>
+                          <ChevronUp className="h-4 w-4 mr-1" />
+                          بستن
+                        </>
+                      ) : (
+                        <>
+                          <Eye className="h-4 w-4 mr-1" />
+                          جزئیات
+                        </>
+                      )}
                     </Button>
                     <Button 
                       variant="default" 
                       size="sm"
-                      onClick={() => openActionDialog(order, 'approve')}
+                      onClick={() => openPricingDialog(order)}
                     >
-                      <CheckCircle className="h-4 w-4 mr-1" />
-                      تایید نهایی
+                      <Calculator className="h-4 w-4 mr-1" />
+                      قیمت‌گذاری
                     </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => openActionDialog(order, 'revision_bs')}
-                    >
-                      <Edit className="h-4 w-4 mr-1" />
-                      ارجاع به کارمند
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => openActionDialog(order, 'revision_pm')}
-                    >
-                      <RotateCcw className="h-4 w-4 mr-1" />
-                      ارجاع به داروخانه
-                    </Button>
-                    <Button 
-                      variant="destructive" 
-                      size="sm"
-                      onClick={() => openActionDialog(order, 'reject')}
-                    >
-                      <XCircle className="h-4 w-4 mr-1" />
-                      رد
-                    </Button>
+                    {order.invoice_amount && order.invoice_amount > 0 && (
+                      <Button 
+                        variant="secondary" 
+                        size="sm"
+                        onClick={() => issueInvoice(order.id)}
+                      >
+                        <FileText className="h-4 w-4 mr-1" />
+                        صدور فاکتور
+                      </Button>
+                    )}
                   </div>
                 </div>
+                
+                {/* Expanded Order Details */}
+                {expandedOrders.has(order.id) && order.items && (
+                  <div className="mt-4 pt-4 border-t border-border/60">
+                    <h4 className="font-medium mb-3">اقلام سفارش:</h4>
+                    <div className="space-y-2">
+                      {order.items.map((item) => (
+                        <div key={item.id} className="flex justify-between items-center p-3 bg-muted/30 rounded-lg">
+                          <div>
+                            <p className="font-medium">{item.drug_name}</p>
+                            <p className="text-sm text-muted-foreground">{item.drug_type}</p>
+                          </div>
+                          <div className="text-left">
+                            <p className="text-sm">تعداد: {item.quantity}</p>
+                            {item.unit_price > 0 && (
+                              <>
+                                <p className="text-sm">قیمت واحد: {item.unit_price?.toLocaleString()} تومان</p>
+                                <p className="text-sm font-medium">جمع: {item.total_price?.toLocaleString()} تومان</p>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                      {order.invoice_amount && order.invoice_amount > 0 && (
+                        <div className="pt-2 mt-4 border-t border-border/60">
+                          <p className="text-lg font-bold text-left">
+                            مجموع کل: {order.invoice_amount.toLocaleString()} تومان
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                 )}
               </CardContent>
             </Card>
           ))
@@ -377,6 +628,67 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
             </Button>
             <Button onClick={() => selectedOrder && pendingAction && handleOrderAction(selectedOrder.id, pendingAction)}>
               تایید
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Pricing Dialog */}
+      <Dialog open={pricingDialogOpen} onOpenChange={setPricingDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>قیمت‌گذاری سفارش</DialogTitle>
+            <DialogDescription>
+              سفارش #{selectedOrder?.id.slice(0, 8)} - {selectedOrder?.pharmacies?.name}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedOrder?.items && (
+            <div className="space-y-4">
+              {selectedOrder.items.map((item) => (
+                <div key={item.id} className="p-4 border rounded-lg space-y-3">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h4 className="font-medium">{item.drug_name}</h4>
+                      <p className="text-sm text-muted-foreground">{item.drug_type}</p>
+                      <p className="text-sm">تعداد: {item.quantity}</p>
+                    </div>
+                    <div className="text-left space-y-2">
+                      <div>
+                        <Label htmlFor={`price-${item.id}`}>قیمت واحد (تومان)</Label>
+                        <Input
+                          id={`price-${item.id}`}
+                          type="number"
+                          min="0"
+                          value={item.unit_price || ''}
+                          onChange={(e) => updateItemPrice(item.id, Number(e.target.value), item.quantity)}
+                          placeholder="0"
+                          className="w-40"
+                        />
+                      </div>
+                      {(item.unit_price || 0) > 0 && (
+                        <div className="text-sm">
+                          <strong>جمع: {(item.total_price || 0).toLocaleString()} تومان</strong>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+              <div className="pt-4 border-t">
+                <div className="text-left">
+                  <p className="text-lg font-bold">
+                    مجموع کل: {selectedOrder.items.reduce((sum, item) => sum + (item.total_price || 0), 0).toLocaleString()} تومان
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPricingDialogOpen(false)}>
+              انصراف
+            </Button>
+            <Button onClick={savePricing}>
+              ذخیره قیمت‌گذاری
             </Button>
           </DialogFooter>
         </DialogContent>
