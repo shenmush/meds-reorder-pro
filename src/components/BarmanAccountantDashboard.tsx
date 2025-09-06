@@ -141,9 +141,18 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
   };
 
   const handleApprovePayment = async (orderId: string) => {
+    if (!reviewNotes.trim()) {
+      toast({
+        title: "خطا",
+        description: "لطفا توضیحات تایید را وارد کنید",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setProcessingOrderId(orderId);
     try {
-      // Update order status
+      // Update order status to send to manager
       const { error: updateError } = await supabase
         .from('orders')
         .update({
@@ -161,7 +170,7 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
           user_id: user.id,
           from_status: 'payment_uploaded',
           to_status: 'payment_verified',
-          notes: reviewNotes || 'Payment verified by barman accountant'
+          notes: reviewNotes
         });
 
       toast({
@@ -178,6 +187,62 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
       toast({
         title: "خطا",
         description: "خطا در تایید پرداخت",
+        variant: "destructive",
+      });
+    } finally {
+      setProcessingOrderId(null);
+    }
+  };
+
+  const handleRequestRevision = async (orderId: string) => {
+    if (!reviewNotes.trim()) {
+      toast({
+        title: "خطا",
+        description: "لطفا دلیل درخواست اصلاح را وارد کنید",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setProcessingOrderId(orderId);
+    try {
+      // Return to accountant for revision
+      const { error: updateError } = await supabase
+        .from('orders')
+        .update({
+          workflow_status: 'invoice_issued',
+          payment_rejection_reason: `درخواست اصلاح: ${reviewNotes}`,
+          payment_proof_url: null // Clear the uploaded proof
+        })
+        .eq('id', orderId);
+
+      if (updateError) throw updateError;
+
+      // Create approval record
+      await supabase
+        .from('order_approvals')
+        .insert({
+          order_id: orderId,
+          user_id: user.id,
+          from_status: 'payment_uploaded',
+          to_status: 'invoice_issued',
+          notes: `درخواست اصلاح پرداخت: ${reviewNotes}`
+        });
+
+      toast({
+        title: "موفق",
+        description: "درخواست اصلاح پرداخت به حسابدار داروخانه ارسال شد",
+      });
+
+      setReviewNotes('');
+      setSelectedOrder(null);
+      fetchOrders();
+      fetchStats();
+    } catch (error) {
+      console.error('Error requesting revision:', error);
+      toast({
+        title: "خطا",
+        description: "خطا در درخواست اصلاح",
         variant: "destructive",
       });
     } finally {
@@ -444,88 +509,153 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
                         </div>
 
                         {order.payment_proof_url && (
-                          <div className="flex gap-2">
-                            <Dialog>
-                              <DialogTrigger asChild>
-                                <Button variant="outline" size="sm" className="gap-1">
-                                  <Eye size={16} />
-                                  مشاهده رسید
-                                </Button>
-                              </DialogTrigger>
-                              <DialogContent className="max-w-4xl">
-                                <DialogHeader>
-                                  <DialogTitle>رسید پرداخت سفارش #{order.id.slice(0, 8)}</DialogTitle>
-                                  <DialogDescription>
-                                    داروخانه: {order.pharmacy.name}
-                                  </DialogDescription>
-                                </DialogHeader>
-                                <div className="mt-4">
-                                  <img 
-                                    src={order.payment_proof_url} 
-                                    alt="Payment proof" 
-                                    className="max-w-full h-auto rounded-lg border"
-                                  />
-                                </div>
-                              </DialogContent>
-                            </Dialog>
-
-                            {order.workflow_status === 'payment_uploaded' && (
+                          <div className="space-y-3">
+                            {/* Receipt Image */}
+                            <div className="bg-muted/50 rounded-lg p-4">
+                              <img 
+                                src={order.payment_proof_url} 
+                                alt="رسید پرداخت"
+                                className="max-w-full h-auto max-h-96 rounded-lg border border-border shadow-sm mx-auto block"
+                              />
+                            </div>
+                            
+                            {/* Action Buttons */}
+                            <div className="flex flex-wrap gap-2">
                               <Dialog>
                                 <DialogTrigger asChild>
                                   <Button 
                                     variant="default" 
                                     size="sm" 
-                                    disabled={processingOrderId === order.id}
-                                    onClick={() => setSelectedOrder(order)}
                                     className="gap-1"
+                                    onClick={() => setSelectedOrder(order)}
                                   >
-                                    {processingOrderId === order.id ? (
-                                      <Clock size={16} className="animate-spin" />
-                                    ) : (
-                                      <CheckCircle size={16} />
-                                    )}
-                                    بررسی پرداخت
+                                    <CheckCircle size={16} />
+                                    تایید پرداخت
                                   </Button>
                                 </DialogTrigger>
-                                <DialogContent>
+                                <DialogContent className="max-w-md">
                                   <DialogHeader>
-                                    <DialogTitle>بررسی پرداخت</DialogTitle>
+                                    <DialogTitle>تایید پرداخت</DialogTitle>
                                     <DialogDescription>
-                                      آیا رسید پرداخت معتبر است؟
+                                      پرداخت این سفارش تایید و به مدیر بارمان ارسال خواهد شد
                                     </DialogDescription>
                                   </DialogHeader>
-                                  <div className="mt-4">
-                                    <Label htmlFor="review-notes">یادداشت (اختیاری)</Label>
-                                    <Textarea
-                                      id="review-notes"
-                                      value={reviewNotes}
-                                      onChange={(e) => setReviewNotes(e.target.value)}
-                                      placeholder="یادداشت‌های مربوط به بررسی..."
-                                      className="mt-2"
-                                    />
+                                  <div className="space-y-4">
+                                    <div>
+                                      <Label htmlFor="approve-notes">توضیحات تایید (اجباری)</Label>
+                                      <Textarea
+                                        id="approve-notes"
+                                        placeholder="توضیحات خود را در مورد تایید پرداخت وارد کنید..."
+                                        value={reviewNotes}
+                                        onChange={(e) => setReviewNotes(e.target.value)}
+                                        className="mt-2"
+                                      />
+                                    </div>
                                   </div>
-                                  <DialogFooter className="gap-2">
-                                    <Button
-                                      variant="destructive"
-                                      onClick={() => selectedOrder && handleRejectPayment(selectedOrder.id)}
-                                      disabled={processingOrderId === selectedOrder?.id}
-                                      className="gap-1"
+                                  <DialogFooter>
+                                    <Button 
+                                      onClick={() => handleApprovePayment(order.id)}
+                                      disabled={processingOrderId === order.id || !reviewNotes.trim()}
                                     >
-                                      <X size={16} />
-                                      رد پرداخت
-                                    </Button>
-                                    <Button
-                                      onClick={() => selectedOrder && handleApprovePayment(selectedOrder.id)}
-                                      disabled={processingOrderId === selectedOrder?.id}
-                                      className="gap-1"
-                                    >
-                                      <CheckCircle size={16} />
-                                      تایید پرداخت
+                                      {processingOrderId === order.id ? "در حال پردازش..." : "تایید پرداخت"}
                                     </Button>
                                   </DialogFooter>
                                 </DialogContent>
                               </Dialog>
-                            )}
+
+                              <Dialog>
+                                <DialogTrigger asChild>
+                                  <Button 
+                                    variant="destructive" 
+                                    size="sm" 
+                                    className="gap-1"
+                                    onClick={() => setSelectedOrder(order)}
+                                  >
+                                    <X size={16} />
+                                    رد پرداخت
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent className="max-w-md">
+                                  <DialogHeader>
+                                    <DialogTitle>رد پرداخت</DialogTitle>
+                                    <DialogDescription>
+                                      این سفارش رد شده و بسته خواهد شد
+                                    </DialogDescription>
+                                  </DialogHeader>
+                                  <div className="space-y-4">
+                                    <div>
+                                      <Label htmlFor="reject-notes">دلیل رد (اجباری)</Label>
+                                      <Textarea
+                                        id="reject-notes"
+                                        placeholder="دلیل رد پرداخت را وارد کنید..."
+                                        value={reviewNotes}
+                                        onChange={(e) => setReviewNotes(e.target.value)}
+                                        className="mt-2"
+                                      />
+                                    </div>
+                                  </div>
+                                  <DialogFooter>
+                                    <Button 
+                                      variant="destructive"
+                                      onClick={() => handleRejectPayment(order.id)}
+                                      disabled={processingOrderId === order.id || !reviewNotes.trim()}
+                                    >
+                                      {processingOrderId === order.id ? "در حال پردازش..." : "رد پرداخت"}
+                                    </Button>
+                                  </DialogFooter>
+                                </DialogContent>
+                              </Dialog>
+
+                              <Dialog>
+                                <DialogTrigger asChild>
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    className="gap-1"
+                                    onClick={() => setSelectedOrder(order)}
+                                  >
+                                    <AlertCircle size={16} />
+                                    درخواست اصلاح
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent className="max-w-md">
+                                  <DialogHeader>
+                                    <DialogTitle>درخواست اصلاح پرداخت</DialogTitle>
+                                    <DialogDescription>
+                                      سفارش به حسابدار داروخانه برگردانده خواهد شد تا پرداخت اصلاح شود
+                                    </DialogDescription>
+                                  </DialogHeader>
+                                  <div className="space-y-4">
+                                    <div>
+                                      <Label htmlFor="revision-notes">دلیل درخواست اصلاح (اجباری)</Label>
+                                      <Textarea
+                                        id="revision-notes"
+                                        placeholder="دلیل درخواست اصلاح پرداخت را وارد کنید..."
+                                        value={reviewNotes}
+                                        onChange={(e) => setReviewNotes(e.target.value)}
+                                        className="mt-2"
+                                      />
+                                    </div>
+                                  </div>
+                                  <DialogFooter>
+                                    <Button 
+                                      variant="outline"
+                                      onClick={() => handleRequestRevision(order.id)}
+                                      disabled={processingOrderId === order.id || !reviewNotes.trim()}
+                                    >
+                                      {processingOrderId === order.id ? "در حال پردازش..." : "درخواست اصلاح"}
+                                    </Button>
+                                  </DialogFooter>
+                                </DialogContent>
+                              </Dialog>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {!order.payment_proof_url && (
+                          <div className="text-center py-4 text-muted-foreground">
+                            <Receipt className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                            <p>رسید پرداخت آپلود نشده</p>
                           </div>
                         )}
                       </div>
@@ -536,54 +666,53 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
             </Card>
           </TabsContent>
 
+          {/* History Tab */}
           <TabsContent value="history" className="space-y-6">
-            <Card className="animate-scale-in">
+            <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <History className="w-5 h-5" />
                   تاریخچه پرداخت‌ها
                 </CardTitle>
                 <CardDescription>
-                  پرداخت‌های پردازش شده
+                  تاریخچه پرداخت‌های تایید شده و رد شده
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 {historyLoading ? (
                   <div className="text-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-                    <p className="text-muted-foreground mt-2">در حال بارگذاری...</p>
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                    <p className="text-muted-foreground">در حال بارگذاری...</p>
                   </div>
                 ) : historyOrders.length === 0 ? (
                   <div className="text-center py-8">
                     <History className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-muted-foreground">تاریخچه‌ای وجود ندارد</p>
+                    <p className="text-muted-foreground">تاریخچه‌ای موجود نیست</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
                     {historyOrders.map((order) => (
-                      <div key={order.id} className="border border-border rounded-lg p-4 opacity-75 hover:opacity-100 transition-opacity">
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-4">
-                              <h3 className="font-medium text-foreground">
-                                سفارش #{order.id.slice(0, 8)}
-                              </h3>
-                              {getStatusBadge(order.workflow_status)}
-                            </div>
-                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                              <span>{order.pharmacy.name}</span>
-                              <span>{new Date(order.updated_at).toLocaleDateString('fa-IR')}</span>
-                              {order.invoice_amount && (
-                                <span>{order.invoice_amount.toLocaleString()} تومان</span>
-                              )}
-                            </div>
-                            {order.payment_rejection_reason && (
-                              <p className="text-sm text-red-600 bg-red-50 dark:bg-red-950 p-2 rounded">
-                                دلیل رد: {order.payment_rejection_reason}
-                              </p>
-                            )}
+                      <div key={order.id} className="border border-border rounded-lg p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-4">
+                            <h3 className="font-semibold">سفارش #{order.id.slice(0, 8)}</h3>
+                            {getStatusBadge(order.workflow_status)}
                           </div>
+                          <span className="text-sm text-muted-foreground">
+                            {new Date(order.updated_at).toLocaleDateString('fa-IR')}
+                          </span>
                         </div>
+                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                          <span>{order.pharmacy.name}</span>
+                          {order.invoice_amount && (
+                            <span>{order.invoice_amount.toLocaleString()} تومان</span>
+                          )}
+                        </div>
+                        {order.payment_rejection_reason && (
+                          <div className="mt-2 p-2 bg-muted rounded text-sm">
+                            <strong>دلیل:</strong> {order.payment_rejection_reason}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -592,55 +721,62 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
             </Card>
           </TabsContent>
 
+          {/* Reports Tab */}
           <TabsContent value="reports" className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card className="animate-scale-in">
+              <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <BarChart3 className="w-5 h-5" />
                     آمار کلی
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">کل پرداخت‌های پردازش شده</span>
-                    <span className="font-bold text-green-600">{stats.totalProcessed}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">در انتظار بررسی</span>
-                    <span className="font-bold text-orange-600">{stats.pendingPayments}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">نرخ تأیید</span>
-                    <span className="font-bold text-primary">
-                      {stats.totalProcessed > 0 
-                        ? `${Math.round((stats.totalProcessed / (stats.totalProcessed + stats.pendingPayments)) * 100)}%`
-                        : '0%'
-                      }
-                    </span>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex justify-between">
+                      <span>کل پرداخت‌های پردازش شده:</span>
+                      <span className="font-bold">{stats.totalProcessed}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>تایید شده امروز:</span>
+                      <span className="font-bold text-green-600">{stats.approvedToday}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>رد شده امروز:</span>
+                      <span className="font-bold text-red-600">{stats.rejectedToday}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>در انتظار بررسی:</span>
+                      <span className="font-bold text-primary">{stats.pendingPayments}</span>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="animate-scale-in">
+              <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <TrendingUp className="w-5 h-5" />
-                    عملکرد امروز
+                    عملکرد
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">تأیید شده امروز</span>
-                    <span className="font-bold text-green-600">{stats.approvedToday}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">رد شده امروز</span>
-                    <span className="font-bold text-red-600">{stats.rejectedToday}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">کل پردازش امروز</span>
-                    <span className="font-bold text-primary">{stats.approvedToday + stats.rejectedToday}</span>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex justify-between">
+                      <span>میانگین پردازش روزانه:</span>
+                      <span className="font-bold">
+                        {stats.totalProcessed > 0 ? Math.round(stats.totalProcessed / 30) : 0}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>نرخ تایید:</span>
+                      <span className="font-bold text-green-600">
+                        {stats.totalProcessed > 0 
+                          ? `${Math.round((stats.approvedToday / (stats.approvedToday + stats.rejectedToday || 1)) * 100)}%`
+                          : '0%'
+                        }
+                      </span>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -649,12 +785,14 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
         </Tabs>
       </main>
 
-      {/* Mobile Navigation */}
-      <MobileBottomNav 
-        activeTab={activeTab} 
-        onTabChange={handleTabChange}
-        userRole="barman_accountant"
-      />
+      {/* Mobile Bottom Navigation */}
+      <div className="block md:hidden">
+        <MobileBottomNav 
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          userRole="barman_accountant"
+        />
+      </div>
     </div>
   );
 };
