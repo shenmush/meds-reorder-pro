@@ -8,11 +8,21 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Eye, Receipt, CheckCircle, Clock, AlertCircle, X, CreditCard, History, BarChart3, TrendingUp, Activity, DollarSign, Calendar, User as UserIcon, LogOut } from 'lucide-react';
+import { Eye, Receipt, CheckCircle, Clock, AlertCircle, X, CreditCard, History, BarChart3, TrendingUp, Activity, DollarSign, Calendar, User as UserIcon, LogOut, ChevronDown, ChevronUp } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import MobileBottomNav from '@/components/MobileBottomNav';
 import MobileHeader from '@/components/MobileHeader';
+
+interface OrderItem {
+  id: string;
+  drug_id: string;
+  quantity: number;
+  drug_name?: string;
+  drug_brand?: string;
+  unit_price?: number;
+  total_price?: number;
+}
 
 interface Order {
   id: string;
@@ -26,9 +36,12 @@ interface Order {
   payment_date?: string;
   invoice_amount?: number;
   payment_rejection_reason?: string;
+  pricing_notes?: string;
   pharmacy: {
     name: string;
   };
+  order_items?: OrderItem[];
+  expanded?: boolean;
 }
 
 interface BarmanAccountantDashboardProps {
@@ -45,6 +58,8 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [reviewNotes, setReviewNotes] = useState('');
   const [activeTab, setActiveTab] = useState('payments');
+  const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
+  const [loadingOrderItems, setLoadingOrderItems] = useState<Set<string>>(new Set());
   const [stats, setStats] = useState({
     pendingPayments: 0,
     approvedToday: 0,
@@ -60,6 +75,7 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
 
   const fetchOrders = async () => {
     try {
+      console.log('Fetching orders...');
       const { data, error } = await supabase
         .from('orders')
         .select(`
@@ -69,10 +85,17 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
         .eq('workflow_status', 'payment_uploaded')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching orders:', error);
+        throw error;
+      }
+
+      console.log('Fetched orders:', data);
       const ordersWithPharmacy = (data || []).map(order => ({
         ...order,
-        pharmacy: { name: order.pharmacies.name }
+        pharmacy: { name: order.pharmacies.name },
+        order_items: [],
+        expanded: false
       }));
       setOrders(ordersWithPharmacy);
     } catch (error) {
@@ -138,6 +161,125 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
     } catch (error) {
       console.error('Error fetching stats:', error);
     }
+  };
+
+  const fetchOrderItems = async (orderId: string) => {
+    setLoadingOrderItems(prev => new Set([...prev, orderId]));
+    try {
+      console.log('Fetching order items for order:', orderId);
+      
+      // First get order items
+      const { data: orderItemsData, error: itemsError } = await supabase
+        .from('order_items')
+        .select(`
+          id,
+          drug_id,
+          quantity
+        `)
+        .eq('order_id', orderId);
+
+      if (itemsError) {
+        console.error('Error fetching order items:', itemsError);
+        throw itemsError;
+      }
+
+      console.log('Fetched order items:', orderItemsData);
+
+      if (!orderItemsData || orderItemsData.length === 0) {
+        console.log('No order items found');
+        setOrders(prevOrders => 
+          prevOrders.map(order => 
+            order.id === orderId 
+              ? { ...order, order_items: [], expanded: true }
+              : order
+          )
+        );
+        setExpandedOrders(prev => new Set([...prev, orderId]));
+        return;
+      }
+
+      // Get drug information and pricing for each item
+      const itemsWithDetails = await Promise.all(
+        orderItemsData.map(async (item) => {
+          // Get drug details
+          const { data: drugData } = await supabase
+            .from('chemical_drugs')
+            .select('full_brand_name, irc')
+            .eq('id', item.drug_id)
+            .single();
+
+          // Get pricing information
+          const { data: pricingData } = await supabase
+            .from('order_item_pricing')
+            .select('unit_price, total_price, notes')
+            .eq('order_id', orderId)
+            .eq('drug_id', item.drug_id)
+            .maybeSingle();
+
+          return {
+            id: item.id,
+            drug_id: item.drug_id,
+            quantity: item.quantity,
+            drug_name: drugData?.full_brand_name || 'نامشخص',
+            drug_brand: drugData?.irc || 'نامشخص',
+            unit_price: pricingData?.unit_price || 0,
+            total_price: pricingData?.total_price || 0
+          };
+        })
+      );
+
+      console.log('Items with details:', itemsWithDetails);
+
+      // Update the specific order with items
+      setOrders(prevOrders => 
+        prevOrders.map(order => 
+          order.id === orderId 
+            ? { ...order, order_items: itemsWithDetails, expanded: true }
+            : order
+        )
+      );
+
+      setExpandedOrders(prev => new Set([...prev, orderId]));
+
+    } catch (error) {
+      console.error('Error fetching order items:', error);
+      toast({
+        title: "خطا",
+        description: "خطا در دریافت جزئیات سفارش",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingOrderItems(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(orderId);
+        return newSet;
+      });
+    }
+  };
+
+  const toggleOrderExpansion = (orderId: string) => {
+    const isExpanded = expandedOrders.has(orderId);
+    
+    if (isExpanded) {
+      setExpandedOrders(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(orderId);
+        return newSet;
+      });
+      setOrders(prevOrders => 
+        prevOrders.map(order => 
+          order.id === orderId 
+            ? { ...order, expanded: false }
+            : order
+        )
+      );
+    } else {
+      fetchOrderItems(orderId);
+    }
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('fa-IR').format(amount);
   };
 
   const handleApprovePayment = async (orderId: string) => {
@@ -483,6 +625,30 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
                                 سفارش #{order.id.slice(0, 8)}
                               </h3>
                               {getStatusBadge(order.workflow_status)}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => toggleOrderExpansion(order.id)}
+                                disabled={loadingOrderItems.has(order.id)}
+                                className="gap-1"
+                              >
+                                {loadingOrderItems.has(order.id) ? (
+                                  <>
+                                    <Clock size={16} className="animate-spin" />
+                                    بارگذاری...
+                                  </>
+                                ) : expandedOrders.has(order.id) ? (
+                                  <>
+                                    <ChevronUp size={16} />
+                                    مخفی کردن جزئیات
+                                  </>
+                                ) : (
+                                  <>
+                                    <ChevronDown size={16} />
+                                    نمایش جزئیات
+                                  </>
+                                )}
+                              </Button>
                             </div>
                             <div className="flex items-center gap-4 text-sm text-muted-foreground">
                               <span className="flex items-center gap-1">
@@ -496,7 +662,7 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
                               {order.invoice_amount && (
                                 <span className="flex items-center gap-1">
                                   <DollarSign className="w-4 h-4" />
-                                  {order.invoice_amount.toLocaleString()} تومان
+                                  {formatCurrency(order.invoice_amount)} تومان
                                 </span>
                               )}
                             </div>
@@ -508,10 +674,50 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
                           </div>
                         </div>
 
+                        {/* Order Items Details */}
+                        {expandedOrders.has(order.id) && order.order_items && order.order_items.length > 0 && (
+                          <div className="mb-4 p-4 bg-muted/30 rounded-lg">
+                            <h4 className="font-medium mb-3">جزئیات سفارش</h4>
+                            <div className="space-y-2">
+                              {order.order_items.map((item) => (
+                                <div key={item.id} className="flex justify-between items-center p-2 bg-background rounded border">
+                                  <div>
+                                    <span className="font-medium">{item.drug_name}</span>
+                                    <span className="text-sm text-muted-foreground ml-2">({item.drug_brand})</span>
+                                  </div>
+                                  <div className="text-right">
+                                    <div className="text-sm">تعداد: {item.quantity}</div>
+                                    <div className="text-sm">قیمت واحد: {formatCurrency(item.unit_price || 0)} تومان</div>
+                                    <div className="font-medium">کل: {formatCurrency(item.total_price || 0)} تومان</div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            
+                            {/* Total */}
+                            <div className="mt-3 pt-3 border-t">
+                              <div className="flex justify-between items-center">
+                                <span className="font-medium">جمع کل سفارش:</span>
+                                <span className="font-bold text-lg">
+                                  {formatCurrency(order.invoice_amount || 0)} تومان
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Pricing Notes */}
+                            {order.pricing_notes && (
+                              <div className="mt-3 p-2 bg-blue-50 rounded text-sm">
+                                <strong>یادداشت قیمت‌گذاری:</strong> {order.pricing_notes}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
                         {order.payment_proof_url && (
                           <div className="space-y-3">
                             {/* Receipt Image */}
                             <div className="bg-muted/50 rounded-lg p-4">
+                              <h5 className="font-medium mb-2">رسید پرداخت:</h5>
                               <img 
                                 src={order.payment_proof_url} 
                                 alt="رسید پرداخت"
@@ -705,7 +911,7 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
                           <span>{order.pharmacy.name}</span>
                           {order.invoice_amount && (
-                            <span>{order.invoice_amount.toLocaleString()} تومان</span>
+                            <span>{formatCurrency(order.invoice_amount)} تومان</span>
                           )}
                         </div>
                         {order.payment_rejection_reason && (
