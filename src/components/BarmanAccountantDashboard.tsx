@@ -87,6 +87,21 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
 
       if (error) {
         console.error('Error fetching orders:', error);
+        
+        // Check if it's an authentication error
+        if (error.code === 'PGRST301' || error.message?.includes('refresh_token_not_found') || error.message?.includes('Invalid Refresh Token')) {
+          toast({
+            title: "خطای احراز هویت",
+            description: "لطفاً خارج شده و مجدداً وارد شوید",
+            variant: "destructive",
+          });
+          // Auto logout to force re-authentication
+          setTimeout(() => {
+            handleSignOut();
+          }, 2000);
+          return;
+        }
+        
         throw error;
       }
 
