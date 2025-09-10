@@ -1,46 +1,78 @@
 import React, { useState, useEffect } from 'react';
-import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { User } from '@supabase/supabase-js';
+import { useToast } from '@/hooks/use-toast';
+import { 
+  Card, 
+  CardContent, 
+  CardDescription, 
+  CardHeader, 
+  CardTitle 
+} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Eye, Receipt, CheckCircle, Clock, AlertCircle, X, CreditCard, History, BarChart3, TrendingUp, Activity, DollarSign, Calendar, User as UserIcon, LogOut, ChevronDown, ChevronUp } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { ThemeToggle } from '@/components/ui/theme-toggle';
-import MobileBottomNav from '@/components/MobileBottomNav';
-import MobileHeader from '@/components/MobileHeader';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogDescription, 
+  DialogFooter, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogTrigger 
+} from '@/components/ui/dialog';
+import { 
+  CheckCircle, 
+  X, 
+  RotateCcw, 
+  Clock, 
+  CreditCard, 
+  History, 
+  BarChart3, 
+  Activity, 
+  TrendingUp, 
+  ChevronDown, 
+  ChevronUp, 
+  DollarSign, 
+  Calendar, 
+  User as UserIcon,
+  FileText,
+  Receipt,
+  Image
+} from 'lucide-react';
+import MobileHeader from './MobileHeader';
+import MobileBottomNav from './MobileBottomNav';
 
+// Order item interface
 interface OrderItem {
   id: string;
   drug_id: string;
+  drug_name: string;
+  drug_brand: string;
   quantity: number;
-  drug_name?: string;
-  drug_brand?: string;
   unit_price?: number;
   total_price?: number;
 }
 
+// Order interface
 interface Order {
   id: string;
-  created_at: string;
-  updated_at: string;
-  status: string;
+  pharmacy_id: string;
   workflow_status: string;
-  total_items: number;
-  notes?: string;
+  status: string;
+  invoice_amount?: number;
   payment_proof_url?: string;
   payment_date?: string;
-  invoice_amount?: number;
-  payment_rejection_reason?: string;
+  notes?: string;
   pricing_notes?: string;
+  total_items: number;
+  created_at: string;
+  updated_at: string;
   pharmacy: {
     name: string;
   };
-  order_items?: OrderItem[];
+  order_items: OrderItem[];
   expanded?: boolean;
 }
 
@@ -106,10 +138,10 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
       }
 
       console.log('Fetched orders:', data);
-      const ordersWithPharmacy = (data || []).map(order => ({
+      const ordersWithPharmacy = (data || []).map((order: any) => ({
         ...order,
         pharmacy: { name: order.pharmacies?.name || 'نامشخص' },
-        order_items: [],
+        order_items: [] as OrderItem[],
         expanded: false
       }));
       setOrders(ordersWithPharmacy);
@@ -139,9 +171,10 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
         .limit(50);
 
       if (error) throw error;
-      const ordersWithPharmacy = (data || []).map(order => ({
+      const ordersWithPharmacy = (data || []).map((order: any) => ({
         ...order,
-        pharmacy: { name: order.pharmacies?.name || 'نامشخص' }
+        pharmacy: { name: order.pharmacies?.name || 'نامشخص' },
+        order_items: [] as OrderItem[]
       }));
       setHistoryOrders(ordersWithPharmacy);
     } catch (error) {
@@ -158,20 +191,38 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
 
   const fetchStats = async () => {
     try {
-      const today = new Date().toISOString().split('T')[0];
+      // Fetch pending payments count
+      const { count: pendingCount } = await supabase
+        .from('orders')
+        .select('id', { count: 'exact' })
+        .eq('workflow_status', 'payment_uploaded');
       
-      const [pendingResponse, approvedResponse, rejectedResponse, totalResponse] = await Promise.all([
-        supabase.from('orders').select('id', { count: 'exact' }).eq('workflow_status', 'payment_uploaded'),
-        supabase.from('orders').select('id', { count: 'exact' }).eq('workflow_status', 'payment_verified').gte('updated_at', today),
-        supabase.from('orders').select('id', { count: 'exact' }).eq('workflow_status', 'payment_rejected').gte('updated_at', today),
-        supabase.from('orders').select('id', { count: 'exact' }).in('workflow_status', ['payment_verified', 'payment_rejected'])
-      ]);
-
+      // Fetch approved today
+      const today = new Date().toISOString().split('T')[0];
+      const { count: approvedToday } = await supabase
+        .from('orders')
+        .select('id', { count: 'exact' })
+        .eq('workflow_status', 'payment_verified')
+        .gte('updated_at', today);
+      
+      // Fetch rejected today
+      const { count: rejectedToday } = await supabase
+        .from('orders')
+        .select('id', { count: 'exact' })
+        .eq('workflow_status', 'payment_rejected')
+        .gte('updated_at', today);
+      
+      // Fetch total processed
+      const { count: totalProcessed } = await supabase
+        .from('orders')
+        .select('id', { count: 'exact' })
+        .in('workflow_status', ['payment_verified', 'payment_rejected']);
+      
       setStats({
-        pendingPayments: pendingResponse.count || 0,
-        approvedToday: approvedResponse.count || 0,
-        rejectedToday: rejectedResponse.count || 0,
-        totalProcessed: totalResponse.count || 0
+        pendingPayments: pendingCount || 0,
+        approvedToday: approvedToday || 0,
+        rejectedToday: rejectedToday || 0,
+        totalProcessed: totalProcessed || 0
       });
     } catch (error) {
       console.error('Error fetching stats:', error);
@@ -179,83 +230,49 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
   };
 
   const fetchOrderItems = async (orderId: string) => {
-    setLoadingOrderItems(prev => new Set([...prev, orderId]));
     try {
-      console.log('Fetching order items for order:', orderId);
+      setLoadingOrderItems(prev => new Set([...prev, orderId]));
       
-      // First get order items
-      const { data: orderItemsData, error: itemsError } = await supabase
+      const { data: items, error } = await supabase
         .from('order_items')
         .select(`
-          id,
-          drug_id,
-          quantity
+          *,
+          chemical_drugs(full_brand_name, irc)
         `)
         .eq('order_id', orderId);
 
-      if (itemsError) {
-        console.error('Error fetching order items:', itemsError);
-        throw itemsError;
+      if (error) throw error;
+
+      // Get pricing information
+      const { data: pricing, error: pricingError } = await supabase
+        .from('order_item_pricing')
+        .select('*')
+        .eq('order_id', orderId);
+
+      if (pricingError) {
+        console.error('Error fetching pricing:', pricingError);
       }
 
-      console.log('Fetched order items:', orderItemsData);
+      const enhancedItems = (items || []).map((item: any) => {
+        const priceInfo = pricing?.find(p => p.drug_id === item.drug_id);
+        return {
+          id: item.id,
+          drug_id: item.drug_id,
+          drug_name: item.chemical_drugs?.full_brand_name || 'نام محصول',
+          drug_brand: item.chemical_drugs?.irc || 'کد IRC',
+          quantity: item.quantity,
+          unit_price: priceInfo?.unit_price,
+          total_price: priceInfo?.total_price
+        };
+      });
 
-      if (!orderItemsData || orderItemsData.length === 0) {
-        console.log('No order items found');
-        setOrders(prevOrders => 
-          prevOrders.map(order => 
-            order.id === orderId 
-              ? { ...order, order_items: [], expanded: true }
-              : order
-          )
-        );
-        setExpandedOrders(prev => new Set([...prev, orderId]));
-        return;
-      }
-
-      // Get drug information and pricing for each item
-      const itemsWithDetails = await Promise.all(
-        orderItemsData.map(async (item) => {
-          // Get drug details
-          const { data: drugData } = await supabase
-            .from('chemical_drugs')
-            .select('full_brand_name, irc')
-            .eq('id', item.drug_id)
-            .single();
-
-          // Get pricing information
-          const { data: pricingData } = await supabase
-            .from('order_item_pricing')
-            .select('unit_price, total_price, notes')
-            .eq('order_id', orderId)
-            .eq('drug_id', item.drug_id)
-            .maybeSingle();
-
-          return {
-            id: item.id,
-            drug_id: item.drug_id,
-            quantity: item.quantity,
-            drug_name: drugData?.full_brand_name || 'نامشخص',
-            drug_brand: drugData?.irc || 'نامشخص',
-            unit_price: pricingData?.unit_price || 0,
-            total_price: pricingData?.total_price || 0
-          };
-        })
-      );
-
-      console.log('Items with details:', itemsWithDetails);
-
-      // Update the specific order with items
       setOrders(prevOrders => 
         prevOrders.map(order => 
           order.id === orderId 
-            ? { ...order, order_items: itemsWithDetails, expanded: true }
+            ? { ...order, order_items: enhancedItems }
             : order
         )
       );
-
-      setExpandedOrders(prev => new Set([...prev, orderId]));
-
     } catch (error) {
       console.error('Error fetching order items:', error);
       toast({
@@ -273,27 +290,24 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
   };
 
   const toggleOrderExpansion = (orderId: string) => {
-    const isExpanded = expandedOrders.has(orderId);
+    const newExpanded = new Set(expandedOrders);
     
-    if (isExpanded) {
-      setExpandedOrders(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(orderId);
-        return newSet;
-      });
-      setOrders(prevOrders => 
-        prevOrders.map(order => 
-          order.id === orderId 
-            ? { ...order, expanded: false }
-            : order
-        )
-      );
+    if (newExpanded.has(orderId)) {
+      newExpanded.delete(orderId);
     } else {
-      fetchOrderItems(orderId);
+      newExpanded.add(orderId);
+      
+      // Fetch order items if not already loaded
+      const order = orders.find(o => o.id === orderId);
+      if (order && (!order.order_items || order.order_items.length === 0)) {
+        fetchOrderItems(orderId);
+      }
     }
+    
+    setExpandedOrders(newExpanded);
   };
 
-  const formatCurrency = (amount: number) => {
+  const formatCurrency = (amount: number): string => {
     return new Intl.NumberFormat('fa-IR').format(amount);
   };
 
@@ -301,26 +315,27 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
     if (!reviewNotes.trim()) {
       toast({
         title: "خطا",
-        description: "لطفا توضیحات تایید را وارد کنید",
+        description: "لطفاً توضیحات تایید را وارد کنید",
         variant: "destructive",
       });
       return;
     }
 
-    setProcessingOrderId(orderId);
     try {
-      // Update order status to send to manager
+      setProcessingOrderId(orderId);
+      
       const { error: updateError } = await supabase
         .from('orders')
-        .update({
-          workflow_status: 'payment_verified'
+        .update({ 
+          workflow_status: 'payment_verified',
+          updated_at: new Date().toISOString()
         })
         .eq('id', orderId);
 
       if (updateError) throw updateError;
 
-      // Create approval record
-      await supabase
+      // Log approval
+      const { error: logError } = await supabase
         .from('order_approvals')
         .insert({
           order_id: orderId,
@@ -330,15 +345,25 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
           notes: reviewNotes
         });
 
-      toast({
-        title: "موفق",
-        description: "پرداخت تایید شد و به مدیر بارمان ارسال گردید",
-      });
+      if (logError) console.error('Error logging approval:', logError);
 
+      // Update local state
+      setOrders(prevOrders => prevOrders.filter(order => order.id !== orderId));
       setReviewNotes('');
       setSelectedOrder(null);
-      fetchOrders();
-      fetchStats();
+      
+      // Update stats
+      setStats(prev => ({
+        ...prev,
+        pendingPayments: prev.pendingPayments - 1,
+        approvedToday: prev.approvedToday + 1,
+        totalProcessed: prev.totalProcessed + 1
+      }));
+
+      toast({
+        title: "موفق",
+        description: "پرداخت با موفقیت تایید شد",
+      });
     } catch (error) {
       console.error('Error approving payment:', error);
       toast({
@@ -355,51 +380,59 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
     if (!reviewNotes.trim()) {
       toast({
         title: "خطا",
-        description: "لطفا دلیل درخواست اصلاح را وارد کنید",
+        description: "لطفاً دلیل درخواست اصلاح را وارد کنید",
         variant: "destructive",
       });
       return;
     }
 
-    setProcessingOrderId(orderId);
     try {
-      // Return to accountant for revision
+      setProcessingOrderId(orderId);
+      
       const { error: updateError } = await supabase
         .from('orders')
-        .update({
+        .update({ 
           workflow_status: 'invoice_issued',
-          payment_rejection_reason: `درخواست اصلاح: ${reviewNotes}`,
-          payment_proof_url: null // Clear the uploaded proof
+          payment_rejection_reason: reviewNotes,
+          updated_at: new Date().toISOString()
         })
         .eq('id', orderId);
 
       if (updateError) throw updateError;
 
-      // Create approval record
-      await supabase
+      // Log revision request
+      const { error: logError } = await supabase
         .from('order_approvals')
         .insert({
           order_id: orderId,
           user_id: user.id,
           from_status: 'payment_uploaded',
           to_status: 'invoice_issued',
-          notes: `درخواست اصلاح پرداخت: ${reviewNotes}`
+          notes: reviewNotes
         });
+
+      if (logError) console.error('Error logging revision:', logError);
+
+      // Update local state
+      setOrders(prevOrders => prevOrders.filter(order => order.id !== orderId));
+      setReviewNotes('');
+      setSelectedOrder(null);
+      
+      // Update stats
+      setStats(prev => ({
+        ...prev,
+        pendingPayments: prev.pendingPayments - 1
+      }));
 
       toast({
         title: "موفق",
-        description: "درخواست اصلاح پرداخت به حسابدار داروخانه ارسال شد",
+        description: "درخواست اصلاح ارسال شد",
       });
-
-      setReviewNotes('');
-      setSelectedOrder(null);
-      fetchOrders();
-      fetchStats();
     } catch (error) {
       console.error('Error requesting revision:', error);
       toast({
         title: "خطا",
-        description: "خطا در درخواست اصلاح",
+        description: "خطا در ارسال درخواست اصلاح",
         variant: "destructive",
       });
     } finally {
@@ -411,45 +444,56 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
     if (!reviewNotes.trim()) {
       toast({
         title: "خطا",
-        description: "لطفا دلیل رد پرداخت را وارد کنید",
+        description: "لطفاً دلیل رد پرداخت را وارد کنید",
         variant: "destructive",
       });
       return;
     }
 
-    setProcessingOrderId(orderId);
     try {
-      // Update order status to payment_rejected
+      setProcessingOrderId(orderId);
+      
       const { error: updateError } = await supabase
         .from('orders')
-        .update({
+        .update({ 
           workflow_status: 'payment_rejected',
-          payment_rejection_reason: reviewNotes
+          payment_rejection_reason: reviewNotes,
+          updated_at: new Date().toISOString()
         })
         .eq('id', orderId);
 
       if (updateError) throw updateError;
 
-      // Create approval record
-      await supabase
+      // Log rejection
+      const { error: logError } = await supabase
         .from('order_approvals')
         .insert({
           order_id: orderId,
           user_id: user.id,
           from_status: 'payment_uploaded',
           to_status: 'payment_rejected',
-          notes: `Payment rejected: ${reviewNotes}`
+          notes: reviewNotes
         });
+
+      if (logError) console.error('Error logging rejection:', logError);
+
+      // Update local state
+      setOrders(prevOrders => prevOrders.filter(order => order.id !== orderId));
+      setReviewNotes('');
+      setSelectedOrder(null);
+      
+      // Update stats
+      setStats(prev => ({
+        ...prev,
+        pendingPayments: prev.pendingPayments - 1,
+        rejectedToday: prev.rejectedToday + 1,
+        totalProcessed: prev.totalProcessed + 1
+      }));
 
       toast({
         title: "موفق",
-        description: "پرداخت رد شد و به داروخانه برگردانده شد",
+        description: "پرداخت رد شد",
       });
-
-      setReviewNotes('');
-      setSelectedOrder(null);
-      fetchOrders();
-      fetchStats();
     } catch (error) {
       console.error('Error rejecting payment:', error);
       toast({
@@ -463,21 +507,23 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
   };
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    onAuthChange(null);
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error('Error signing out:', error);
+    } else {
+      onAuthChange(null);
+    }
   };
 
   const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'payment_uploaded':
-        return <Badge variant="secondary" className="gap-1"><AlertCircle size={12} />نیازمند بررسی</Badge>;
-      case 'payment_verified':
-        return <Badge variant="default" className="gap-1"><CheckCircle size={12} />تایید شده</Badge>;
-      case 'payment_rejected':
-        return <Badge variant="destructive" className="gap-1"><X size={12} />رد شده</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
-    }
+    const statusMap: { [key: string]: { label: string; variant: "default" | "secondary" | "destructive" | "outline" } } = {
+      'payment_uploaded': { label: 'آپلود شده', variant: 'outline' },
+      'payment_verified': { label: 'تایید شده', variant: 'default' },
+      'payment_rejected': { label: 'رد شده', variant: 'destructive' },
+    };
+
+    const statusInfo = statusMap[status] || { label: status, variant: 'secondary' };
+    return <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>;
   };
 
   const handleTabChange = (tab: string) => {
@@ -499,53 +545,35 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30">
+    <div className="min-h-screen bg-gradient-to-br from-background to-muted/20">
       {/* Mobile Header */}
-      <div className="block md:hidden">
-        <MobileHeader 
-          user={user}
-          pharmacy={null}
-          userRole="barman_accountant"
-          onSignOut={handleSignOut}
-        />
-      </div>
+      <MobileHeader 
+        user={user} 
+        onSignOut={handleSignOut}
+        pharmacy={{ name: "حسابدار بارمان" }}
+        userRole="barman_accountant"
+      />
 
       {/* Desktop Header */}
-      <header className="hidden md:block border-b border-border/60 bg-card/90 backdrop-blur-lg shadow-soft">
-        <div className="container mx-auto px-6 py-5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="relative p-3 rounded-2xl bg-gradient-to-br from-primary/10 to-secondary/10">
-                <CreditCard className="h-7 w-7 text-primary" />
-                <div className="absolute -bottom-1 -right-1 p-1 bg-secondary rounded-full">
-                  <BarChart3 className="h-3 w-3 text-white" />
-                </div>
-              </div>
-              <div className="text-right">
-                <h1 className="text-2xl font-bold text-gradient">پنل حسابدار بارمان</h1>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {user.email}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <ThemeToggle />
-              <Button 
-                variant="outline" 
-                onClick={handleSignOut} 
-                className="gap-2 px-6 py-2.5 rounded-xl hover:bg-destructive/10 hover:text-destructive hover:border-destructive/20 transition-all duration-300"
-              >
-                <LogOut className="h-4 w-4" />
-                خروج
-              </Button>
-            </div>
+      <header className="hidden md:flex items-center justify-between p-6 bg-background/80 backdrop-blur-sm border-b sticky top-0 z-40">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">پنل حسابدار بارمان</h1>
+          <p className="text-muted-foreground">بررسی و تایید پرداخت‌ها</p>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="text-right">
+            <p className="text-sm text-muted-foreground">خوش آمدید</p>
+            <p className="font-medium">{user.email}</p>
           </div>
+          <Button onClick={handleSignOut} variant="outline">
+            خروج
+          </Button>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-6 pb-20 md:pb-6">
-        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className="hidden md:grid w-full grid-cols-3 mb-6">
+      <main className="container mx-auto p-4 md:p-6 pb-20 md:pb-6">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="payments" className="flex items-center gap-2">
               <CreditCard className="w-4 h-4" />
               <span className="hidden sm:inline">پرداخت‌ها</span>
@@ -632,254 +660,295 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
                 ) : (
                   <div className="space-y-4">
                     {orders.map((order) => (
-                      <div key={order.id} className="border border-border rounded-lg p-4 hover:bg-muted/50 transition-all duration-200 hover:shadow-md">
-                        <div className="flex items-center justify-between mb-4">
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-4">
-                              <h3 className="font-semibold text-foreground">
-                                سفارش #{order.id.slice(0, 8)}
-                              </h3>
-                              {getStatusBadge(order.workflow_status)}
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => toggleOrderExpansion(order.id)}
-                                disabled={loadingOrderItems.has(order.id)}
-                                className="gap-1"
-                              >
-                                {loadingOrderItems.has(order.id) ? (
-                                  <>
-                                    <Clock size={16} className="animate-spin" />
-                                    بارگذاری...
-                                  </>
-                                ) : expandedOrders.has(order.id) ? (
-                                  <>
-                                    <ChevronUp size={16} />
-                                    مخفی کردن جزئیات
-                                  </>
-                                ) : (
-                                  <>
-                                    <ChevronDown size={16} />
-                                    نمایش جزئیات
-                                  </>
-                                )}
-                              </Button>
-                            </div>
-                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                              <span className="flex items-center gap-1">
-                                <UserIcon className="w-4 h-4" />
-                                {order.pharmacy.name}
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <Calendar className="w-4 h-4" />
-                                {new Date(order.created_at).toLocaleDateString('fa-IR')}
-                              </span>
-                              {order.invoice_amount && (
+                      <Card key={order.id} className="hover:shadow-md transition-all duration-200 animate-fade-in">
+                        <CardContent className="p-4">
+                          {/* Order Header */}
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <h3 className="font-semibold text-foreground">
+                                  سفارش #{order.id.slice(0, 8)}
+                                </h3>
+                                {getStatusBadge(order.workflow_status)}
+                              </div>
+                              <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-sm text-muted-foreground">
                                 <span className="flex items-center gap-1">
-                                  <DollarSign className="w-4 h-4" />
-                                  {formatCurrency(order.invoice_amount)} تومان
+                                  <UserIcon className="w-4 h-4" />
+                                  {order.pharmacy.name}
                                 </span>
+                                <span className="flex items-center gap-1">
+                                  <Calendar className="w-4 h-4" />
+                                  {new Date(order.created_at).toLocaleDateString('fa-IR')}
+                                </span>
+                                {order.invoice_amount && (
+                                  <span className="flex items-center gap-1 font-medium text-primary">
+                                    <DollarSign className="w-4 h-4" />
+                                    {formatCurrency(order.invoice_amount)} تومان
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Action Buttons */}
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-4">
+                            {/* View Order Details Button */}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => toggleOrderExpansion(order.id)}
+                              disabled={loadingOrderItems.has(order.id)}
+                              className="gap-2"
+                            >
+                              {loadingOrderItems.has(order.id) ? (
+                                <>
+                                  <Clock size={16} className="animate-spin" />
+                                  بارگذاری...
+                                </>
+                              ) : (
+                                <>
+                                  <FileText size={16} />
+                                  جزئیات سفارش
+                                </>
+                              )}
+                            </Button>
+
+                            {/* View Invoice Button */}
+                            <Dialog>
+                              <DialogTrigger asChild>
+                                <Button variant="outline" size="sm" className="gap-2">
+                                  <Receipt size={16} />
+                                  فاکتور
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                                <DialogHeader>
+                                  <DialogTitle>فاکتور سفارش #{order.id.slice(0, 8)}</DialogTitle>
+                                </DialogHeader>
+                                <div className="space-y-4">
+                                  <div className="bg-muted/30 p-4 rounded-lg">
+                                    <div className="grid grid-cols-2 gap-4 text-sm">
+                                      <div>
+                                        <span className="font-medium">شماره سفارش:</span>
+                                        <p>#{order.id.slice(0, 8)}</p>
+                                      </div>
+                                      <div>
+                                        <span className="font-medium">داروخانه:</span>
+                                        <p>{order.pharmacy.name}</p>
+                                      </div>
+                                      <div>
+                                        <span className="font-medium">تاریخ سفارش:</span>
+                                        <p>{new Date(order.created_at).toLocaleDateString('fa-IR')}</p>
+                                      </div>
+                                      <div>
+                                        <span className="font-medium">مبلغ کل:</span>
+                                        <p className="font-bold text-primary">{formatCurrency(order.invoice_amount || 0)} تومان</p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  {order.order_items && order.order_items.length > 0 && (
+                                    <div className="space-y-2">
+                                      <h4 className="font-medium">آیتم‌های سفارش:</h4>
+                                      {order.order_items.map((item) => (
+                                        <div key={item.id} className="flex justify-between items-center p-3 bg-background rounded border">
+                                          <div>
+                                            <span className="font-medium">{item.drug_name}</span>
+                                            <span className="text-sm text-muted-foreground block">{item.drug_brand}</span>
+                                          </div>
+                                          <div className="text-right">
+                                            <div className="text-sm">تعداد: {item.quantity}</div>
+                                            <div className="font-medium">{formatCurrency(item.total_price || 0)} تومان</div>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              </DialogContent>
+                            </Dialog>
+
+                            {/* View Payment Receipt Button */}
+                            {order.payment_proof_url && (
+                              <Dialog>
+                                <DialogTrigger asChild>
+                                  <Button variant="outline" size="sm" className="gap-2">
+                                    <Image size={16} />
+                                    رسید پرداخت
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent className="max-w-2xl">
+                                  <DialogHeader>
+                                    <DialogTitle>رسید پرداخت سفارش #{order.id.slice(0, 8)}</DialogTitle>
+                                  </DialogHeader>
+                                  <div className="flex justify-center">
+                                    <img 
+                                      src={order.payment_proof_url} 
+                                      alt="رسید پرداخت"
+                                      className="max-w-full h-auto max-h-[70vh] rounded-lg border border-border shadow-sm"
+                                    />
+                                  </div>
+                                </DialogContent>
+                              </Dialog>
+                            )}
+                          </div>
+
+                          {/* Expanded Order Details */}
+                          {expandedOrders.has(order.id) && order.order_items && order.order_items.length > 0 && (
+                            <div className="mb-4 p-4 bg-muted/30 rounded-lg animate-accordion-down">
+                              <h4 className="font-medium mb-3">جزئیات سفارش</h4>
+                              <div className="space-y-2">
+                                {order.order_items.map((item) => (
+                                  <div key={item.id} className="flex justify-between items-center p-3 bg-background rounded border">
+                                    <div>
+                                      <span className="font-medium">{item.drug_name}</span>
+                                      <span className="text-sm text-muted-foreground block">{item.drug_brand}</span>
+                                    </div>
+                                    <div className="text-right">
+                                      <div className="text-sm">تعداد: {item.quantity}</div>
+                                      <div className="text-sm">قیمت واحد: {formatCurrency(item.unit_price || 0)} تومان</div>
+                                      <div className="font-medium">کل: {formatCurrency(item.total_price || 0)} تومان</div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                              
+                              <div className="mt-3 pt-3 border-t">
+                                <div className="flex justify-between items-center">
+                                  <span className="font-medium">جمع کل سفارش:</span>
+                                  <span className="font-bold text-lg text-primary">
+                                    {formatCurrency(order.invoice_amount || 0)} تومان
+                                  </span>
+                                </div>
+                              </div>
+
+                              {order.pricing_notes && (
+                                <div className="mt-3 p-2 bg-blue-50 rounded text-sm">
+                                  <strong>یادداشت قیمت‌گذاری:</strong> {order.pricing_notes}
+                                </div>
                               )}
                             </div>
-                            {order.payment_date && (
-                              <p className="text-sm text-muted-foreground">
-                                تاریخ پرداخت: {new Date(order.payment_date).toLocaleDateString('fa-IR')}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Order Items Details */}
-                        {expandedOrders.has(order.id) && order.order_items && order.order_items.length > 0 && (
-                          <div className="mb-4 p-4 bg-muted/30 rounded-lg">
-                            <h4 className="font-medium mb-3">جزئیات سفارش</h4>
-                            <div className="space-y-2">
-                              {order.order_items.map((item) => (
-                                <div key={item.id} className="flex justify-between items-center p-2 bg-background rounded border">
-                                  <div>
-                                    <span className="font-medium">{item.drug_name}</span>
-                                    <span className="text-sm text-muted-foreground ml-2">({item.drug_brand})</span>
-                                  </div>
-                                  <div className="text-right">
-                                    <div className="text-sm">تعداد: {item.quantity}</div>
-                                    <div className="text-sm">قیمت واحد: {formatCurrency(item.unit_price || 0)} تومان</div>
-                                    <div className="font-medium">کل: {formatCurrency(item.total_price || 0)} تومان</div>
-                                  </div>
+                          )}
+                            
+                          {/* Review Actions */}
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-4 border-t">
+                            <Dialog>
+                              <DialogTrigger asChild>
+                                <Button 
+                                  variant="default" 
+                                  size="sm" 
+                                  className="gap-2 bg-green-600 hover:bg-green-700"
+                                  disabled={processingOrderId === order.id}
+                                >
+                                  <CheckCircle size={16} />
+                                  تأیید پرداخت
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent>
+                                <DialogHeader>
+                                  <DialogTitle>تأیید پرداخت</DialogTitle>
+                                  <DialogDescription>
+                                    آیا از تأیید پرداخت این سفارش اطمینان دارید؟
+                                  </DialogDescription>
+                                </DialogHeader>
+                                <div className="space-y-4">
+                                  <Textarea
+                                    placeholder="یادداشت تأیید (اختیاری)"
+                                    value={reviewNotes}
+                                    onChange={(e) => setReviewNotes(e.target.value)}
+                                  />
                                 </div>
-                              ))}
-                            </div>
-                            
-                            {/* Total */}
-                            <div className="mt-3 pt-3 border-t">
-                              <div className="flex justify-between items-center">
-                                <span className="font-medium">جمع کل سفارش:</span>
-                                <span className="font-bold text-lg">
-                                  {formatCurrency(order.invoice_amount || 0)} تومان
-                                </span>
-                              </div>
-                            </div>
-
-                            {/* Pricing Notes */}
-                            {order.pricing_notes && (
-                              <div className="mt-3 p-2 bg-blue-50 rounded text-sm">
-                                <strong>یادداشت قیمت‌گذاری:</strong> {order.pricing_notes}
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                        {order.payment_proof_url && (
-                          <div className="space-y-3">
-                            {/* Receipt Image */}
-                            <div className="bg-muted/50 rounded-lg p-4">
-                              <h5 className="font-medium mb-2">رسید پرداخت:</h5>
-                              <img 
-                                src={order.payment_proof_url} 
-                                alt="رسید پرداخت"
-                                className="max-w-full h-auto max-h-96 rounded-lg border border-border shadow-sm mx-auto block"
-                              />
-                            </div>
-                            
-                            {/* Action Buttons */}
-                            <div className="flex flex-wrap gap-2">
-                              <Dialog>
-                                <DialogTrigger asChild>
+                                <DialogFooter>
                                   <Button 
-                                    variant="default" 
-                                    size="sm" 
-                                    className="gap-1"
-                                    onClick={() => setSelectedOrder(order)}
+                                    onClick={() => handleApprovePayment(order.id)}
+                                    disabled={processingOrderId === order.id}
+                                    className="bg-green-600 hover:bg-green-700"
                                   >
-                                    <CheckCircle size={16} />
-                                    تایید پرداخت
+                                    {processingOrderId === order.id ? "در حال پردازش..." : "تأیید پرداخت"}
                                   </Button>
-                                </DialogTrigger>
-                                <DialogContent className="max-w-md">
-                                  <DialogHeader>
-                                    <DialogTitle>تایید پرداخت</DialogTitle>
-                                    <DialogDescription>
-                                      پرداخت این سفارش تایید و به مدیر بارمان ارسال خواهد شد
-                                    </DialogDescription>
-                                  </DialogHeader>
-                                  <div className="space-y-4">
-                                    <div>
-                                      <Label htmlFor="approve-notes">توضیحات تایید (اجباری)</Label>
-                                      <Textarea
-                                        id="approve-notes"
-                                        placeholder="توضیحات خود را در مورد تایید پرداخت وارد کنید..."
-                                        value={reviewNotes}
-                                        onChange={(e) => setReviewNotes(e.target.value)}
-                                        className="mt-2"
-                                      />
-                                    </div>
-                                  </div>
-                                  <DialogFooter>
-                                    <Button 
-                                      onClick={() => handleApprovePayment(order.id)}
-                                      disabled={processingOrderId === order.id || !reviewNotes.trim()}
-                                    >
-                                      {processingOrderId === order.id ? "در حال پردازش..." : "تایید پرداخت"}
-                                    </Button>
-                                  </DialogFooter>
-                                </DialogContent>
-                              </Dialog>
+                                </DialogFooter>
+                              </DialogContent>
+                            </Dialog>
 
-                              <Dialog>
-                                <DialogTrigger asChild>
+                            <Dialog>
+                              <DialogTrigger asChild>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  className="gap-2 border-orange-500 text-orange-600 hover:bg-orange-50"
+                                  disabled={processingOrderId === order.id}
+                                >
+                                  <RotateCcw size={16} />
+                                  درخواست اصلاح
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent>
+                                <DialogHeader>
+                                  <DialogTitle>درخواست اصلاح پرداخت</DialogTitle>
+                                  <DialogDescription>
+                                    از داروخانه درخواست اصلاح رسید پرداخت کنید
+                                  </DialogDescription>
+                                </DialogHeader>
+                                <div className="space-y-4">
+                                  <Textarea
+                                    placeholder="دلیل درخواست اصلاح را بنویسید..."
+                                    value={reviewNotes}
+                                    onChange={(e) => setReviewNotes(e.target.value)}
+                                  />
+                                </div>
+                                <DialogFooter>
                                   <Button 
-                                    variant="destructive" 
-                                    size="sm" 
-                                    className="gap-1"
-                                    onClick={() => setSelectedOrder(order)}
+                                    onClick={() => handleRequestRevision(order.id)}
+                                    disabled={processingOrderId === order.id || !reviewNotes.trim()}
+                                    variant="outline"
+                                    className="border-orange-500 text-orange-600 hover:bg-orange-50"
                                   >
-                                    <X size={16} />
-                                    رد پرداخت
+                                    {processingOrderId === order.id ? "در حال پردازش..." : "ارسال درخواست"}
                                   </Button>
-                                </DialogTrigger>
-                                <DialogContent className="max-w-md">
-                                  <DialogHeader>
-                                    <DialogTitle>رد پرداخت</DialogTitle>
-                                    <DialogDescription>
-                                      این سفارش رد شده و بسته خواهد شد
-                                    </DialogDescription>
-                                  </DialogHeader>
-                                  <div className="space-y-4">
-                                    <div>
-                                      <Label htmlFor="reject-notes">دلیل رد (اجباری)</Label>
-                                      <Textarea
-                                        id="reject-notes"
-                                        placeholder="دلیل رد پرداخت را وارد کنید..."
-                                        value={reviewNotes}
-                                        onChange={(e) => setReviewNotes(e.target.value)}
-                                        className="mt-2"
-                                      />
-                                    </div>
-                                  </div>
-                                  <DialogFooter>
-                                    <Button 
-                                      variant="destructive"
-                                      onClick={() => handleRejectPayment(order.id)}
-                                      disabled={processingOrderId === order.id || !reviewNotes.trim()}
-                                    >
-                                      {processingOrderId === order.id ? "در حال پردازش..." : "رد پرداخت"}
-                                    </Button>
-                                  </DialogFooter>
-                                </DialogContent>
-                              </Dialog>
+                                </DialogFooter>
+                              </DialogContent>
+                            </Dialog>
 
-                              <Dialog>
-                                <DialogTrigger asChild>
+                            <Dialog>
+                              <DialogTrigger asChild>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  className="gap-2 border-red-500 text-red-600 hover:bg-red-50"
+                                  disabled={processingOrderId === order.id}
+                                >
+                                  <X size={16} />
+                                  رد پرداخت
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent>
+                                <DialogHeader>
+                                  <DialogTitle>رد پرداخت</DialogTitle>
+                                  <DialogDescription>
+                                    آیا از رد پرداخت این سفارش اطمینان دارید؟
+                                  </DialogDescription>
+                                </DialogHeader>
+                                <div className="space-y-4">
+                                  <Textarea
+                                    placeholder="دلیل رد پرداخت را بنویسید..."
+                                    value={reviewNotes}
+                                    onChange={(e) => setReviewNotes(e.target.value)}
+                                  />
+                                </div>
+                                <DialogFooter>
                                   <Button 
-                                    variant="outline" 
-                                    size="sm" 
-                                    className="gap-1"
-                                    onClick={() => setSelectedOrder(order)}
+                                    onClick={() => handleRejectPayment(order.id)}
+                                    disabled={processingOrderId === order.id || !reviewNotes.trim()}
+                                    variant="outline"
+                                    className="border-red-500 text-red-600 hover:bg-red-50"
                                   >
-                                    <AlertCircle size={16} />
-                                    درخواست اصلاح
+                                    {processingOrderId === order.id ? "در حال پردازش..." : "رد پرداخت"}
                                   </Button>
-                                </DialogTrigger>
-                                <DialogContent className="max-w-md">
-                                  <DialogHeader>
-                                    <DialogTitle>درخواست اصلاح پرداخت</DialogTitle>
-                                    <DialogDescription>
-                                      سفارش به حسابدار داروخانه برگردانده خواهد شد تا پرداخت اصلاح شود
-                                    </DialogDescription>
-                                  </DialogHeader>
-                                  <div className="space-y-4">
-                                    <div>
-                                      <Label htmlFor="revision-notes">دلیل درخواست اصلاح (اجباری)</Label>
-                                      <Textarea
-                                        id="revision-notes"
-                                        placeholder="دلیل درخواست اصلاح پرداخت را وارد کنید..."
-                                        value={reviewNotes}
-                                        onChange={(e) => setReviewNotes(e.target.value)}
-                                        className="mt-2"
-                                      />
-                                    </div>
-                                  </div>
-                                  <DialogFooter>
-                                    <Button 
-                                      variant="outline"
-                                      onClick={() => handleRequestRevision(order.id)}
-                                      disabled={processingOrderId === order.id || !reviewNotes.trim()}
-                                    >
-                                      {processingOrderId === order.id ? "در حال پردازش..." : "درخواست اصلاح"}
-                                    </Button>
-                                  </DialogFooter>
-                                </DialogContent>
-                              </Dialog>
-                            </div>
+                                </DialogFooter>
+                              </DialogContent>
+                            </Dialog>
                           </div>
-                        )}
-                        
-                        {!order.payment_proof_url && (
-                          <div className="text-center py-4 text-muted-foreground">
-                            <Receipt className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                            <p>رسید پرداخت آپلود نشده</p>
-                          </div>
-                        )}
-                      </div>
+                        </CardContent>
+                      </Card>
                     ))}
                   </div>
                 )}
@@ -887,7 +956,6 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
             </Card>
           </TabsContent>
 
-          {/* History Tab */}
           <TabsContent value="history" className="space-y-6">
             <Card>
               <CardHeader>
@@ -896,44 +964,35 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
                   تاریخچه پرداخت‌ها
                 </CardTitle>
                 <CardDescription>
-                  تاریخچه پرداخت‌های تایید شده و رد شده
+                  مشاهده پرداخت‌های تایید شده و رد شده
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 {historyLoading ? (
-                  <div className="text-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-                    <p className="text-muted-foreground">در حال بارگذاری...</p>
+                  <div className="flex items-center justify-center py-8">
+                    <Clock className="w-6 h-6 animate-spin text-muted-foreground mr-2" />
+                    <span className="text-muted-foreground">در حال بارگذاری...</span>
                   </div>
                 ) : historyOrders.length === 0 ? (
                   <div className="text-center py-8">
                     <History className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-muted-foreground">تاریخچه‌ای موجود نیست</p>
+                    <p className="text-muted-foreground">تاریخچه‌ای وجود ندارد</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
                     {historyOrders.map((order) => (
                       <div key={order.id} className="border border-border rounded-lg p-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-4">
-                            <h3 className="font-semibold">سفارش #{order.id.slice(0, 8)}</h3>
-                            {getStatusBadge(order.workflow_status)}
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-4">
+                              <h3 className="font-semibold">سفارش #{order.id.slice(0, 8)}</h3>
+                              {getStatusBadge(order.workflow_status)}
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                              {order.pharmacy.name} • {new Date(order.updated_at).toLocaleDateString('fa-IR')}
+                            </p>
                           </div>
-                          <span className="text-sm text-muted-foreground">
-                            {new Date(order.updated_at).toLocaleDateString('fa-IR')}
-                          </span>
                         </div>
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          <span>{order.pharmacy.name}</span>
-                          {order.invoice_amount && (
-                            <span>{formatCurrency(order.invoice_amount)} تومان</span>
-                          )}
-                        </div>
-                        {order.payment_rejection_reason && (
-                          <div className="mt-2 p-2 bg-muted rounded text-sm">
-                            <strong>دلیل:</strong> {order.payment_rejection_reason}
-                          </div>
-                        )}
                       </div>
                     ))}
                   </div>
@@ -942,78 +1001,34 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
             </Card>
           </TabsContent>
 
-          {/* Reports Tab */}
           <TabsContent value="reports" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <BarChart3 className="w-5 h-5" />
-                    آمار کلی
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex justify-between">
-                      <span>کل پرداخت‌های پردازش شده:</span>
-                      <span className="font-bold">{stats.totalProcessed}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>تایید شده امروز:</span>
-                      <span className="font-bold text-green-600">{stats.approvedToday}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>رد شده امروز:</span>
-                      <span className="font-bold text-red-600">{stats.rejectedToday}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>در انتظار بررسی:</span>
-                      <span className="font-bold text-primary">{stats.pendingPayments}</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <TrendingUp className="w-5 h-5" />
-                    عملکرد
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex justify-between">
-                      <span>میانگین پردازش روزانه:</span>
-                      <span className="font-bold">
-                        {stats.totalProcessed > 0 ? Math.round(stats.totalProcessed / 30) : 0}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>نرخ تایید:</span>
-                      <span className="font-bold text-green-600">
-                        {stats.totalProcessed > 0 
-                          ? `${Math.round((stats.approvedToday / (stats.approvedToday + stats.rejectedToday || 1)) * 100)}%`
-                          : '0%'
-                        }
-                      </span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5" />
+                  گزارشات پرداخت
+                </CardTitle>
+                <CardDescription>
+                  آمار و گزارشات عملکرد پرداخت‌ها
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-8">
+                  <BarChart3 className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground">گزارشات به زودی اضافه خواهد شد</p>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </main>
 
       {/* Mobile Bottom Navigation */}
-      <div className="block md:hidden">
-        <MobileBottomNav 
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          userRole="barman_accountant"
-        />
-      </div>
+      <MobileBottomNav 
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
+        userRole="barman_accountant"
+      />
     </div>
   );
 };
