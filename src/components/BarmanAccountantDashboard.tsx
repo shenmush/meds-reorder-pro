@@ -80,7 +80,7 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
         .from('orders')
         .select(`
           *,
-          pharmacies!inner(name)
+          pharmacies(name)
         `)
         .eq('workflow_status', 'payment_uploaded')
         .order('created_at', { ascending: false });
@@ -132,7 +132,7 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
         .from('orders')
         .select(`
           *,
-          pharmacies!inner(name)
+          pharmacies(name)
         `)
         .in('workflow_status', ['payment_verified', 'payment_rejected'])
         .order('updated_at', { ascending: false })
