@@ -233,15 +233,22 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
     try {
       setLoadingOrderItems(prev => new Set([...prev, orderId]));
       
+      // Use a direct SQL query since there's no foreign key relationship
       const { data: items, error } = await supabase
         .from('order_items')
-        .select(`
-          *,
-          chemical_drugs(full_brand_name, irc)
-        `)
+        .select('*')
         .eq('order_id', orderId);
 
       if (error) throw error;
+
+      // Get drug details separately
+      const drugIds = items?.map(item => item.drug_id) || [];
+      const { data: drugs, error: drugsError } = await supabase
+        .from('chemical_drugs')
+        .select('id, full_brand_name, irc')
+        .in('id', drugIds);
+
+      if (drugsError) throw drugsError;
 
       // Get pricing information
       const { data: pricing, error: pricingError } = await supabase
@@ -254,15 +261,16 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
       }
 
       const enhancedItems = (items || []).map((item: any) => {
+        const drugInfo = drugs?.find(d => d.id === item.drug_id);
         const priceInfo = pricing?.find(p => p.drug_id === item.drug_id);
         return {
           id: item.id,
           drug_id: item.drug_id,
-          drug_name: item.chemical_drugs?.full_brand_name || 'نام محصول',
-          drug_brand: item.chemical_drugs?.irc || 'کد IRC',
+          drug_name: drugInfo?.full_brand_name || 'نام محصول',
+          drug_brand: drugInfo?.irc || 'کد IRC',
           quantity: item.quantity,
-          unit_price: priceInfo?.unit_price,
-          total_price: priceInfo?.total_price
+          unit_price: priceInfo?.unit_price || 0,
+          total_price: priceInfo?.total_price || 0
         };
       });
 
@@ -716,7 +724,17 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
                             {/* View Invoice Button */}
                             <Dialog>
                               <DialogTrigger asChild>
-                                <Button variant="outline" size="sm" className="gap-2">
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  className="gap-2"
+                                  onClick={() => {
+                                    // Fetch order items if not already loaded
+                                    if (!order.order_items || order.order_items.length === 0) {
+                                      fetchOrderItems(order.id);
+                                    }
+                                  }}
+                                >
                                   <Receipt size={16} />
                                   فاکتور
                                 </Button>
