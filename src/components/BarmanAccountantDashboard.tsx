@@ -108,7 +108,7 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
       console.log('Fetched orders:', data);
       const ordersWithPharmacy = (data || []).map(order => ({
         ...order,
-        pharmacy: { name: order.pharmacies.name },
+        pharmacy: { name: order.pharmacies?.name || 'نامشخص' },
         order_items: [],
         expanded: false
       }));
@@ -141,7 +141,7 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
       if (error) throw error;
       const ordersWithPharmacy = (data || []).map(order => ({
         ...order,
-        pharmacy: { name: order.pharmacies.name }
+        pharmacy: { name: order.pharmacies?.name || 'نامشخص' }
       }));
       setHistoryOrders(ordersWithPharmacy);
     } catch (error) {
