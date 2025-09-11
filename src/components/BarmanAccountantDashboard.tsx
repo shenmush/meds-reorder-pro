@@ -648,9 +648,6 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
             <p className="text-sm text-muted-foreground">خوش آمدید</p>
             <p className="font-medium">{user.email}</p>
           </div>
-          <Button onClick={handleSignOut} variant="outline">
-            خروج
-          </Button>
         </div>
       </header>
 
