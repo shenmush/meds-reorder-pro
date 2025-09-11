@@ -807,11 +807,30 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
                                                <div>
                                                  <span className="font-medium">کد ERX:</span> {item.erx_code}
                                                </div>
-                                             )}
-                                           </div>
-                                         </div>
-                                       ))}
-                                    </div>
+                                              )}
+                                              <div className="md:col-span-2 pt-2 border-t">
+                                                <div className="grid grid-cols-2 gap-4 text-sm">
+                                                  <div>
+                                                    <span className="font-medium">قیمت واحد:</span> {formatCurrency(item.unit_price || 0)} تومان
+                                                  </div>
+                                                  <div>
+                                                    <span className="font-medium">قیمت کل:</span> {formatCurrency(item.total_price || 0)} تومان
+                                                  </div>
+                                                </div>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        ))}
+                                        
+                                        <div className="mt-4 pt-4 border-t">
+                                          <div className="flex justify-between items-center">
+                                            <span className="font-medium text-lg">جمع کل فاکتور:</span>
+                                            <span className="font-bold text-xl text-primary">
+                                              {formatCurrency(order.invoice_amount || 0)} تومان
+                                            </span>
+                                          </div>
+                                        </div>
+                                     </div>
                                   )}
                                 </div>
                               </DialogContent>
