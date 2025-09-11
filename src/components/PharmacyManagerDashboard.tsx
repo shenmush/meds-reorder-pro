@@ -141,33 +141,95 @@ const PharmacyManagerDashboard: React.FC<PharmacyManagerDashboardProps> = ({ use
 
       if (error) throw error;
 
-      // Fetch drug details for each item
+      // Fetch drug details and pricing for each item
       const itemsWithDrugs = await Promise.all((data || []).map(async (item) => {
-        // Try to find the drug in each table
-        const [chemical, medical, natural] = await Promise.all([
-          supabase.from('chemical_drugs').select('full_brand_name').eq('id', item.drug_id).single(),
-          supabase.from('medical_supplies').select('title').eq('id', item.drug_id).single(),
-          supabase.from('natural_products').select('full_en_brand_name').eq('id', item.drug_id).single()
+        // Try to find the drug in each table with complete specifications
+        const [chemical, medical, natural, pricing] = await Promise.all([
+          supabase.from('chemical_drugs').select(`
+            full_brand_name,
+            license_owner_company_name,
+            irc,
+            gtin,
+            erx_code,
+            package_count
+          `).eq('id', item.drug_id).single(),
+          supabase.from('medical_supplies').select(`
+            title,
+            license_owner_company_name,
+            irc,
+            gtin,
+            erx_code,
+            package_count
+          `).eq('id', item.drug_id).single(),
+          supabase.from('natural_products').select(`
+            full_en_brand_name,
+            license_owner_name,
+            irc,
+            gtin,
+            erx_code,
+            package_count
+          `).eq('id', item.drug_id).single(),
+          supabase.from('order_item_pricing').select(`
+            unit_price,
+            total_price,
+            notes
+          `).eq('order_id', orderId).eq('drug_id', item.drug_id).single()
         ]);
 
-        let drugName = 'نامشخص';
-        let drugType = 'نامشخص';
+        let drugInfo = {
+          name: 'نامشخص',
+          type: 'نامشخص',
+          company: 'نامشخص',
+          irc: 'نامشخص',
+          gtin: 'نامشخص',
+          erx_code: 'نامشخص',
+          package_count: null
+        };
 
         if (chemical.data) {
-          drugName = chemical.data.full_brand_name;
-          drugType = 'دارو';
+          drugInfo = {
+            name: chemical.data.full_brand_name,
+            type: 'دارو',
+            company: chemical.data.license_owner_company_name || 'نامشخص',
+            irc: chemical.data.irc || 'نامشخص',
+            gtin: chemical.data.gtin || 'نامشخص',
+            erx_code: chemical.data.erx_code || 'نامشخص',
+            package_count: chemical.data.package_count
+          };
         } else if (medical.data) {
-          drugName = medical.data.title;
-          drugType = 'تجهیزات پزشکی';
+          drugInfo = {
+            name: medical.data.title,
+            type: 'تجهیزات پزشکی',
+            company: medical.data.license_owner_company_name || 'نامشخص',
+            irc: medical.data.irc || 'نامشخص',
+            gtin: medical.data.gtin || 'نامشخص',
+            erx_code: medical.data.erx_code || 'نامشخص',
+            package_count: medical.data.package_count
+          };
         } else if (natural.data) {
-          drugName = natural.data.full_en_brand_name;
-          drugType = 'محصولات طبیعی';
+          drugInfo = {
+            name: natural.data.full_en_brand_name,
+            type: 'محصولات طبیعی',
+            company: natural.data.license_owner_name || 'نامشخص',
+            irc: natural.data.irc || 'نامشخص',
+            gtin: natural.data.gtin || 'نامشخص',
+            erx_code: natural.data.erx_code || 'نامشخص',
+            package_count: natural.data.package_count
+          };
         }
 
         return {
           ...item,
-          drug_name: drugName,
-          drug_type: drugType
+          drug_name: drugInfo.name,
+          drug_type: drugInfo.type,
+          drug_company: drugInfo.company,
+          drug_irc: drugInfo.irc,
+          drug_gtin: drugInfo.gtin,
+          drug_erx_code: drugInfo.erx_code,
+          drug_package_count: drugInfo.package_count,
+          unit_price: pricing.data?.unit_price,
+          total_price: pricing.data?.total_price,
+          pricing_notes: pricing.data?.notes
         };
       }));
 
