@@ -247,14 +247,26 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
 
       if (error) throw error;
 
-      // Get drug details separately
+      // Get drug details from all three drug tables
       const drugIds = items?.map(item => item.drug_id) || [];
-      const { data: drugs, error: drugsError } = await supabase
-        .from('chemical_drugs')
-        .select('id, full_brand_name, irc')
-        .in('id', drugIds);
+      const [chemicalResult, medicalResult, naturalResult] = await Promise.all([
+        supabase
+          .from('chemical_drugs')
+          .select('id, full_brand_name, license_owner_company_name, package_count, irc, gtin, erx_code')
+          .in('id', drugIds),
+        supabase
+          .from('medical_supplies')
+          .select('id, title, license_owner_company_name, package_count, irc, gtin, erx_code')
+          .in('id', drugIds),
+        supabase
+          .from('natural_products')
+          .select('id, full_en_brand_name, license_owner_name, package_count, irc, gtin, erx_code')
+          .in('id', drugIds)
+      ]);
 
-      if (drugsError) throw drugsError;
+      const drugs = chemicalResult.data || [];
+      const medical = medicalResult.data || [];
+      const natural = naturalResult.data || [];
 
       // Get pricing information
       const { data: pricing, error: pricingError } = await supabase
@@ -267,13 +279,70 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
       }
 
       const enhancedItems = (items || []).map((item: any) => {
-        const drugInfo = drugs?.find(d => d.id === item.drug_id);
+        let drugInfo = {
+          drug_name: 'نامشخص',
+          drug_type: 'نامشخص',
+          company_name: 'نامشخص',
+          package_count: null,
+          irc: null,
+          gtin: null,
+          erx_code: null
+        };
+
+        // Check chemical drugs
+        const chemical = drugs.find(d => d.id === item.drug_id);
+        if (chemical) {
+          drugInfo = {
+            drug_name: chemical.full_brand_name,
+            drug_type: 'دارو',
+            company_name: chemical.license_owner_company_name || 'نامشخص',
+            package_count: chemical.package_count,
+            irc: chemical.irc,
+            gtin: chemical.gtin,
+            erx_code: chemical.erx_code
+          };
+        } else {
+          // Check medical supplies
+          const medicalItem = medical.find(d => d.id === item.drug_id);
+          if (medicalItem) {
+            drugInfo = {
+              drug_name: medicalItem.title,
+              drug_type: 'تجهیزات پزشکی',
+              company_name: medicalItem.license_owner_company_name || 'نامشخص',
+              package_count: medicalItem.package_count,
+              irc: medicalItem.irc,
+              gtin: medicalItem.gtin,
+              erx_code: medicalItem.erx_code
+            };
+          } else {
+            // Check natural products
+            const naturalItem = natural.find(d => d.id === item.drug_id);
+            if (naturalItem) {
+              drugInfo = {
+                drug_name: naturalItem.full_en_brand_name,
+                drug_type: 'محصولات طبیعی',
+                company_name: naturalItem.license_owner_name || 'نامشخص',
+                package_count: naturalItem.package_count,
+                irc: naturalItem.irc,
+                gtin: naturalItem.gtin,
+                erx_code: naturalItem.erx_code
+              };
+            }
+          }
+        }
+
         const priceInfo = pricing?.find(p => p.drug_id === item.drug_id);
         return {
           id: item.id,
           drug_id: item.drug_id,
-          drug_name: drugInfo?.full_brand_name || 'نام محصول',
-          drug_brand: drugInfo?.irc || 'کد IRC',
+          drug_name: drugInfo.drug_name,
+          drug_brand: drugInfo.irc || 'کد IRC',
+          drug_type: drugInfo.drug_type,
+          company_name: drugInfo.company_name,
+          package_count: drugInfo.package_count,
+          irc: drugInfo.irc,
+          gtin: drugInfo.gtin,
+          erx_code: drugInfo.erx_code,
           quantity: item.quantity,
           unit_price: priceInfo?.unit_price || 0,
           total_price: priceInfo?.total_price || 0
