@@ -19,6 +19,14 @@ interface OrderItem {
   drug_id: string;
   drug_name: string;
   drug_type: string;
+  drug_company?: string;
+  drug_irc?: string;
+  drug_gtin?: string;
+  drug_erx_code?: string;
+  drug_package_count?: number;
+  unit_price?: number;
+  total_price?: number;
+  pricing_notes?: string;
 }
 
 interface Order {
@@ -152,31 +160,95 @@ const OrdersManagement: React.FC<OrdersManagementProps> = ({
 
       if (error) throw error;
 
+      // Fetch drug details and pricing for each item
       const itemsWithDrugs = await Promise.all((data || []).map(async (item) => {
-        const [chemical, medical, natural] = await Promise.all([
-          supabase.from('chemical_drugs').select('full_brand_name').eq('id', item.drug_id).single(),
-          supabase.from('medical_supplies').select('title').eq('id', item.drug_id).single(),
-          supabase.from('natural_products').select('full_en_brand_name').eq('id', item.drug_id).single()
+        // Try to find the drug in each table with complete specifications
+        const [chemical, medical, natural, pricing] = await Promise.all([
+          supabase.from('chemical_drugs').select(`
+            full_brand_name,
+            license_owner_company_name,
+            irc,
+            gtin,
+            erx_code,
+            package_count
+          `).eq('id', item.drug_id).maybeSingle(),
+          supabase.from('medical_supplies').select(`
+            title,
+            license_owner_company_name,
+            irc,
+            gtin,
+            erx_code,
+            package_count
+          `).eq('id', item.drug_id).maybeSingle(),
+          supabase.from('natural_products').select(`
+            full_en_brand_name,
+            license_owner_name,
+            irc,
+            gtin,
+            erx_code,
+            package_count
+          `).eq('id', item.drug_id).maybeSingle(),
+          supabase.from('order_item_pricing').select(`
+            unit_price,
+            total_price,
+            notes
+          `).eq('order_id', orderId).eq('drug_id', item.drug_id).maybeSingle()
         ]);
 
-        let drugName = 'نامشخص';
-        let drugType = 'نامشخص';
+        let drugInfo = {
+          name: 'نامشخص',
+          type: 'نامشخص',
+          company: 'نامشخص',
+          irc: 'نامشخص',
+          gtin: 'نامشخص',
+          erx_code: 'نامشخص',
+          package_count: null
+        };
 
         if (chemical.data) {
-          drugName = chemical.data.full_brand_name;
-          drugType = 'دارو';
+          drugInfo = {
+            name: chemical.data.full_brand_name,
+            type: 'دارو',
+            company: chemical.data.license_owner_company_name || 'نامشخص',
+            irc: chemical.data.irc || 'نامشخص',
+            gtin: chemical.data.gtin || 'نامشخص',
+            erx_code: chemical.data.erx_code || 'نامشخص',
+            package_count: chemical.data.package_count
+          };
         } else if (medical.data) {
-          drugName = medical.data.title;
-          drugType = 'تجهیزات پزشکی';
+          drugInfo = {
+            name: medical.data.title,
+            type: 'تجهیزات پزشکی',
+            company: medical.data.license_owner_company_name || 'نامشخص',
+            irc: medical.data.irc || 'نامشخص',
+            gtin: medical.data.gtin || 'نامشخص',
+            erx_code: medical.data.erx_code || 'نامشخص',
+            package_count: medical.data.package_count
+          };
         } else if (natural.data) {
-          drugName = natural.data.full_en_brand_name;
-          drugType = 'محصولات طبیعی';
+          drugInfo = {
+            name: natural.data.full_en_brand_name,
+            type: 'محصولات طبیعی',
+            company: natural.data.license_owner_name || 'نامشخص',
+            irc: natural.data.irc || 'نامشخص',
+            gtin: natural.data.gtin || 'نامشخص',
+            erx_code: natural.data.erx_code || 'نامشخص',
+            package_count: natural.data.package_count
+          };
         }
 
         return {
           ...item,
-          drug_name: drugName,
-          drug_type: drugType
+          drug_name: drugInfo.name,
+          drug_type: drugInfo.type,
+          drug_company: drugInfo.company,
+          drug_irc: drugInfo.irc,
+          drug_gtin: drugInfo.gtin,
+          drug_erx_code: drugInfo.erx_code,
+          drug_package_count: drugInfo.package_count,
+          unit_price: pricing.data?.unit_price,
+          total_price: pricing.data?.total_price,
+          pricing_notes: pricing.data?.notes
         };
       }));
 
@@ -310,12 +382,68 @@ const OrdersManagement: React.FC<OrdersManagementProps> = ({
             {order.items && order.items.length > 0 ? (
               <div className="space-y-2">
                 {order.items.map((item) => (
-                  <div key={item.id} className="flex justify-between items-center p-3 bg-muted/30 rounded-lg">
-                    <div>
-                      <p className="font-medium">{item.drug_name}</p>
-                      <p className="text-sm text-muted-foreground">{item.drug_type}</p>
+                  <div key={item.id} className="p-4 bg-muted/30 rounded-lg">
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="flex-1">
+                        <p className="font-medium text-lg">{item.drug_name}</p>
+                        <Badge variant="secondary" className="mt-1">{item.drug_type}</Badge>
+                      </div>
+                      <Badge variant="outline" className="text-lg font-medium">تعداد: {item.quantity}</Badge>
                     </div>
-                    <Badge variant="outline">تعداد: {item.quantity}</Badge>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">شرکت تولیدکننده:</span>
+                          <span className="font-medium">{item.drug_company}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">کد IRC:</span>
+                          <span className="font-mono">{item.drug_irc}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">کد GTIN:</span>
+                          <span className="font-mono">{item.drug_gtin}</span>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">کد ERX:</span>
+                          <span className="font-mono">{item.drug_erx_code}</span>
+                        </div>
+                        {item.drug_package_count && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">تعداد در بسته:</span>
+                            <span className="font-medium">{item.drug_package_count}</span>
+                          </div>
+                        )}
+                        {item.unit_price && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">قیمت واحد:</span>
+                            <span className="font-medium text-green-600">{Number(item.unit_price).toLocaleString('fa-IR')} تومان</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {item.total_price && (
+                      <div className="mt-3 pt-3 border-t border-border">
+                        <div className="flex justify-between items-center">
+                          <span className="text-muted-foreground">قیمت کل این قلم:</span>
+                          <span className="font-bold text-lg text-green-600">{Number(item.total_price).toLocaleString('fa-IR')} تومان</span>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {item.pricing_notes && (
+                      <div className="mt-3 pt-3 border-t border-border">
+                        <div className="text-sm">
+                          <span className="text-muted-foreground">یادداشت قیمت‌گذاری:</span>
+                          <p className="mt-1 text-muted-foreground italic">{item.pricing_notes}</p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
