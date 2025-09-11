@@ -50,6 +50,12 @@ interface OrderItem {
   drug_id: string;
   drug_name: string;
   drug_brand: string;
+  drug_type?: string;
+  company_name?: string;
+  package_count?: number;
+  irc?: string;
+  gtin?: string;
+  erx_code?: string;
   quantity: number;
   unit_price?: number;
   total_price?: number;
@@ -766,18 +772,45 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
                                   </div>
                                   {order.order_items && order.order_items.length > 0 && (
                                     <div className="space-y-2">
-                                      <h4 className="font-medium">آیتم‌های سفارش:</h4>
-                                      {order.order_items.map((item) => (
-                                        <div key={item.id} className="flex justify-between items-center p-3 bg-background rounded border">
-                                          <div>
-                                            <span className="font-medium">{item.drug_name}</span>
-                                            <span className="text-sm text-muted-foreground block">{item.drug_brand}</span>
-                                          </div>
-                                           <div className="text-right">
-                                             <div className="text-sm">تعداد: {item.quantity}</div>
+                                       <h4 className="font-medium">آیتم‌های سفارش:</h4>
+                                       {order.order_items.map((item) => (
+                                         <div key={item.id} className="border rounded-lg p-3 bg-muted/30">
+                                           <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                                             <div>
+                                               <span className="font-medium">نام دارو:</span> {item.drug_name}
+                                             </div>
+                                             <div>
+                                               <span className="font-medium">نوع:</span> {item.drug_type}
+                                             </div>
+                                             <div>
+                                               <span className="font-medium">شرکت سازنده:</span> {item.company_name}
+                                             </div>
+                                             <div>
+                                               <span className="font-medium">تعداد:</span> {item.quantity}
+                                             </div>
+                                             {item.package_count && (
+                                               <div>
+                                                 <span className="font-medium">تعداد در بسته:</span> {item.package_count}
+                                               </div>
+                                             )}
+                                             {item.irc && (
+                                               <div>
+                                                 <span className="font-medium">کد IRC:</span> {item.irc}
+                                               </div>
+                                             )}
+                                             {item.gtin && (
+                                               <div>
+                                                 <span className="font-medium">کد GTIN:</span> {item.gtin}
+                                               </div>
+                                             )}
+                                             {item.erx_code && (
+                                               <div>
+                                                 <span className="font-medium">کد ERX:</span> {item.erx_code}
+                                               </div>
+                                             )}
                                            </div>
-                                        </div>
-                                      ))}
+                                         </div>
+                                       ))}
                                     </div>
                                   )}
                                 </div>
@@ -812,19 +845,46 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
                           {/* Expanded Order Details */}
                           {expandedOrders.has(order.id) && order.order_items && order.order_items.length > 0 && (
                             <div className="mb-4 p-4 bg-muted/30 rounded-lg animate-accordion-down">
-                              <h4 className="font-medium mb-3">جزئیات سفارش</h4>
-                              <div className="space-y-2">
-                                {order.order_items.map((item) => (
-                                  <div key={item.id} className="flex justify-between items-center p-3 bg-background rounded border">
-                                    <div>
-                                      <span className="font-medium">{item.drug_name}</span>
-                                      <span className="text-sm text-muted-foreground block">{item.drug_brand}</span>
-                                    </div>
-                                     <div className="text-right">
-                                       <div className="text-sm">تعداد: {item.quantity}</div>
+                               <h4 className="font-medium mb-3">جزئیات اقلام سفارش:</h4>
+                               <div className="space-y-3">
+                                 {order.order_items.map((item) => (
+                                   <div key={item.id} className="border rounded-lg p-3 bg-muted/30">
+                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                                       <div>
+                                         <span className="font-medium">نام دارو:</span> {item.drug_name}
+                                       </div>
+                                       <div>
+                                         <span className="font-medium">نوع:</span> {item.drug_type}
+                                       </div>
+                                       <div>
+                                         <span className="font-medium">شرکت سازنده:</span> {item.company_name}
+                                       </div>
+                                       <div>
+                                         <span className="font-medium">تعداد:</span> {item.quantity}
+                                       </div>
+                                       {item.package_count && (
+                                         <div>
+                                           <span className="font-medium">تعداد در بسته:</span> {item.package_count}
+                                         </div>
+                                       )}
+                                       {item.irc && (
+                                         <div>
+                                           <span className="font-medium">کد IRC:</span> {item.irc}
+                                         </div>
+                                       )}
+                                       {item.gtin && (
+                                         <div>
+                                           <span className="font-medium">کد GTIN:</span> {item.gtin}
+                                         </div>
+                                       )}
+                                       {item.erx_code && (
+                                         <div>
+                                           <span className="font-medium">کد ERX:</span> {item.erx_code}
+                                         </div>
+                                       )}
                                      </div>
-                                  </div>
-                                ))}
+                                   </div>
+                                 ))}
                               </div>
                               
 
