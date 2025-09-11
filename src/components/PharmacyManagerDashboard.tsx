@@ -261,22 +261,32 @@ const PharmacyManagerDashboard: React.FC<PharmacyManagerDashboardProps> = ({ use
   };
 
   const toggleOrderExpansion = async (orderId: string) => {
+    console.log('toggleOrderExpansion called with orderId:', orderId);
     const newExpanded = new Set(expandedOrders);
     
     if (expandedOrders.has(orderId)) {
+      console.log('Collapsing order:', orderId);
       newExpanded.delete(orderId);
     } else {
+      console.log('Expanding order:', orderId);
       newExpanded.add(orderId);
       
       // Fetch order items if not already loaded
       const order = orders.find(o => o.id === orderId);
+      console.log('Found order:', order);
+      console.log('Order items exist?', !!order?.items);
+      
       if (order && !order.items) {
+        console.log('Fetching items for order:', orderId);
         const items = await fetchOrderItems(orderId);
+        console.log('Fetched items result:', items);
         setOrders(prevOrders => 
           prevOrders.map(o => 
             o.id === orderId ? { ...o, items } : o
           )
         );
+      } else {
+        console.log('Order items already exist or order not found');
       }
     }
     
