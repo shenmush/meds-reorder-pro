@@ -79,7 +79,7 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
     try {
       setLoading(true);
       
-      // Fetch orders ready for final approval (approved by barman accountant)
+      // Fetch orders ready for final approval (approved by barman accountant + paid orders)
       const { data: finalData, error: finalError } = await supabase
         .from('orders')
         .select(`
@@ -88,7 +88,7 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
             name
           )
         `)
-        .eq('workflow_status', 'approved_bs')
+        .in('workflow_status', ['approved_bs', 'payment_completed'])
         .order('created_at', { ascending: false });
 
       if (finalError) throw finalError;
@@ -102,7 +102,7 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
             name
           )
         `)
-        .in('workflow_status', ['pending', 'needs_revision_pm', 'needs_revision_bs', 'approved', 'approved_bs'])
+        .in('workflow_status', ['pending', 'needs_revision_pm', 'needs_revision_bs', 'approved'])
         .order('created_at', { ascending: false });
 
       if (activeError) throw activeError;
@@ -460,12 +460,24 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
 
   const handleOrderAction = async (orderId: string, action: 'approve' | 'reject' | 'revision_bs' | 'revision_pm') => {
     try {
-      const statusMap = {
-        approve: 'approved',
-        reject: 'rejected',
-        revision_bs: 'needs_revision_bs',
-        revision_pm: 'needs_revision_pm'
-      };
+      let statusMap = {};
+      
+      // Different status mapping based on current order status
+      if (selectedOrder?.workflow_status === 'payment_completed') {
+        statusMap = {
+          approve: 'final_approved', // تایید نهایی برای ارسال به تولیدکننده
+          reject: 'rejected',
+          revision_bs: 'needs_revision_bs',
+          revision_pm: 'needs_revision_pm'
+        };
+      } else {
+        statusMap = {
+          approve: 'approved',
+          reject: 'rejected',
+          revision_bs: 'needs_revision_bs',
+          revision_pm: 'needs_revision_pm'
+        };
+      }
 
       // Update order status
       const { error: orderError } = await supabase
@@ -517,6 +529,8 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
       'needs_revision_bs': { label: 'نیاز به اصلاح - کارمند بارمان', variant: 'destructive' },
       'approved': { label: 'تایید مدیر داروخانه', variant: 'secondary' },
       'approved_bs': { label: 'آماده تایید نهایی', variant: 'default' },
+      'payment_completed': { label: 'پرداخت شده - آماده تایید نهایی', variant: 'default' },
+      'final_approved': { label: 'تایید نهایی شده - ارسال به تولیدکننده', variant: 'secondary' },
       'invoice_issued': { label: 'فاکتور صادر شده', variant: 'secondary' },
       'rejected': { label: 'رد شده', variant: 'destructive' }
     };
@@ -526,12 +540,22 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
   };
 
   const getActionLabel = () => {
-    switch (pendingAction) {
-      case 'approve': return 'تایید نهایی سفارش';
-      case 'reject': return 'رد سفارش';
-      case 'revision_bs': return 'ارجاع به کارمند بارمان';
-      case 'revision_pm': return 'ارجاع به مدیر داروخانه';
-      default: return '';
+    if (selectedOrder?.workflow_status === 'payment_completed') {
+      switch (pendingAction) {
+        case 'approve': return 'تایید نهایی و ارسال به تولیدکننده';
+        case 'reject': return 'رد سفارش';
+        case 'revision_bs': return 'برگشت به حسابدار بارمان برای ویرایش';
+        case 'revision_pm': return 'برگشت به مدیر داروخانه برای ویرایش';
+        default: return '';
+      }
+    } else {
+      switch (pendingAction) {
+        case 'approve': return 'تایید نهایی سفارش';
+        case 'reject': return 'رد سفارش';
+        case 'revision_bs': return 'ارجاع به کارمند بارمان';
+        case 'revision_pm': return 'ارجاع به مدیر داروخانه';
+        default: return '';
+      }
     }
   };
 
