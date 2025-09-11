@@ -313,9 +313,9 @@ const OrdersManagement: React.FC<OrdersManagementProps> = ({
     return actionableStatuses.includes(workflowStatus);
   };
 
-  const renderOrderCard = (order: Order, ordersList: Order[], setOrdersList: React.Dispatch<React.SetStateAction<Order[]>>) => {
-    // Determine if actions should be shown based on order status and user actions
-    const shouldShowActions = showActions && canUserActOnOrder(order.workflow_status);
+  const renderOrderCard = (order: Order, ordersList: Order[], setOrdersList: React.Dispatch<React.SetStateAction<Order[]>>, isActiveTab: boolean = true) => {
+    // Determine if actions should be shown based on order status, user actions, and tab type
+    const shouldShowActions = showActions && canUserActOnOrder(order.workflow_status) && isActiveTab;
     
     return (
       <Card key={order.id} className="hover:shadow-md transition-shadow">
@@ -505,7 +505,7 @@ const OrdersManagement: React.FC<OrdersManagementProps> = ({
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {activeOrders.map((order) => renderOrderCard(order, activeOrders, setActiveOrders))}
+                  {activeOrders.map((order) => renderOrderCard(order, activeOrders, setActiveOrders, true))}
                 </div>
               )}
             </TabsContent>
@@ -632,7 +632,7 @@ const OrdersManagement: React.FC<OrdersManagementProps> = ({
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {filteredOrders.map((order) => renderOrderCard(order, filteredOrders, setFilteredOrders))}
+                  {filteredOrders.map((order) => renderOrderCard(order, filteredOrders, setFilteredOrders, false))}
                 </div>
               )}
             </TabsContent>
