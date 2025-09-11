@@ -137,6 +137,7 @@ const PharmacyManagerDashboard: React.FC<PharmacyManagerDashboardProps> = ({ use
   };
 
   const fetchOrderItems = async (orderId: string) => {
+    console.log('Fetching order items for order:', orderId);
     try {
       const { data, error } = await supabase
         .from('order_items')
@@ -148,9 +149,12 @@ const PharmacyManagerDashboard: React.FC<PharmacyManagerDashboardProps> = ({ use
         .eq('order_id', orderId);
 
       if (error) throw error;
+      console.log('Order items fetched:', data);
 
       // Fetch drug details and pricing for each item
       const itemsWithDrugs = await Promise.all((data || []).map(async (item) => {
+        console.log('Fetching drug details for drug_id:', item.drug_id);
+        
         // Try to find the drug in each table with complete specifications
         const [chemical, medical, natural, pricing] = await Promise.all([
           supabase.from('chemical_drugs').select(`
@@ -160,7 +164,7 @@ const PharmacyManagerDashboard: React.FC<PharmacyManagerDashboardProps> = ({ use
             gtin,
             erx_code,
             package_count
-          `).eq('id', item.drug_id).single(),
+          `).eq('id', item.drug_id).maybeSingle(),
           supabase.from('medical_supplies').select(`
             title,
             license_owner_company_name,
@@ -168,7 +172,7 @@ const PharmacyManagerDashboard: React.FC<PharmacyManagerDashboardProps> = ({ use
             gtin,
             erx_code,
             package_count
-          `).eq('id', item.drug_id).single(),
+          `).eq('id', item.drug_id).maybeSingle(),
           supabase.from('natural_products').select(`
             full_en_brand_name,
             license_owner_name,
@@ -176,13 +180,15 @@ const PharmacyManagerDashboard: React.FC<PharmacyManagerDashboardProps> = ({ use
             gtin,
             erx_code,
             package_count
-          `).eq('id', item.drug_id).single(),
+          `).eq('id', item.drug_id).maybeSingle(),
           supabase.from('order_item_pricing').select(`
             unit_price,
             total_price,
             notes
-          `).eq('order_id', orderId).eq('drug_id', item.drug_id).single()
+          `).eq('order_id', orderId).eq('drug_id', item.drug_id).maybeSingle()
         ]);
+
+        console.log('Drug query results:', { chemical, medical, natural, pricing });
 
         let drugInfo = {
           name: 'نامشخص',
@@ -226,7 +232,9 @@ const PharmacyManagerDashboard: React.FC<PharmacyManagerDashboardProps> = ({ use
           };
         }
 
-        return {
+        console.log('Final drug info:', drugInfo);
+
+        const result = {
           ...item,
           drug_name: drugInfo.name,
           drug_type: drugInfo.type,
@@ -239,8 +247,12 @@ const PharmacyManagerDashboard: React.FC<PharmacyManagerDashboardProps> = ({ use
           total_price: pricing.data?.total_price,
           pricing_notes: pricing.data?.notes
         };
+
+        console.log('Final item result:', result);
+        return result;
       }));
 
+      console.log('Final items with drugs:', itemsWithDrugs);
       return itemsWithDrugs;
     } catch (error) {
       console.error('Error fetching order items:', error);
