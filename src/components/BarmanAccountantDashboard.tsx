@@ -773,10 +773,9 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
                                             <span className="font-medium">{item.drug_name}</span>
                                             <span className="text-sm text-muted-foreground block">{item.drug_brand}</span>
                                           </div>
-                                          <div className="text-right">
-                                            <div className="text-sm">تعداد: {item.quantity}</div>
-                                            <div className="font-medium">{formatCurrency(item.total_price || 0)} تومان</div>
-                                          </div>
+                                           <div className="text-right">
+                                             <div className="text-sm">تعداد: {item.quantity}</div>
+                                           </div>
                                         </div>
                                       ))}
                                     </div>
@@ -821,23 +820,13 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
                                       <span className="font-medium">{item.drug_name}</span>
                                       <span className="text-sm text-muted-foreground block">{item.drug_brand}</span>
                                     </div>
-                                    <div className="text-right">
-                                      <div className="text-sm">تعداد: {item.quantity}</div>
-                                      <div className="text-sm">قیمت واحد: {formatCurrency(item.unit_price || 0)} تومان</div>
-                                      <div className="font-medium">کل: {formatCurrency(item.total_price || 0)} تومان</div>
-                                    </div>
+                                     <div className="text-right">
+                                       <div className="text-sm">تعداد: {item.quantity}</div>
+                                     </div>
                                   </div>
                                 ))}
                               </div>
                               
-                              <div className="mt-3 pt-3 border-t">
-                                <div className="flex justify-between items-center">
-                                  <span className="font-medium">جمع کل سفارش:</span>
-                                  <span className="font-bold text-lg text-primary">
-                                    {formatCurrency(order.invoice_amount || 0)} تومان
-                                  </span>
-                                </div>
-                              </div>
 
                               {order.pricing_notes && (
                                 <div className="mt-3 p-2 bg-blue-50 rounded text-sm">
