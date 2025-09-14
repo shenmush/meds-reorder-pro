@@ -18,6 +18,11 @@ interface OrderItem {
   drug_id: string;
   drug_name: string;
   drug_type: string;
+  drug_company?: string;
+  drug_irc?: string;
+  drug_gtin?: string;
+  drug_erx_code?: string;
+  drug_package_count?: number;
 }
 
 interface Order {
@@ -27,6 +32,7 @@ interface Order {
   created_at: string;
   updated_at: string;
   total_items: number;
+  pharmacy_id: string;
   pharmacy_name: string;
   items?: OrderItem[];
 }
@@ -59,6 +65,31 @@ const BarmanStaffDashboard: React.FC<BarmanStaffDashboardProps> = ({ user, onAut
     fetchData();
   }, []);
 
+  // Real-time updates for orders
+  useEffect(() => {
+    const channel = supabase
+      .channel('barman-staff-orders')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'orders'
+        },
+        (payload) => {
+          console.log('Order updated:', payload);
+          // Refresh both order lists when any order is updated
+          fetchOrders();
+          fetchProcessedOrders();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
   const handleSignOut = async () => {
     try {
       await supabase.auth.signOut();
@@ -73,100 +104,202 @@ const BarmanStaffDashboard: React.FC<BarmanStaffDashboardProps> = ({ user, onAut
     setActiveTab(tab as any);
   };
 
-  const fetchOrders = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('orders')
-        .select(`
-          *,
-          pharmacies(name)
-        `)
-        .in('workflow_status', ['approved_pm', 'needs_revision_bs', 'needs_revision_pm_pricing'])
-        .order('created_at', { ascending: false });
+const fetchOrders = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('orders')
+      .select('*')
+      .in('workflow_status', ['approved_pm', 'needs_revision_bs', 'needs_revision_pm_pricing'])
+      .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      setOrders(data?.map(order => ({
-        ...order,
-        pharmacy_name: order.pharmacies?.name || 'نامشخص'
-      })) || []);
-    } catch (error) {
-      console.error('Error fetching orders:', error);
-      toast.error('خطا در بارگذاری سفارشات');
+    if (error) throw error;
+
+    const pharmacyIds = Array.from(new Set((data || []).map((o: any) => o.pharmacy_id))).filter(Boolean) as string[];
+    let pharmacyMap = new Map<string, string>();
+
+    if (pharmacyIds.length > 0) {
+      const { data: phData, error: phError } = await supabase
+        .from('pharmacies')
+        .select('id, name')
+        .in('id', pharmacyIds);
+      if (phError) console.error('Error fetching pharmacies:', phError);
+      pharmacyMap = new Map((phData || []).map((p: any) => [p.id, p.name]));
     }
-  };
 
-  const fetchProcessedOrders = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('orders')
-        .select(`
-          *,
-          pharmacies(name)
-        `)
-        .in('workflow_status', ['approved_bs', 'rejected', 'invoice_issued', 'payment_uploaded', 'payment_verified', 'completed', 'approved'])
-        .order('updated_at', { ascending: false })
-        .limit(50);
+    setOrders((data || []).map((order: any) => ({
+      ...order,
+      pharmacy_name: pharmacyMap.get(order.pharmacy_id) || 'نامشخص'
+    })) || []);
+  } catch (error) {
+    console.error('Error fetching orders:', error);
+    toast.error('خطا در بارگذاری سفارشات');
+  }
+};
 
-      if (error) throw error;
-      setProcessedOrders(data?.map(order => ({
-        ...order,
-        pharmacy_name: order.pharmacies?.name || 'نامشخص'
-      })) || []);
-    } catch (error) {
-      console.error('Error fetching processed orders:', error);
-      toast.error('خطا در بارگذاری تاریخچه سفارشات');
+const fetchProcessedOrders = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('orders')
+      .select('*')
+      .in('workflow_status', ['approved_bs', 'rejected', 'invoice_issued', 'payment_uploaded', 'payment_verified', 'completed', 'approved'])
+      .order('updated_at', { ascending: false })
+      .limit(50);
+
+    if (error) throw error;
+
+    const pharmacyIds = Array.from(new Set((data || []).map((o: any) => o.pharmacy_id))).filter(Boolean) as string[];
+    let pharmacyMap = new Map<string, string>();
+
+    if (pharmacyIds.length > 0) {
+      const { data: phData, error: phError } = await supabase
+        .from('pharmacies')
+        .select('id, name')
+        .in('id', pharmacyIds);
+      if (phError) console.error('Error fetching pharmacies (processed):', phError);
+      pharmacyMap = new Map((phData || []).map((p: any) => [p.id, p.name]));
     }
-  };
 
-  const fetchOrderItems = async (orderId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('order_items')
-        .select(`
-          id,
-          quantity,
-          drug_id
-        `)
-        .eq('order_id', orderId);
+    setProcessedOrders((data || []).map((order: any) => ({
+      ...order,
+      pharmacy_name: pharmacyMap.get(order.pharmacy_id) || 'نامشخص'
+    })) || []);
+  } catch (error) {
+    console.error('Error fetching processed orders:', error);
+    toast.error('خطا در بارگذاری تاریخچه سفارشات');
+  }
+};
 
-      if (error) throw error;
+const fetchOrderItems = async (orderId: string) => {
+  console.log('fetchOrderItems called for order:', orderId);
+  try {
+    const { data, error } = await supabase
+      .from('order_items')
+      .select(`
+        id,
+        quantity,
+        drug_id
+      `)
+      .eq('order_id', orderId);
 
-      // Fetch drug details for each item
-      const itemsWithDrugs = await Promise.all((data || []).map(async (item) => {
-        // Try to find the drug in each table
-        const [chemical, medical, natural] = await Promise.all([
-          supabase.from('chemical_drugs').select('full_brand_name').eq('id', item.drug_id).maybeSingle(),
-          supabase.from('medical_supplies').select('title').eq('id', item.drug_id).maybeSingle(),
-          supabase.from('natural_products').select('full_en_brand_name').eq('id', item.drug_id).maybeSingle()
-        ]);
-
-        let drugName = 'نامشخص';
-        let drugType = 'نامشخص';
-
-        if (chemical.data) {
-          drugName = chemical.data.full_brand_name;
-          drugType = 'دارو';
-        } else if (medical.data) {
-          drugName = medical.data.title;
-          drugType = 'تجهیزات پزشکی';
-        } else if (natural.data) {
-          drugName = natural.data.full_en_brand_name;
-          drugType = 'محصولات طبیعی';
-        }
-
-        return {
-          ...item,
-          drug_name: drugName,
-          drug_type: drugType
-        };
-      }));
-
-      return itemsWithDrugs;
-    } catch (error) {
+    if (error) {
       console.error('Error fetching order items:', error);
+      throw error;
+    }
+
+    console.log('Order items raw data:', data);
+
+    if (!data || data.length === 0) {
+      console.log('No order items found for order:', orderId);
       return [];
     }
-  };
+
+    // Fetch drug details for each item with complete specifications
+    const itemsWithDrugs = await Promise.all(data.map(async (item) => {
+      console.log('Processing item:', item);
+      
+      // Try to find the drug in each table with complete specifications
+      const [chemical, medical, natural] = await Promise.all([
+        supabase.from('chemical_drugs').select(`
+          full_brand_name,
+          license_owner_company_name,
+          irc,
+          gtin,
+          erx_code,
+          package_count
+        `).eq('id', item.drug_id).maybeSingle().then(result => {
+          console.log('Chemical drugs result for', item.drug_id, ':', result);
+          return result;
+        }),
+        supabase.from('medical_supplies').select(`
+          title,
+          license_owner_company_name,
+          irc,
+          gtin,
+          erx_code,
+          package_count
+        `).eq('id', item.drug_id).maybeSingle().then(result => {
+          console.log('Medical supplies result for', item.drug_id, ':', result);
+          return result;
+        }),
+        supabase.from('natural_products').select(`
+          full_en_brand_name,
+          license_owner_name,
+          irc,
+          gtin,
+          erx_code,
+          package_count
+        `).eq('id', item.drug_id).maybeSingle().then(result => {
+          console.log('Natural products result for', item.drug_id, ':', result);
+          return result;
+        })
+      ]);
+
+      let drugInfo = {
+        name: 'نامشخص',
+        type: 'نامشخص',
+        company: 'نامشخص',
+        irc: 'نامشخص',
+        gtin: 'نامشخص',
+        erx_code: 'نامشخص',
+        package_count: null
+      };
+
+      if (chemical.data) {
+        drugInfo = {
+          name: chemical.data.full_brand_name,
+          type: 'دارو',
+          company: chemical.data.license_owner_company_name || 'نامشخص',
+          irc: chemical.data.irc || 'نامشخص',
+          gtin: chemical.data.gtin || 'نامشخص',
+          erx_code: chemical.data.erx_code || 'نامشخص',
+          package_count: chemical.data.package_count
+        };
+      } else if (medical.data) {
+        drugInfo = {
+          name: medical.data.title,
+          type: 'تجهیزات پزشکی',
+          company: medical.data.license_owner_company_name || 'نامشخص',
+          irc: medical.data.irc || 'نامشخص',
+          gtin: medical.data.gtin || 'نامشخص',
+          erx_code: medical.data.erx_code || 'نامشخص',
+          package_count: medical.data.package_count
+        };
+      } else if (natural.data) {
+        drugInfo = {
+          name: natural.data.full_en_brand_name,
+          type: 'محصولات طبیعی',
+          company: natural.data.license_owner_name || 'نامشخص',
+          irc: natural.data.irc || 'نامشخص',
+          gtin: natural.data.gtin || 'نامشخص',
+          erx_code: natural.data.erx_code || 'نامشخص',
+          package_count: natural.data.package_count
+        };
+      }
+
+      console.log('Final drug info:', drugInfo);
+
+      const result = {
+        ...item,
+        drug_name: drugInfo.name,
+        drug_type: drugInfo.type,
+        drug_company: drugInfo.company,
+        drug_irc: drugInfo.irc,
+        drug_gtin: drugInfo.gtin,
+        drug_erx_code: drugInfo.erx_code,
+        drug_package_count: drugInfo.package_count
+      };
+
+      console.log('Final item result:', result);
+      return result;
+    }));
+
+    console.log('Final items with drugs:', itemsWithDrugs);
+    return itemsWithDrugs;
+  } catch (error) {
+    console.error('Error in fetchOrderItems:', error);
+    return [];
+  }
+};
 
   const toggleOrderExpansion = async (orderId: string) => {
     const newExpanded = new Set(expandedOrders);
@@ -214,7 +347,7 @@ const BarmanStaffDashboard: React.FC<BarmanStaffDashboardProps> = ({ user, onAut
         };
         newStatus = statusMap[action];
       } else {
-        // Normal flow from approved_pm or needs_revision_bs
+        // Normal flow from approved or needs_revision_bs
         const statusMap = {
           approve: 'approved_bs',
           reject: 'rejected',
@@ -275,7 +408,6 @@ const BarmanStaffDashboard: React.FC<BarmanStaffDashboardProps> = ({ user, onAut
       'needs_revision_bs': { label: 'نیاز به ویرایش بارمان', variant: 'destructive' as const, icon: AlertTriangle },
       'needs_revision_pm_pricing': { label: 'ویرایش قیمت‌گذاری', variant: 'destructive' as const, icon: Edit },
       'approved_bs': { label: 'تایید شده بارمان', variant: 'default' as const, icon: CheckCircle },
-      'approved': { label: 'تایید شده', variant: 'default' as const, icon: CheckCircle },
       'rejected': { label: 'رد شده', variant: 'destructive' as const, icon: XCircle },
       'invoice_issued': { label: 'فاکتور صادر شده', variant: 'secondary' as const, icon: Package },
       'payment_uploaded': { label: 'رسید آپلود شده', variant: 'default' as const, icon: CheckCircle },
@@ -456,18 +588,45 @@ const BarmanStaffDashboard: React.FC<BarmanStaffDashboardProps> = ({ user, onAut
                     {expandedOrders.has(order.id) && (
                       <div className="mt-4 pt-4 border-t border-border animate-fade-in">
                         <h4 className="font-medium mb-3">جزئیات سفارش:</h4>
-                        {order.items && order.items.length > 0 ? (
-                          <div className="space-y-2">
-                            {order.items.map((item) => (
-                              <div key={item.id} className="flex justify-between items-center p-3 bg-muted/30 rounded-lg">
-                                <div>
-                                  <p className="font-medium">{item.drug_name}</p>
-                                  <p className="text-sm text-muted-foreground">{item.drug_type}</p>
-                                </div>
-                                <Badge variant="outline">تعداد: {item.quantity}</Badge>
-                              </div>
-                            ))}
-                          </div>
+                         {order.items && order.items.length > 0 ? (
+                           <div className="space-y-3">
+                             {order.items.map((item) => (
+                               <div key={item.id} className="p-4 bg-muted/30 rounded-lg">
+                                 <div className="flex justify-between items-start mb-2">
+                                   <div className="flex-1">
+                                     <p className="font-medium text-lg">{item.drug_name}</p>
+                                     <p className="text-sm text-muted-foreground mb-2">{item.drug_type}</p>
+                                     
+                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                                       <div>
+                                         <span className="font-medium">شرکت سازنده:</span>
+                                         <span className="mr-2 text-muted-foreground">{item.drug_company}</span>
+                                       </div>
+                                       <div>
+                                         <span className="font-medium">IRC:</span>
+                                         <span className="mr-2 text-muted-foreground font-mono">{item.drug_irc}</span>
+                                       </div>
+                                       <div>
+                                         <span className="font-medium">GTIN:</span>
+                                         <span className="mr-2 text-muted-foreground font-mono">{item.drug_gtin}</span>
+                                       </div>
+                                       <div>
+                                         <span className="font-medium">کد ERX:</span>
+                                         <span className="mr-2 text-muted-foreground font-mono">{item.drug_erx_code}</span>
+                                       </div>
+                                       {item.drug_package_count && (
+                                         <div>
+                                           <span className="font-medium">تعداد در بسته:</span>
+                                           <span className="mr-2 text-muted-foreground">{item.drug_package_count}</span>
+                                         </div>
+                                       )}
+                                     </div>
+                                   </div>
+                                   <Badge variant="outline" className="ml-4">تعداد: {item.quantity}</Badge>
+                                 </div>
+                               </div>
+                             ))}
+                           </div>
                         ) : (
                           <p className="text-sm text-muted-foreground">در حال بارگذاری...</p>
                         )}
@@ -536,18 +695,45 @@ const BarmanStaffDashboard: React.FC<BarmanStaffDashboardProps> = ({ user, onAut
                   {expandedOrders.has(order.id) && (
                     <div className="mt-4 pt-4 border-t border-border animate-fade-in">
                       <h4 className="font-medium mb-3">جزئیات سفارش:</h4>
-                      {order.items && order.items.length > 0 ? (
-                        <div className="space-y-2">
-                          {order.items.map((item) => (
-                            <div key={item.id} className="flex justify-between items-center p-3 bg-muted/30 rounded-lg">
-                              <div>
-                                <p className="font-medium">{item.drug_name}</p>
-                                <p className="text-sm text-muted-foreground">{item.drug_type}</p>
-                              </div>
-                              <Badge variant="outline">تعداد: {item.quantity}</Badge>
-                            </div>
-                          ))}
-                        </div>
+                       {order.items && order.items.length > 0 ? (
+                         <div className="space-y-3">
+                           {order.items.map((item) => (
+                             <div key={item.id} className="p-4 bg-muted/30 rounded-lg">
+                               <div className="flex justify-between items-start mb-2">
+                                 <div className="flex-1">
+                                   <p className="font-medium text-lg">{item.drug_name}</p>
+                                   <p className="text-sm text-muted-foreground mb-2">{item.drug_type}</p>
+                                   
+                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                                     <div>
+                                       <span className="font-medium">شرکت سازنده:</span>
+                                       <span className="mr-2 text-muted-foreground">{item.drug_company}</span>
+                                     </div>
+                                     <div>
+                                       <span className="font-medium">IRC:</span>
+                                       <span className="mr-2 text-muted-foreground font-mono">{item.drug_irc}</span>
+                                     </div>
+                                     <div>
+                                       <span className="font-medium">GTIN:</span>
+                                       <span className="mr-2 text-muted-foreground font-mono">{item.drug_gtin}</span>
+                                     </div>
+                                     <div>
+                                       <span className="font-medium">کد ERX:</span>
+                                       <span className="mr-2 text-muted-foreground font-mono">{item.drug_erx_code}</span>
+                                     </div>
+                                     {item.drug_package_count && (
+                                       <div>
+                                         <span className="font-medium">تعداد در بسته:</span>
+                                         <span className="mr-2 text-muted-foreground">{item.drug_package_count}</span>
+                                       </div>
+                                     )}
+                                   </div>
+                                 </div>
+                                 <Badge variant="outline" className="ml-4">تعداد: {item.quantity}</Badge>
+                               </div>
+                             </div>
+                           ))}
+                         </div>
                       ) : (
                         <p className="text-sm text-muted-foreground">در حال بارگذاری...</p>
                       )}

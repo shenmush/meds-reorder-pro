@@ -29,10 +29,19 @@ const MobileHeader: React.FC<MobileHeaderProps> = ({
           </div>
           <div className="text-right">
             <h1 className="text-lg font-bold text-foreground">
-              {userRole === 'admin' ? 'پنل مدیریت' : 'MedOrder Pro'}
+              {userRole === 'admin' ? 'پنل مدیریت' : 
+               userRole === 'pharmacy_manager' ? 'مدیر داروخانه' :
+               userRole === 'pharmacy_staff' ? 'کارمند داروخانه' :
+               userRole === 'barman_staff' ? 'کارمند بارمان' :
+               userRole === 'barman_manager' ? 'مدیر بارمان' :
+               userRole === 'pharmacy_accountant' ? 'حسابدار داروخانه' :
+               userRole === 'barman_accountant' ? 'حسابدار بارمان' :
+               'MedOrder Pro'}
             </h1>
             <p className="text-xs text-muted-foreground truncate max-w-[150px]">
-              {userRole === 'admin' ? user.email : pharmacy?.name || user.email}
+              {userRole === 'admin' ? user.email : 
+               userRole === 'pharmacy_staff' ? user.email :
+               pharmacy?.name || user.email}
             </p>
           </div>
         </div>

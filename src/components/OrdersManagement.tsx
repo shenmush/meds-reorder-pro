@@ -46,12 +46,14 @@ interface OrdersManagementProps {
   pharmacyId: string;
   onOrderAction?: (orderId: string, action: 'approve' | 'reject' | 'revision') => Promise<void>;
   showActions?: boolean;
+  enableOptimisticUpdates?: boolean;
 }
 
 const OrdersManagement: React.FC<OrdersManagementProps> = ({ 
   pharmacyId, 
   onOrderAction,
-  showActions = false 
+  showActions = false,
+  enableOptimisticUpdates = false
 }) => {
   const [activeOrders, setActiveOrders] = useState<Order[]>([]);
   const [allOrders, setAllOrders] = useState<Order[]>([]);
@@ -73,16 +75,36 @@ const OrdersManagement: React.FC<OrdersManagementProps> = ({
     applyFilters();
   }, [allOrders, searchTerm, statusFilter, dateFrom, dateTo]);
 
+  // Realtime: keep lists in sync when orders change
+  useEffect(() => {
+    const channel = supabase
+      .channel(`orders-management-${pharmacyId}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'orders' },
+        (payload) => {
+          const updated: any = (payload as any).new;
+          if (!updated || updated.pharmacy_id !== pharmacyId) return;
+          fetchOrders();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [pharmacyId]);
+
   const fetchOrders = async () => {
     try {
       setLoading(true);
       
-      // Fetch active orders (not completed and not rejected)
+      // Fetch active orders (only those requiring manager action)
       const { data: activeData, error: activeError } = await supabase
         .from('orders')
         .select('*')
         .eq('pharmacy_id', pharmacyId)
-        .not('workflow_status', 'in', '(completed,rejected)')
+        .in('workflow_status', ['pending', 'needs_revision_pm', 'approved_bs', 'needs_revision_pa'])
         .order('created_at', { ascending: false });
 
       if (activeError) throw activeError;
@@ -145,6 +167,22 @@ const OrdersManagement: React.FC<OrdersManagementProps> = ({
     setStatusFilter("all");
     setDateFrom(undefined);
     setDateTo(undefined);
+  };
+
+  // Handle action clicks with optional optimistic updates
+  const handleActionClick = async (orderId: string, action: 'approve' | 'reject' | 'revision') => {
+    try {
+      await onOrderAction?.(orderId, action);
+      
+      if (enableOptimisticUpdates) {
+        // Optimistically remove from active orders
+        setActiveOrders(prev => prev.filter(o => o.id !== orderId));
+        // Refresh both active and history lists
+        fetchOrders();
+      }
+    } catch (error) {
+      console.error('Error handling order action:', error);
+    }
   };
 
   const fetchOrderItems = async (orderId: string) => {
@@ -286,10 +324,18 @@ const OrdersManagement: React.FC<OrdersManagementProps> = ({
       'pending': { label: 'در انتظار بررسی', variant: 'secondary' as const },
       'needs_revision_pm': { label: 'نیاز به ویرایش مدیر', variant: 'destructive' as const },
       'needs_revision_ps': { label: 'نیاز به ویرایش کارمند', variant: 'destructive' as const },
-      'approved_pm': { label: 'تایید مدیر', variant: 'default' as const },
-      'approved_bs': { label: 'تایید نهایی', variant: 'default' as const },
+      'approved_pm': { label: 'تایید شده توسط مدیر', variant: 'default' as const },
+      'approved_bs': { label: 'تایید شده توسط بارمان', variant: 'default' as const },
+      'invoice_issued': { label: 'فاکتور صادر شده', variant: 'secondary' as const },
+      'payment_uploaded': { label: 'رسید آپلود شده', variant: 'default' as const },
+      'payment_verified': { label: 'پرداخت تایید شده', variant: 'default' as const },
       'completed': { label: 'تکمیل شده', variant: 'outline' as const },
       'rejected': { label: 'رد شده', variant: 'destructive' as const },
+      'needs_revision_bs': { label: 'نیاز به ویرایش بارمان', variant: 'destructive' as const },
+      'needs_revision_pa': { label: 'نیاز به ویرایش حسابداری', variant: 'destructive' as const },
+      'payment_rejected': { label: 'پرداخت رد شده', variant: 'destructive' as const },
+      // Legacy support
+      'approved': { label: 'تایید شده', variant: 'default' as const },
     };
     
     const config = statusMap[status as keyof typeof statusMap] || { label: status, variant: 'secondary' as const };
@@ -308,8 +354,8 @@ const OrdersManagement: React.FC<OrdersManagementProps> = ({
 
   // Function to determine if user can act on order based on workflow status
   const canUserActOnOrder = (workflowStatus: string) => {
-    // Only show actions for pending orders or orders that need revision
-    const actionableStatuses = ['pending', 'needs_revision_pm', 'needs_revision_ps'];
+    // Pharmacy managers can act on orders that need their decision only
+    const actionableStatuses = ['pending', 'needs_revision_pm', 'approved_bs', 'needs_revision_pa'];
     return actionableStatuses.includes(workflowStatus);
   };
 
@@ -350,7 +396,7 @@ const OrdersManagement: React.FC<OrdersManagementProps> = ({
                   <Button 
                     variant="outline" 
                     size="sm"
-                    onClick={() => onOrderAction?.(order.id, 'approve')}
+                    onClick={() => handleActionClick(order.id, 'approve')}
                   >
                     <CheckCircle className="h-4 w-4 mr-1" />
                     تایید
@@ -358,7 +404,7 @@ const OrdersManagement: React.FC<OrdersManagementProps> = ({
                   <Button 
                     variant="outline" 
                     size="sm"
-                    onClick={() => onOrderAction?.(order.id, 'revision')}
+                    onClick={() => handleActionClick(order.id, 'revision')}
                   >
                     <Edit className="h-4 w-4 mr-1" />
                     ویرایش
@@ -366,7 +412,7 @@ const OrdersManagement: React.FC<OrdersManagementProps> = ({
                   <Button 
                     variant="destructive" 
                     size="sm"
-                    onClick={() => onOrderAction?.(order.id, 'reject')}
+                    onClick={() => handleActionClick(order.id, 'reject')}
                   >
                     <XCircle className="h-4 w-4 mr-1" />
                     رد
@@ -545,7 +591,7 @@ const OrdersManagement: React.FC<OrdersManagementProps> = ({
                         <SelectContent>
                           <SelectItem value="all">همه وضعیت‌ها</SelectItem>
                           <SelectItem value="pending">در انتظار بررسی</SelectItem>
-                          <SelectItem value="approved_pm">تایید مدیر</SelectItem>
+                          <SelectItem value="approved">تایید مدیر</SelectItem>
                           <SelectItem value="approved_bs">تایید نهایی</SelectItem>
                           <SelectItem value="completed">تکمیل شده</SelectItem>
                           <SelectItem value="rejected">رد شده</SelectItem>

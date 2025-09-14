@@ -39,7 +39,12 @@ import {
   User as UserIcon,
   FileText,
   Receipt,
-  Image
+  Image,
+  Eye,
+  Download,
+  Filter,
+  Search,
+  Building2
 } from 'lucide-react';
 import MobileHeader from './MobileHeader';
 import MobileBottomNav from './MobileBottomNav';
@@ -98,12 +103,28 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
   const [activeTab, setActiveTab] = useState('payments');
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
   const [loadingOrderItems, setLoadingOrderItems] = useState<Set<string>>(new Set());
+  const [expandedHistoryOrders, setExpandedHistoryOrders] = useState<Set<string>>(new Set());
+  const [expandedPharmacies, setExpandedPharmacies] = useState<Set<string>>(new Set());
+  const [expandedPharmacyOrders, setExpandedPharmacyOrders] = useState<Set<string>>(new Set());
+  const [selectedDrug, setSelectedDrug] = useState<string>('');
+  const [drugSearchQuery, setDrugSearchQuery] = useState('');
+  const [availableDrugs, setAvailableDrugs] = useState<any[]>([]);
+  const [pharmacyOrders, setPharmacyOrders] = useState<{[key: string]: any[]}>({});
+  const [reportStats, setReportStats] = useState({
+    totalOrders: 0,
+    totalInvoiceAmount: 0,
+    totalPaidAmount: 0,
+    ordersByPharmacy: [] as any[],
+    ordersByDrug: [] as any[],
+    priceHistory: [] as any[]
+  });
   const [stats, setStats] = useState({
     pendingPayments: 0,
     approvedToday: 0,
     rejectedToday: 0,
     totalProcessed: 0
   });
+  const [orderApprovals, setOrderApprovals] = useState<{[key: string]: any[]}>({});
   const { toast } = useToast();
 
   useEffect(() => {
@@ -235,6 +256,160 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
     }
   };
 
+  const fetchReportStats = async () => {
+    try {
+      // Fetch basic order data without complex joins
+      const { data: ordersData, error: ordersError } = await supabase
+        .from('orders')
+        .select(`
+          id,
+          invoice_amount,
+          workflow_status,
+          pharmacy_id,
+          created_at,
+          updated_at
+        `)
+        .in('workflow_status', ['payment_verified', 'completed']);
+
+      if (ordersError) throw ordersError;
+
+      // Fetch pharmacies data separately
+      const { data: pharmaciesData, error: pharmaciesError } = await supabase
+        .from('pharmacies')
+        .select('id, name');
+
+      if (pharmaciesError) throw pharmaciesError;
+
+      // Fetch order items data
+      const orderIds = ordersData?.map(o => o.id) || [];
+      const { data: orderItemsData, error: orderItemsError } = await supabase
+        .from('order_items')
+        .select('*')
+        .in('order_id', orderIds);
+
+      if (orderItemsError) throw orderItemsError;
+
+      // Fetch pricing data
+      const { data: pricingData, error: pricingError } = await supabase
+        .from('order_item_pricing')
+        .select('*')
+        .in('order_id', orderIds);
+
+      if (pricingError) throw pricingError;
+
+      // Get unique drug IDs and fetch drug details from all three tables
+      const drugIds = [...new Set(orderItemsData?.map(item => item.drug_id) || [])];
+      
+      const [chemicalResult, medicalResult, naturalResult] = await Promise.all([
+        supabase
+          .from('chemical_drugs')
+          .select('id, full_brand_name')
+          .in('id', drugIds),
+        supabase
+          .from('medical_supplies')
+          .select('id, title')
+          .in('id', drugIds),
+        supabase
+          .from('natural_products')
+          .select('id, full_en_brand_name')
+          .in('id', drugIds)
+      ]);
+
+      const drugs = chemicalResult.data || [];
+      const medical = medicalResult.data || [];
+      const natural = naturalResult.data || [];
+
+      // Calculate stats
+      const totalOrders = ordersData?.length || 0;
+      const totalInvoiceAmount = ordersData?.reduce((sum, order) => sum + (order.invoice_amount || 0), 0) || 0;
+      const totalPaidAmount = ordersData?.filter(o => o.workflow_status === 'payment_verified' || o.workflow_status === 'completed')
+        .reduce((sum, order) => sum + (order.invoice_amount || 0), 0) || 0;
+
+      // Group by pharmacy
+      const pharmacyGroups = ordersData?.reduce((acc: any, order) => {
+        const pharmacy = pharmaciesData?.find(p => p.id === order.pharmacy_id);
+        const pharmacyName = pharmacy?.name || 'نامشخص';
+        
+        if (!acc[pharmacyName]) {
+          acc[pharmacyName] = { name: pharmacyName, count: 0, totalAmount: 0 };
+        }
+        acc[pharmacyName].count++;
+        acc[pharmacyName].totalAmount += order.invoice_amount || 0;
+        return acc;
+      }, {});
+
+      // Group by drug with price history
+      const drugGroups: any = {};
+      const priceHistory: any[] = [];
+
+      ordersData?.forEach(order => {
+        const orderItems = orderItemsData?.filter(item => item.order_id === order.id) || [];
+        
+        orderItems.forEach((item: any) => {
+          // Find drug name from appropriate table
+          let drugName = 'نامشخص';
+          const chemical = drugs.find(d => d.id === item.drug_id);
+          const medicalItem = medical.find(d => d.id === item.drug_id);
+          const naturalItem = natural.find(d => d.id === item.drug_id);
+          
+          if (chemical) {
+            drugName = chemical.full_brand_name;
+          } else if (medicalItem) {
+            drugName = medicalItem.title;
+          } else if (naturalItem) {
+            drugName = naturalItem.full_en_brand_name;
+          }
+          
+          if (!drugGroups[drugName]) {
+            drugGroups[drugName] = { name: drugName, count: 0, totalQuantity: 0, totalAmount: 0 };
+          }
+          
+          const pricing = pricingData?.find(p => p.order_id === order.id && p.drug_id === item.drug_id);
+          if (pricing) {
+            drugGroups[drugName].count++;
+            drugGroups[drugName].totalQuantity += item.quantity;
+            drugGroups[drugName].totalAmount += pricing.total_price || 0;
+            
+            // Add to price history
+            priceHistory.push({
+              drugName,
+              unitPrice: pricing.unit_price,
+              totalPrice: pricing.total_price,
+              quantity: item.quantity,
+              date: pricing.created_at,
+              orderId: order.id
+            });
+          }
+        });
+      });
+
+      // Create available drugs list for search
+      const drugsList = [
+        ...drugs.map(d => ({ id: d.id, name: d.full_brand_name, type: 'chemical' })),
+        ...medical.map(d => ({ id: d.id, name: d.title, type: 'medical' })),
+        ...natural.map(d => ({ id: d.id, name: d.full_en_brand_name, type: 'natural' }))
+      ];
+
+      setAvailableDrugs(drugsList);
+      setReportStats({
+        totalOrders,
+        totalInvoiceAmount,
+        totalPaidAmount,
+        ordersByPharmacy: Object.values(pharmacyGroups || {}),
+        ordersByDrug: Object.values(drugGroups),
+        priceHistory: priceHistory.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      });
+
+    } catch (error) {
+      console.error('Error fetching report stats:', error);
+      toast({
+        title: "خطا",
+        description: "خطا در بارگذاری گزارشات",
+        variant: "destructive",
+      });
+    }
+  };
+
   const fetchOrderItems = async (orderId: string) => {
     try {
       setLoadingOrderItems(prev => new Set([...prev, orderId]));
@@ -349,6 +524,7 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
         };
       });
 
+      // Update both orders and historyOrders state
       setOrders(prevOrders => 
         prevOrders.map(order => 
           order.id === orderId 
@@ -356,6 +532,15 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
             : order
         )
       );
+
+      setHistoryOrders(prevOrders => 
+        prevOrders.map(order => 
+          order.id === orderId 
+            ? { ...order, order_items: enhancedItems }
+            : order
+        )
+      );
+
     } catch (error) {
       console.error('Error fetching order items:', error);
       toast({
@@ -372,6 +557,127 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
     }
   };
 
+  const fetchOrderApprovals = async (orderId: string) => {
+    try {
+      // 1) Fetch approvals for this order
+      const { data: approvals, error } = await supabase
+        .from('order_approvals')
+        .select('*')
+        .eq('order_id', orderId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      // Current user
+      const { data: userData } = await supabase.auth.getUser();
+      const currentUserId = userData.user?.id;
+
+      // 2) Fetch display names for involved users
+      const userIds = Array.from(new Set((approvals || []).map(a => a.user_id).filter(Boolean)));
+      let profilesMap: Record<string, string> = {};
+      if (userIds.length > 0) {
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('user_id, display_name')
+          .in('user_id', userIds);
+        if (profilesData) {
+          profilesMap = profilesData.reduce((acc: any, p: any) => {
+            acc[p.user_id] = p.display_name || '';
+            return acc;
+          }, {} as Record<string, string>);
+        }
+      }
+
+      // 3) Filter approvals: show current user's comments and pharmacy accountant comments inferred by status
+      const filteredApprovals = (approvals || []).filter(approval => {
+        return (
+          approval.user_id === currentUserId ||
+          approval.to_status === 'payment_uploaded'
+        );
+      });
+
+      const approvalsWithNames = filteredApprovals.map(a => ({
+        ...a,
+        user_display_name: profilesMap[a.user_id] || ''
+      }));
+
+      setOrderApprovals(prev => ({
+        ...prev,
+        [orderId]: approvalsWithNames
+      }));
+    } catch (error) {
+      console.error('Error fetching order approvals:', error);
+    }
+  };
+
+  const fetchPharmacyOrders = async (pharmacyName: string) => {
+    if (pharmacyOrders[pharmacyName]) return;
+
+    try {
+      const { data: ordersData, error } = await supabase
+        .from('orders')
+        .select(`
+          id,
+          invoice_amount,
+          workflow_status,
+          created_at,
+          total_items,
+          pharmacies!inner(name)
+        `)
+        .eq('pharmacies.name', pharmacyName)
+        .in('workflow_status', ['payment_verified', 'completed'])
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      setPharmacyOrders(prev => ({
+        ...prev,
+        [pharmacyName]: ordersData || []
+      }));
+    } catch (error) {
+      console.error('Error fetching pharmacy orders:', error);
+    }
+  };
+
+  const togglePharmacyExpansion = (pharmacyName: string) => {
+    const newExpanded = new Set(expandedPharmacies);
+    
+    if (newExpanded.has(pharmacyName)) {
+      newExpanded.delete(pharmacyName);
+    } else {
+      newExpanded.add(pharmacyName);
+      fetchPharmacyOrders(pharmacyName);
+    }
+    
+    setExpandedPharmacies(newExpanded);
+  };
+
+  const togglePharmacyOrderExpansion = async (orderId: string) => {
+    const newExpanded = new Set(expandedPharmacyOrders);
+    
+    if (newExpanded.has(orderId)) {
+      newExpanded.delete(orderId);
+    } else {
+      newExpanded.add(orderId);
+      await fetchOrderItems(orderId);
+    }
+    
+    setExpandedPharmacyOrders(newExpanded);
+  };
+
+  const getFilteredDrugs = () => {
+    if (!drugSearchQuery) return availableDrugs;
+    return availableDrugs.filter(drug => 
+      drug.name.toLowerCase().includes(drugSearchQuery.toLowerCase())
+    );
+  };
+
+  const getFilteredPriceHistory = () => {
+    if (!selectedDrug) return [];
+    const selectedDrugName = availableDrugs.find(d => d.id === selectedDrug)?.name;
+    return reportStats.priceHistory.filter(item => item.drugName === selectedDrugName);
+  };
+
   const toggleOrderExpansion = (orderId: string) => {
     const newExpanded = new Set(expandedOrders);
     
@@ -385,9 +691,33 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
       if (order && (!order.order_items || order.order_items.length === 0)) {
         fetchOrderItems(orderId);
       }
+      
+      // Fetch order approvals
+      fetchOrderApprovals(orderId);
     }
     
     setExpandedOrders(newExpanded);
+  };
+
+  const toggleHistoryOrderExpansion = async (orderId: string) => {
+    const newExpanded = new Set(expandedHistoryOrders);
+    
+    if (newExpanded.has(orderId)) {
+      newExpanded.delete(orderId);
+    } else {
+      newExpanded.add(orderId);
+      
+      // Fetch order items if not already loaded
+      const order = historyOrders.find(o => o.id === orderId);
+      if (order && (!order.order_items || order.order_items.length === 0)) {
+        await fetchOrderItems(orderId);
+      }
+      
+      // Fetch order approvals
+      await fetchOrderApprovals(orderId);
+    }
+    
+    setExpandedHistoryOrders(newExpanded);
   };
 
   const formatCurrency = (amount: number): string => {
@@ -600,9 +930,11 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
 
   const getStatusBadge = (status: string) => {
     const statusMap: { [key: string]: { label: string; variant: "default" | "secondary" | "destructive" | "outline" } } = {
-      'payment_uploaded': { label: 'آپلود شده', variant: 'outline' },
-      'payment_verified': { label: 'تایید شده', variant: 'default' },
-      'payment_rejected': { label: 'رد شده', variant: 'destructive' },
+      'payment_uploaded': { label: 'رسید آپلود شده', variant: 'outline' },
+      'payment_verified': { label: 'پرداخت تایید شده', variant: 'default' },
+      'payment_rejected': { label: 'پرداخت رد شده', variant: 'destructive' },
+      'invoice_issued': { label: 'فاکتور صادر شده', variant: 'secondary' },
+      'completed': { label: 'تکمیل شده', variant: 'default' },
     };
 
     const statusInfo = statusMap[status] || { label: status, variant: 'secondary' };
@@ -613,6 +945,9 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
     setActiveTab(tab);
     if (tab === 'history' && historyOrders.length === 0) {
       fetchHistoryOrders();
+    }
+    if (tab === 'reports') {
+      fetchReportStats();
     }
   };
 
@@ -770,6 +1105,27 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
                             </div>
                           </div>
 
+                          {/* Payment Proof Display */}
+                          {order.payment_proof_url && (
+                            <div className="mb-4 p-3 border rounded-lg bg-muted/30">
+                              <h4 className="font-medium mb-2">رسید پرداخت:</h4>
+                              <img 
+                                src={order.payment_proof_url} 
+                                alt="رسید پرداخت"
+                                className="max-w-full max-h-64 object-contain rounded-md border mb-2"
+                              />
+                              <a 
+                                href={order.payment_proof_url} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-sm text-primary hover:underline flex items-center gap-1"
+                              >
+                                <Download className="w-4 h-4" />
+                                دانلود رسید اصلی
+                              </a>
+                            </div>
+                          )}
+
                           {/* Action Buttons */}
                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-4">
                             {/* View Order Details Button */}
@@ -793,200 +1149,10 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
                               )}
                             </Button>
 
-                            {/* View Invoice Button */}
+                            {/* Approve Payment */}
                             <Dialog>
                               <DialogTrigger asChild>
                                 <Button 
-                                  variant="outline" 
-                                  size="sm" 
-                                  className="gap-2"
-                                  onClick={() => {
-                                    // Fetch order items if not already loaded
-                                    if (!order.order_items || order.order_items.length === 0) {
-                                      fetchOrderItems(order.id);
-                                    }
-                                  }}
-                                >
-                                  <Receipt size={16} />
-                                  فاکتور
-                                </Button>
-                              </DialogTrigger>
-                              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                                <DialogHeader>
-                                  <DialogTitle>فاکتور سفارش #{order.id.slice(0, 8)}</DialogTitle>
-                                </DialogHeader>
-                                <div className="space-y-4">
-                                  <div className="bg-muted/30 p-4 rounded-lg">
-                                    <div className="grid grid-cols-2 gap-4 text-sm">
-                                      <div>
-                                        <span className="font-medium">شماره سفارش:</span>
-                                        <p>#{order.id.slice(0, 8)}</p>
-                                      </div>
-                                      <div>
-                                        <span className="font-medium">داروخانه:</span>
-                                        <p>{order.pharmacy.name}</p>
-                                      </div>
-                                      <div>
-                                        <span className="font-medium">تاریخ سفارش:</span>
-                                        <p>{new Date(order.created_at).toLocaleDateString('fa-IR')}</p>
-                                      </div>
-                                      <div>
-                                        <span className="font-medium">مبلغ کل:</span>
-                                        <p className="font-bold text-primary">{formatCurrency(order.invoice_amount || 0)} تومان</p>
-                                      </div>
-                                    </div>
-                                  </div>
-                                  {order.order_items && order.order_items.length > 0 && (
-                                    <div className="space-y-2">
-                                       <h4 className="font-medium">آیتم‌های سفارش:</h4>
-                                       {order.order_items.map((item) => (
-                                         <div key={item.id} className="border rounded-lg p-3 bg-muted/30">
-                                           <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-                                             <div>
-                                               <span className="font-medium">نام دارو:</span> {item.drug_name}
-                                             </div>
-                                             <div>
-                                               <span className="font-medium">نوع:</span> {item.drug_type}
-                                             </div>
-                                             <div>
-                                               <span className="font-medium">شرکت سازنده:</span> {item.company_name}
-                                             </div>
-                                             <div>
-                                               <span className="font-medium">تعداد:</span> {item.quantity}
-                                             </div>
-                                             {item.package_count && (
-                                               <div>
-                                                 <span className="font-medium">تعداد در بسته:</span> {item.package_count}
-                                               </div>
-                                             )}
-                                             {item.irc && (
-                                               <div>
-                                                 <span className="font-medium">کد IRC:</span> {item.irc}
-                                               </div>
-                                             )}
-                                             {item.gtin && (
-                                               <div>
-                                                 <span className="font-medium">کد GTIN:</span> {item.gtin}
-                                               </div>
-                                             )}
-                                             {item.erx_code && (
-                                               <div>
-                                                 <span className="font-medium">کد ERX:</span> {item.erx_code}
-                                               </div>
-                                              )}
-                                              <div className="md:col-span-2 pt-2 border-t">
-                                                <div className="grid grid-cols-2 gap-4 text-sm">
-                                                  <div>
-                                                    <span className="font-medium">قیمت واحد:</span> {formatCurrency(item.unit_price || 0)} تومان
-                                                  </div>
-                                                  <div>
-                                                    <span className="font-medium">قیمت کل:</span> {formatCurrency(item.total_price || 0)} تومان
-                                                  </div>
-                                                </div>
-                                              </div>
-                                            </div>
-                                          </div>
-                                        ))}
-                                        
-                                        <div className="mt-4 pt-4 border-t">
-                                          <div className="flex justify-between items-center">
-                                            <span className="font-medium text-lg">جمع کل فاکتور:</span>
-                                            <span className="font-bold text-xl text-primary">
-                                              {formatCurrency(order.invoice_amount || 0)} تومان
-                                            </span>
-                                          </div>
-                                        </div>
-                                     </div>
-                                  )}
-                                </div>
-                              </DialogContent>
-                            </Dialog>
-
-                            {/* View Payment Receipt Button */}
-                            {order.payment_proof_url && (
-                              <Dialog>
-                                <DialogTrigger asChild>
-                                  <Button variant="outline" size="sm" className="gap-2">
-                                    <Image size={16} />
-                                    رسید پرداخت
-                                  </Button>
-                                </DialogTrigger>
-                                <DialogContent className="max-w-2xl">
-                                  <DialogHeader>
-                                    <DialogTitle>رسید پرداخت سفارش #{order.id.slice(0, 8)}</DialogTitle>
-                                  </DialogHeader>
-                                  <div className="flex justify-center">
-                                    <img 
-                                      src={order.payment_proof_url} 
-                                      alt="رسید پرداخت"
-                                      className="max-w-full h-auto max-h-[70vh] rounded-lg border border-border shadow-sm"
-                                    />
-                                  </div>
-                                </DialogContent>
-                              </Dialog>
-                            )}
-                          </div>
-
-                          {/* Expanded Order Details */}
-                          {expandedOrders.has(order.id) && order.order_items && order.order_items.length > 0 && (
-                            <div className="mb-4 p-4 bg-muted/30 rounded-lg animate-accordion-down">
-                               <h4 className="font-medium mb-3">جزئیات اقلام سفارش:</h4>
-                               <div className="space-y-3">
-                                 {order.order_items.map((item) => (
-                                   <div key={item.id} className="border rounded-lg p-3 bg-muted/30">
-                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-                                       <div>
-                                         <span className="font-medium">نام دارو:</span> {item.drug_name}
-                                       </div>
-                                       <div>
-                                         <span className="font-medium">نوع:</span> {item.drug_type}
-                                       </div>
-                                       <div>
-                                         <span className="font-medium">شرکت سازنده:</span> {item.company_name}
-                                       </div>
-                                       <div>
-                                         <span className="font-medium">تعداد:</span> {item.quantity}
-                                       </div>
-                                       {item.package_count && (
-                                         <div>
-                                           <span className="font-medium">تعداد در بسته:</span> {item.package_count}
-                                         </div>
-                                       )}
-                                       {item.irc && (
-                                         <div>
-                                           <span className="font-medium">کد IRC:</span> {item.irc}
-                                         </div>
-                                       )}
-                                       {item.gtin && (
-                                         <div>
-                                           <span className="font-medium">کد GTIN:</span> {item.gtin}
-                                         </div>
-                                       )}
-                                       {item.erx_code && (
-                                         <div>
-                                           <span className="font-medium">کد ERX:</span> {item.erx_code}
-                                         </div>
-                                       )}
-                                     </div>
-                                   </div>
-                                 ))}
-                              </div>
-                              
-
-                              {order.pricing_notes && (
-                                <div className="mt-3 p-2 bg-blue-50 rounded text-sm">
-                                  <strong>یادداشت قیمت‌گذاری:</strong> {order.pricing_notes}
-                                </div>
-                              )}
-                            </div>
-                          )}
-                            
-                          {/* Review Actions */}
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-4 border-t">
-                            <Dialog>
-                              <DialogTrigger asChild>
-                                <Button 
-                                  variant="default" 
                                   size="sm" 
                                   className="gap-2 bg-green-600 hover:bg-green-700"
                                   disabled={processingOrderId === order.id}
@@ -1099,6 +1265,73 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
                               </DialogContent>
                             </Dialog>
                           </div>
+
+                          {/* Order Items Expansion */}
+                          {expandedOrders.has(order.id) && order.order_items && order.order_items.length > 0 && (
+                            <div className="border-t pt-4">
+                              <h4 className="font-medium mb-3">اقلام سفارش:</h4>
+                              <div className="space-y-2">
+                                {order.order_items.map((item) => (
+                                  <div key={item.id} className="border rounded-lg p-3 bg-muted/30">
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm">
+                                      <div>
+                                        <span className="font-medium">نام:</span> {item.drug_name}
+                                      </div>
+                                      <div>
+                                        <span className="font-medium">تعداد:</span> {item.quantity}
+                                      </div>
+                                      {item.unit_price && item.unit_price > 0 && (
+                                        <div>
+                                          <span className="font-medium">قیمت:</span> {formatCurrency(item.unit_price)} تومان
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Order Approval Notes */}
+                          {expandedOrders.has(order.id) && orderApprovals[order.id] && orderApprovals[order.id].length > 0 && (
+                            <div className="border-t pt-4">
+                              <h4 className="font-medium mb-3 flex items-center gap-2">
+                                <FileText className="w-4 h-4" />
+                                یادداشت‌های بررسی:
+                              </h4>
+                              <div className="space-y-2">
+                                {orderApprovals[order.id].map((approval, index) => (
+                                  <div key={approval.id} className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                                    <div className="flex items-start gap-2">
+                                      <div className="text-amber-600">
+                                        <FileText className="w-4 h-4 mt-0.5" />
+                                      </div>
+                                      <div className="flex-1">
+                                        <div className="text-sm">
+                                          <span className="font-medium text-amber-800">
+                                            {approval.user_display_name || 'کاربر'}
+                                          </span>
+                                          <span className="text-amber-600 mr-2">
+                                            ({approval.from_status} → {approval.to_status})
+                                          </span>
+                                        </div>
+                                        <p className="text-amber-700 mt-1">{approval.notes}</p>
+                                        <div className="text-xs text-amber-600 mt-1">
+                                          {new Date(approval.created_at).toLocaleDateString('fa-IR', {
+                                            year: 'numeric',
+                                            month: 'long',
+                                            day: 'numeric',
+                                            hour: '2-digit',
+                                            minute: '2-digit'
+                                          })}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </CardContent>
                       </Card>
                     ))}
@@ -1116,7 +1349,7 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
                   تاریخچه پرداخت‌ها
                 </CardTitle>
                 <CardDescription>
-                  مشاهده پرداخت‌های تایید شده و رد شده
+                  مشاهده پرداخت‌های تایید شده و رد شده با جزئیات کامل
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -1133,19 +1366,157 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
                 ) : (
                   <div className="space-y-4">
                     {historyOrders.map((order) => (
-                      <div key={order.id} className="border border-border rounded-lg p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-4">
-                              <h3 className="font-semibold">سفارش #{order.id.slice(0, 8)}</h3>
-                              {getStatusBadge(order.workflow_status)}
+                      <Card key={order.id} className="hover:shadow-md transition-all duration-200">
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between mb-4">
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-4">
+                                <h3 className="font-semibold">سفارش #{order.id.slice(0, 8)}</h3>
+                                {getStatusBadge(order.workflow_status)}
+                              </div>
+                              <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-sm text-muted-foreground">
+                                <span className="flex items-center gap-1">
+                                  <UserIcon className="w-4 h-4" />
+                                  {order.pharmacy.name}
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <Calendar className="w-4 h-4" />
+                                  {new Date(order.updated_at).toLocaleDateString('fa-IR')}
+                                </span>
+                                {order.invoice_amount && (
+                                  <span className="flex items-center gap-1 font-medium text-primary">
+                                    <DollarSign className="w-4 h-4" />
+                                    {formatCurrency(order.invoice_amount)} تومان
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                            <p className="text-sm text-muted-foreground">
-                              {order.pharmacy.name} • {new Date(order.updated_at).toLocaleDateString('fa-IR')}
-                            </p>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => toggleHistoryOrderExpansion(order.id)}
+                              className="gap-1"
+                            >
+                              {expandedHistoryOrders.has(order.id) ? (
+                                <>
+                                  <ChevronUp className="h-4 w-4" />
+                                  بستن
+                                </>
+                              ) : (
+                                <>
+                                  <Eye className="h-4 w-4" />
+                                  مشاهده جزئیات
+                                </>
+                              )}
+                            </Button>
                           </div>
-                        </div>
-                      </div>
+
+                          {/* Order Details */}
+                          {expandedHistoryOrders.has(order.id) && (
+                            <div className="border-t pt-4 space-y-4">
+                              {/* Order Items */}
+                              {order.order_items && order.order_items.length > 0 && (
+                                <div>
+                                  <h4 className="font-medium mb-3">اقلام سفارش:</h4>
+                                  <div className="space-y-2">
+                                    {order.order_items.map((item) => (
+                                      <div key={item.id} className="border rounded-lg p-3 bg-muted/30">
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm">
+                                          <div>
+                                            <span className="font-medium">نام:</span> {item.drug_name || 'نامشخص'}
+                                          </div>
+                                          <div>
+                                            <span className="font-medium">تعداد:</span> {item.quantity}
+                                          </div>
+                                          {item.unit_price && item.unit_price > 0 && (
+                                            <div>
+                                              <span className="font-medium">قیمت:</span> {formatCurrency(item.unit_price)} تومان
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Payment Proof */}
+                              {order.payment_proof_url && (
+                                <div>
+                                  <h4 className="font-medium mb-3">رسید پرداخت:</h4>
+                                  <div className="border rounded-lg p-3 bg-muted/30">
+                                    <img 
+                                      src={order.payment_proof_url} 
+                                      alt="رسید پرداخت"
+                                      className="max-w-full max-h-64 object-contain rounded-md border mb-2"
+                                    />
+                                    <a 
+                                      href={order.payment_proof_url} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      className="text-sm text-primary hover:underline flex items-center gap-1"
+                                    >
+                                      <Download className="w-4 h-4" />
+                                      دانلود رسید اصلی
+                                    </a>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Notes */}
+                              {order.notes && (
+                                <div>
+                                  <h4 className="font-medium mb-2">یادداشت:</h4>
+                                  <p className="text-sm text-muted-foreground bg-muted/30 p-3 rounded-lg">
+                                    {order.notes}
+                                  </p>
+                                </div>
+                              )}
+
+                              {/* Order Approval Notes */}
+                              {orderApprovals[order.id] && orderApprovals[order.id].length > 0 && (
+                                <div>
+                                  <h4 className="font-medium mb-3 flex items-center gap-2">
+                                    <FileText className="w-4 h-4" />
+                                    یادداشت‌های بررسی:
+                                  </h4>
+                                  <div className="space-y-2">
+                                    {orderApprovals[order.id].map((approval, index) => (
+                                      <div key={approval.id} className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                                        <div className="flex items-start gap-2">
+                                          <div className="text-amber-600">
+                                            <FileText className="w-4 h-4 mt-0.5" />
+                                          </div>
+                                          <div className="flex-1">
+                                            <div className="text-sm">
+                                              <span className="font-medium text-amber-800">
+                                                {approval.user_display_name || 'کاربر'}
+                                              </span>
+                                              <span className="text-amber-600 mr-2">
+                                                ({approval.from_status} → {approval.to_status})
+                                              </span>
+                                            </div>
+                                            <p className="text-amber-700 mt-1">{approval.notes}</p>
+                                            <div className="text-xs text-amber-600 mt-1">
+                                              {new Date(approval.created_at).toLocaleDateString('fa-IR', {
+                                                year: 'numeric',
+                                                month: 'long',
+                                                day: 'numeric',
+                                                hour: '2-digit',
+                                                minute: '2-digit'
+                                              })}
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
                     ))}
                   </div>
                 )}
@@ -1154,21 +1525,269 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
           </TabsContent>
 
           <TabsContent value="reports" className="space-y-6">
+            {/* Summary Statistics */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Card className="border-l-4 border-l-blue-500">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground">کل سفارشات</p>
+                      <p className="text-2xl font-bold text-blue-600">{reportStats.totalOrders}</p>
+                    </div>
+                    <FileText className="w-8 h-8 text-blue-500/60" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-l-4 border-l-green-500">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground">مجموع فاکتورها</p>
+                      <p className="text-2xl font-bold text-green-600">
+                        {formatCurrency(reportStats.totalInvoiceAmount)}
+                      </p>
+                    </div>
+                    <Receipt className="w-8 h-8 text-green-500/60" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-l-4 border-l-purple-500">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground">مجموع پرداخت‌ها</p>
+                      <p className="text-2xl font-bold text-purple-600">
+                        {formatCurrency(reportStats.totalPaidAmount)}
+                      </p>
+                    </div>
+                    <DollarSign className="w-8 h-8 text-purple-500/60" />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Orders by Pharmacy */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <BarChart3 className="w-5 h-5" />
-                  گزارشات پرداخت
+                  <Building2 className="w-5 h-5" />
+                  فاکتورهای صادر شده به تفکیک داروخانه
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {reportStats.ordersByPharmacy.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Building2 className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground">داده‌ای برای نمایش وجود ندارد</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {reportStats.ordersByPharmacy.map((pharmacy: any, index) => (
+                      <div key={index}>
+                        <div 
+                          className="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-muted/50"
+                          onClick={() => togglePharmacyExpansion(pharmacy.name)}
+                        >
+                          <div className="flex items-center gap-2">
+                            {expandedPharmacies.has(pharmacy.name) ? (
+                              <ChevronUp className="w-4 h-4" />
+                            ) : (
+                              <ChevronDown className="w-4 h-4" />
+                            )}
+                            <div>
+                              <h4 className="font-medium">{pharmacy.name}</h4>
+                              <p className="text-sm text-muted-foreground">{pharmacy.count} سفارش</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold text-primary">{formatCurrency(pharmacy.totalAmount)} تومان</p>
+                          </div>
+                        </div>
+
+                        {/* Expanded pharmacy orders */}
+                        {expandedPharmacies.has(pharmacy.name) && (
+                          <div className="ml-6 mt-2 space-y-2 border-l-2 border-muted pl-4">
+                            {pharmacyOrders[pharmacy.name]?.map((order: any) => (
+                              <div key={order.id}>
+                                <div 
+                                  className="p-3 border rounded-md bg-muted/20 cursor-pointer hover:bg-muted/30"
+                                  onClick={() => togglePharmacyOrderExpansion(order.id)}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                      {expandedPharmacyOrders.has(order.id) ? (
+                                        <ChevronUp className="w-3 h-3" />
+                                      ) : (
+                                        <ChevronDown className="w-3 h-3" />
+                                      )}
+                                      <div>
+                                        <p className="text-sm font-medium">سفارش #{order.id.slice(0, 8)}</p>
+                                        <p className="text-xs text-muted-foreground">
+                                          {order.total_items} قلم • {new Date(order.created_at).toLocaleDateString('fa-IR')}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <p className="text-sm font-medium text-primary">
+                                      {formatCurrency(order.invoice_amount || 0)} تومان
+                                    </p>
+                                  </div>
+                                </div>
+
+                                {/* Order details */}
+                                {expandedPharmacyOrders.has(order.id) && (
+                                  <div className="ml-4 mt-2 p-3 border rounded-md bg-background">
+                                    {orders.find(o => o.id === order.id)?.order_items?.length > 0 || 
+                                     historyOrders.find(o => o.id === order.id)?.order_items?.length > 0 ? (
+                                      <div className="space-y-2">
+                                        <h5 className="font-medium text-sm">جزئیات سفارش:</h5>
+                                        {(orders.find(o => o.id === order.id)?.order_items || 
+                                          historyOrders.find(o => o.id === order.id)?.order_items || []).map((item: any, idx: number) => (
+                                          <div key={idx} className="flex justify-between items-center py-2 border-b last:border-b-0">
+                                            <div>
+                                              <p className="text-sm font-medium">{item.drug_name}</p>
+                                              <p className="text-xs text-muted-foreground">{item.drug_type}</p>
+                                            </div>
+                                            <div className="text-right text-sm">
+                                              <p>تعداد: {item.quantity}</p>
+                                              {item.unit_price > 0 && (
+                                                <p>قیمت: {formatCurrency(item.unit_price)} تومان</p>
+                                              )}
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <p className="text-xs text-muted-foreground">در حال بارگذاری جزئیات...</p>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Orders by Drug */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Receipt className="w-5 h-5" />
+                  فاکتورهای صادر شده به تفکیک دارو
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {reportStats.ordersByDrug.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Receipt className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground">داده‌ای برای نمایش وجود ندارد</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3 max-h-96 overflow-y-auto">
+                    {reportStats.ordersByDrug.map((drug: any, index) => (
+                      <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div>
+                          <h4 className="font-medium text-sm">{drug.name}</h4>
+                          <p className="text-xs text-muted-foreground">
+                            {drug.count} فاکتور • {drug.totalQuantity} عدد
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-primary text-sm">
+                            {formatCurrency(drug.totalAmount)} تومان
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Price History */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="w-5 w-5" />
+                  تاریخچه قیمت داروها
                 </CardTitle>
                 <CardDescription>
-                  آمار و گزارشات عملکرد پرداخت‌ها
+                  بررسی تغییرات قیمت داروها در فاکتورهای مختلف
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="text-center py-8">
-                  <BarChart3 className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">گزارشات به زودی اضافه خواهد شد</p>
+                {/* Drug Search and Selection */}
+                <div className="space-y-4 mb-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">جستجوی دارو:</label>
+                      <div className="relative">
+                        <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <input
+                          type="text"
+                          placeholder="نام دارو را وارد کنید..."
+                          value={drugSearchQuery}
+                          onChange={(e) => setDrugSearchQuery(e.target.value)}
+                          className="w-full pr-10 pl-3 py-2 border rounded-md text-sm"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">انتخاب دارو:</label>
+                      <select
+                        value={selectedDrug}
+                        onChange={(e) => setSelectedDrug(e.target.value)}
+                        className="w-full px-3 py-2 border rounded-md text-sm"
+                      >
+                        <option value="">همه داروها</option>
+                        {getFilteredDrugs().map((drug) => (
+                          <option key={drug.id} value={drug.id}>
+                            {drug.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
                 </div>
+
+                {/* Price History Display */}
+                {getFilteredPriceHistory().length === 0 ? (
+                  <div className="text-center py-8">
+                    <TrendingUp className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground">
+                      {selectedDrug ? 'برای این دارو تاریخچه قیمتی وجود ندارد' : 'لطفاً دارویی را انتخاب کنید'}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3 max-h-96 overflow-y-auto">
+                    {getFilteredPriceHistory().map((item: any, index) => (
+                      <div key={index} className="border rounded-lg p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="font-medium">{item.drugName}</h4>
+                          <span className="text-sm text-muted-foreground">
+                            {new Date(item.date).toLocaleDateString('fa-IR')}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <span className="text-sm text-muted-foreground">قیمت واحد:</span>
+                            <p className="font-bold text-primary">{formatCurrency(item.unitPrice)} تومان</p>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-xs text-muted-foreground">سفارش:</span>
+                            <p className="text-sm font-medium">#{item.orderId.slice(0, 8)}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

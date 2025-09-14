@@ -12,13 +12,14 @@ import AdminPharmacies from './AdminPharmacies';
 import AdminOrders from './AdminOrders';
 import AdminReports from './AdminReports';
 import OrderHistory from './OrderHistory';
-import PharmacyStaffDashboard from './PharmacyStaffDashboard';
+
 import PharmacyManagerDashboard from './PharmacyManagerDashboard';
 import PharmacyAccountantDashboard from './PharmacyAccountantDashboard';
 import BarmanStaffDashboard from './BarmanStaffDashboard';
 import BarmanManagerDashboard from './BarmanManagerDashboard';
 import BarmanAccountantDashboard from './BarmanAccountantDashboard';
 import MobileBottomNav from './MobileBottomNav';
+import PharmacyStaffOrderManagement from './PharmacyStaffOrderManagement';
 import MobileHeader from './MobileHeader';
 
 interface DashboardProps {
@@ -60,17 +61,37 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
 
   const fetchUserRole = async () => {
     try {
-      const { data, error } = await supabase
+      // Fetch all roles for the user to handle multiple roles
+      const { data: roles, error } = await supabase
         .from('user_roles')
         .select('role')
-        .eq('user_id', user.id)
-        .maybeSingle();
+        .eq('user_id', user.id);
 
       if (error) {
         console.error('Error fetching user role:', error);
         setUserRole('user'); // Default to user role
+        return;
+      }
+
+      // If user has multiple roles, prioritize in this order:
+      const roleHierarchy: Array<'admin' | 'pharmacy_manager' | 'barman_manager' | 'barman_accountant' | 'pharmacy_accountant' | 'barman_staff' | 'pharmacy_staff' | 'user'> = 
+        ['admin', 'pharmacy_manager', 'barman_manager', 'barman_accountant', 'pharmacy_accountant', 'barman_staff', 'pharmacy_staff', 'user'];
+      
+      if (roles && roles.length > 0) {
+        const userRoles = roles.map(r => r.role);
+        
+        // Find the highest priority role
+        for (const role of roleHierarchy) {
+          if (userRoles.includes(role)) {
+            setUserRole(role);
+            return;
+          }
+        }
+        
+        // If no matching role, default to user
+        setUserRole('user');
       } else {
-        setUserRole(data?.role || 'user');
+        setUserRole('user');
       }
     } catch (error) {
       console.error('Error:', error);
@@ -138,7 +159,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
     );
   }
 
-
+  // Role-specific dashboards - each role gets their own dedicated component
   if (userRole === 'pharmacy_manager') {
     return <PharmacyManagerDashboard user={user} onAuthChange={onAuthChange} />;
   }
@@ -160,6 +181,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
     return <BarmanAccountantDashboard user={user} onAuthChange={onAuthChange} />;
   }
 
+  // Default dashboard for admin and regular users
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30">
       {/* Mobile Header */}
@@ -266,7 +288,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
                   </Button>
                 </>
               ) : (
-                // Regular User Navigation - Remove profile tab for pharmacy_staff
+                // Regular User Navigation
                 <>
                   <Button
                     variant={activeTab === 'drugs' ? 'default' : 'ghost'}
@@ -280,7 +302,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
                     <Pill className="h-5 w-5" />
                     <span className="font-medium">فهرست داروها</span>
                   </Button>
-                  {userRole !== 'pharmacy_staff' && userRole !== 'pharmacy_accountant' && (
+                  {userRole !== 'pharmacy_staff' && (
                     <Button
                       variant={activeTab === 'profile' ? 'default' : 'ghost'}
                       onClick={() => setActiveTab('profile')}
@@ -326,7 +348,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
             // Regular User Content
             <>
               {activeTab === 'drugs' && <DrugList />}
-              {activeTab === 'profile' && userRole !== 'pharmacy_staff' && userRole !== 'pharmacy_accountant' && (
+              {activeTab === 'profile' && userRole !== 'pharmacy_staff' && (
                 <PharmacyProfile 
                   user={user} 
                   pharmacy={pharmacy} 
@@ -334,7 +356,10 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
                   userRole={userRole}
                 />
               )}
-              {activeTab === 'orders' && pharmacy && (
+              {activeTab === 'orders' && userRole === 'pharmacy_staff' && (
+                <PharmacyStaffOrderManagement user={user} />
+              )}
+              {activeTab === 'orders' && pharmacy && userRole !== 'pharmacy_staff' && (
                 <OrderHistory pharmacyId={pharmacy.id} />
               )}
             </>

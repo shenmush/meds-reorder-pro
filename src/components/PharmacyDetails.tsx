@@ -79,51 +79,38 @@ const PharmacyDetails: React.FC<PharmacyDetailsProps> = ({
 
       if (rolesError) throw rolesError;
 
-      // Get profiles and auth data for each staff member
-      const staffWithDetails = await Promise.all(
-        (staffRoles || []).map(async (staff) => {
-          try {
-            // Get display name from profiles
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('display_name')
-              .eq('user_id', staff.user_id)
-              .single();
-
-            // Get email and last sign in from auth (this will fail for non-admin users, but that's ok)
-            let email = 'نامشخص';
-            let last_sign_in_at = null;
-            
-            try {
-              const { data: authData } = await supabase.auth.admin.getUserById(staff.user_id);
-              email = authData.user?.email || 'نامشخص';
-              last_sign_in_at = authData.user?.last_sign_in_at || null;
-            } catch (authError) {
-              // Expected to fail for non-admin users
-              console.log('Auth data not accessible (expected for non-admin users)');
-            }
-            
-            return {
-              id: staff.id,
-              user_id: staff.user_id,
-              role: staff.role,
-              display_name: profile?.display_name || 'نام نمایشی تنظیم نشده',
-              email,
-              last_sign_in_at
-            };
-          } catch (error) {
-            console.error('Error fetching staff details for user:', staff.user_id, error);
-            return {
-              id: staff.id,
-              user_id: staff.user_id,
-              role: staff.role,
-              display_name: 'نام نمایشی تنظیم نشده',
-              email: 'نامشخص',
-              last_sign_in_at: null
-            };
-          }
-        })
-      );
+          // Get profiles for each staff member - no need for auth data for non-admin users
+          const staffWithDetails = await Promise.all(
+            (staffRoles || []).map(async (staff) => {
+              try {
+                // Get display name from profiles
+                const { data: profile } = await supabase
+                  .from('profiles')
+                  .select('display_name')
+                  .eq('user_id', staff.user_id)
+                  .single();
+                
+                return {
+                  id: staff.id,
+                  user_id: staff.user_id,
+                  role: staff.role,
+                  display_name: profile?.display_name || 'نام نمایشی تنظیم نشده',
+                  email: 'کارمند داروخانه', // Hide email for privacy
+                  last_sign_in_at: null // Hide last sign in for privacy
+                };
+              } catch (error) {
+                console.error('Error fetching staff details for user:', staff.user_id, error);
+                return {
+                  id: staff.id,
+                  user_id: staff.user_id,
+                  role: staff.role,
+                  display_name: 'نام نمایشی تنظیم نشده',
+                  email: 'کارمند داروخانه',
+                  last_sign_in_at: null
+                };
+              }
+            })
+          );
 
       setStaff(staffWithDetails);
     } catch (error: any) {

@@ -1,12 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Upload, Receipt, CheckCircle, Clock, AlertCircle, XCircle, Edit, FileText, Building2, LogOut, Calculator, BarChart3, History, Eye, ChevronDown, ChevronUp } from 'lucide-react';
+import { Upload, Receipt, CheckCircle, Clock, AlertCircle, XCircle, Edit, FileText, Building2, LogOut, Calculator, BarChart3, History, Eye, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
 import { toast } from "sonner";
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import MobileBottomNav from './MobileBottomNav';
@@ -56,12 +57,17 @@ const PharmacyAccountantDashboard: React.FC<PharmacyAccountantDashboardProps> = 
   const [uploadingOrderId, setUploadingOrderId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'payments' | 'history' | 'reports'>('payments');
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
+  const [uploadedImages, setUploadedImages] = useState<Map<string, string>>(new Map());
+  const [confirmationNotes, setConfirmationNotes] = useState<Record<string, string>>({});
+  const confirmationNotesRef = useRef<Record<string, string>>({});
+  const [orderApprovals, setOrderApprovals] = useState<Record<string, any[]>>({});
 
   useEffect(() => {
     const fetchData = async () => {
       await Promise.all([
         fetchOrders(),
-        fetchPaymentHistory()
+        fetchPaymentHistory(),
+        fetchOrderApprovals()
       ]);
       setLoading(false);
     };
@@ -105,7 +111,7 @@ const PharmacyAccountantDashboard: React.FC<PharmacyAccountantDashboardProps> = 
             name
           )
         `)
-        .in('workflow_status', ['invoice_issued', 'payment_rejected', 'payment_uploaded'])
+        .in('workflow_status', ['invoice_issued', 'payment_rejected'])
         .eq('pharmacies.id', userRole.pharmacy_id)
         .order('created_at', { ascending: false });
 
@@ -157,9 +163,73 @@ const PharmacyAccountantDashboard: React.FC<PharmacyAccountantDashboardProps> = 
     }
   };
 
+  const fetchOrderApprovals = async () => {
+    try {
+      // Get user's pharmacy first
+      const { data: userRole, error: roleError } = await supabase
+        .from('user_roles')
+        .select('pharmacy_id')
+        .eq('user_id', user.id)
+        .eq('role', 'pharmacy_accountant')
+        .maybeSingle();
+
+      if (roleError) throw roleError;
+      if (!userRole) return;
+
+      // Get all orders for this pharmacy
+      const { data: pharmacyOrders, error: ordersError } = await supabase
+        .from('orders')
+        .select('id')
+        .eq('pharmacy_id', userRole.pharmacy_id);
+
+      if (ordersError) throw ordersError;
+      if (!pharmacyOrders || pharmacyOrders.length === 0) return;
+
+      const orderIds = pharmacyOrders.map(o => o.id);
+
+      // Fetch approvals for these orders
+      const { data: approvals, error: approvalsError } = await supabase
+        .from('order_approvals')
+        .select('*')
+        .in('order_id', orderIds)
+        .order('created_at', { ascending: false });
+
+      if (approvalsError) throw approvalsError;
+
+      // Group approvals by order_id
+      const groupedApprovals: Record<string, any[]> = {};
+      approvals?.forEach(approval => {
+        if (!groupedApprovals[approval.order_id]) {
+          groupedApprovals[approval.order_id] = [];
+        }
+        groupedApprovals[approval.order_id].push(approval);
+      });
+
+      setOrderApprovals(groupedApprovals);
+    } catch (error) {
+      console.error('Error fetching order approvals:', error);
+    }
+  };
+
+  // Get the latest approval note for an order
+  const getLatestApprovalNote = (orderId: string) => {
+    const approvals = orderApprovals[orderId];
+    if (!approvals || approvals.length === 0) return null;
+    
+    // Find the most recent approval with notes
+    const latestWithNotes = approvals.find(approval => approval.notes && approval.notes.trim() !== '');
+    return latestWithNotes;
+  };
+
   const handleFileUpload = async (orderId: string, file: File) => {
     try {
       setUploadingOrderId(orderId);
+
+      // Create preview URL for the uploaded file
+      const previewUrl = URL.createObjectURL(file);
+      const newUploadedImages = new Map(uploadedImages);
+      newUploadedImages.set(orderId, previewUrl);
+      setUploadedImages(newUploadedImages);
 
       // Upload file to Supabase Storage with user folder structure
       const fileExt = file.name.split('.').pop();
@@ -176,12 +246,40 @@ const PharmacyAccountantDashboard: React.FC<PharmacyAccountantDashboardProps> = 
         .from('payment-proofs')
         .getPublicUrl(fileName);
 
-      // Update order with payment proof URL and status
+      // Update order with payment proof URL only (no status change)
       const { error: updateError } = await supabase
         .from('orders')
         .update({
           payment_proof_url: publicUrl,
           payment_date: new Date().toISOString(),
+        })
+        .eq('id', orderId);
+
+      if (updateError) throw updateError;
+
+      toast.success('رسید پرداخت با موفقیت آپلود شد');
+      fetchOrders();
+      fetchPaymentHistory();
+    } catch (error) {
+      console.error('Error uploading payment proof:', error);
+      toast.error('خطا در آپلود رسید پرداخت');
+      // Remove preview if upload failed
+      const newUploadedImages = new Map(uploadedImages);
+      newUploadedImages.delete(orderId);
+      setUploadedImages(newUploadedImages);
+    } finally {
+      setUploadingOrderId(null);
+    }
+  };
+
+  const handleConfirmPayment = async (orderId: string) => {
+    try {
+      const notes = (confirmationNotesRef.current[orderId] ?? confirmationNotes[orderId]) || 'رسید پرداخت توسط حسابدار داروخانه تایید شد';
+      
+      // Update order status to payment verified
+      const { error: updateError } = await supabase
+        .from('orders')
+        .update({
           workflow_status: 'payment_uploaded'
         })
         .eq('id', orderId);
@@ -196,53 +294,69 @@ const PharmacyAccountantDashboard: React.FC<PharmacyAccountantDashboardProps> = 
           user_id: user.id,
           from_status: 'invoice_issued',
           to_status: 'payment_uploaded',
-          notes: 'رسید پرداخت آپلود شد'
+          notes: notes
         });
 
       if (approvalError) throw approvalError;
 
-      toast.success('رسید پرداخت با موفقیت آپلود شد');
+      // Clear the confirmation note
+      const newConfirmationNotes = { ...confirmationNotes };
+      delete newConfirmationNotes[orderId];
+      setConfirmationNotes(newConfirmationNotes);
+      delete confirmationNotesRef.current[orderId];
+
+      toast.success('رسید پرداخت ثبت شد و به حسابدار بارمان ارسال شد');
       fetchOrders();
       fetchPaymentHistory();
+      fetchOrderApprovals();
     } catch (error) {
-      console.error('Error uploading payment proof:', error);
-      toast.error('خطا در آپلود رسید پرداخت');
-    } finally {
-      setUploadingOrderId(null);
+      console.error('Error confirming payment:', error);
+      toast.error('خطا در تایید پرداخت');
     }
   };
 
-  const handleConfirmPayment = async (orderId: string) => {
+  const handleDeletePaymentProof = async (orderId: string) => {
     try {
-      // Update order status to payment verified
+      // Get the current order to find the payment proof URL
+      const order = orders.find(o => o.id === orderId);
+      if (!order?.payment_proof_url) return;
+
+      // Extract file path from the URL
+      const url = order.payment_proof_url;
+      const fileName = url.split('/').pop();
+      if (!fileName) return;
+
+      // Delete from storage
+      const { error: storageError } = await supabase.storage
+        .from('payment-proofs')
+        .remove([`${user.id}/${fileName}`]);
+
+      if (storageError) {
+        console.error('Storage delete error:', storageError);
+        // Continue even if storage delete fails - the file might already be gone
+      }
+
+      // Update order to remove payment proof URL
       const { error: updateError } = await supabase
         .from('orders')
         .update({
-          workflow_status: 'payment_verified'
+          payment_proof_url: null,
+          payment_date: null
         })
         .eq('id', orderId);
 
       if (updateError) throw updateError;
 
-      // Create approval record
-      const { error: approvalError } = await supabase
-        .from('order_approvals')
-        .insert({
-          order_id: orderId,
-          user_id: user.id,
-          from_status: 'payment_uploaded',
-          to_status: 'payment_verified',
-          notes: 'پرداخت توسط حسابدار داروخانه تایید شد'
-        });
+      // Remove from uploaded images preview
+      const newUploadedImages = new Map(uploadedImages);
+      newUploadedImages.delete(orderId);
+      setUploadedImages(newUploadedImages);
 
-      if (approvalError) throw approvalError;
-
-      toast.success('پرداخت تایید شد و به حسابدار بارمان ارسال شد');
+      toast.success('رسید پرداخت حذف شد');
       fetchOrders();
-      fetchPaymentHistory();
     } catch (error) {
-      console.error('Error confirming payment:', error);
-      toast.error('خطا در تایید پرداخت');
+      console.error('Error deleting payment proof:', error);
+      toast.error('خطا در حذف رسید پرداخت');
     }
   };
 
@@ -689,11 +803,92 @@ const PharmacyAccountantDashboard: React.FC<PharmacyAccountantDashboardProps> = 
                     )}
 
                     {/* Payment Actions */}
-                    {order.workflow_status === 'payment_uploaded' && (
+                    {(order.workflow_status === 'invoice_issued' || order.workflow_status === 'payment_rejected') && (uploadedImages.get(order.id) || order.payment_proof_url) && (
                       <div className="mt-4 p-3 bg-green-50 dark:bg-green-950/50 rounded-lg">
                         <p className="text-sm font-medium text-green-700 dark:text-green-300 mb-3">
                           رسید پرداخت آپلود شده - آماده تایید
                         </p>
+                        
+                        {/* Image Preview */}
+                        {(uploadedImages.get(order.id) || order.payment_proof_url) && (
+                          <div className="mb-4 p-3 border border-green-200 dark:border-green-800 rounded-lg bg-white dark:bg-background">
+                            <div className="flex items-center justify-between mb-2">
+                              <p className="text-sm font-medium">پیش‌نمایش رسید پرداخت:</p>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDeletePaymentProof(order.id)}
+                                className="gap-1 text-destructive hover:text-destructive"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                                حذف
+                              </Button>
+                            </div>
+                            <img 
+                              src={uploadedImages.get(order.id) || order.payment_proof_url} 
+                              alt="رسید پرداخت"
+                              className="max-w-full max-h-96 object-contain rounded-md border"
+                              onLoad={() => {
+                                // Clean up blob URL after image loads if it's a preview
+                                if (uploadedImages.get(order.id)) {
+                                  setTimeout(() => {
+                                    URL.revokeObjectURL(uploadedImages.get(order.id)!);
+                                  }, 1000);
+                                }
+                              }}
+                            />
+                          </div>
+                        )}
+                        
+                        {/* Latest Approval Note */}
+                        {(() => {
+                          const latestApproval = getLatestApprovalNote(order.id);
+                          if (latestApproval) {
+                            return (
+                              <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-950/50 rounded-lg border border-amber-200 dark:border-amber-800">
+                                <div className="flex items-start gap-2 mb-2">
+                                  <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                                      یادداشت از {latestApproval.from_status === 'payment_uploaded' ? 'حسابدار بارمان' : 'سیستم'}
+                                    </p>
+                                    <p className="text-xs text-amber-600 dark:text-amber-400">
+                                      {new Date(latestApproval.created_at).toLocaleDateString('fa-IR', {
+                                        year: 'numeric',
+                                        month: 'long',
+                                        day: 'numeric',
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                      })}
+                                    </p>
+                                  </div>
+                                </div>
+                                <p className="text-sm text-amber-800 dark:text-amber-200 bg-white dark:bg-amber-950/30 p-2 rounded border">
+                                  {latestApproval.notes}
+                                </p>
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
+                        
+                        {/* Confirmation Notes */}
+                        <div className="mb-3">
+                          <Label htmlFor={`notes-${order.id}`} className="text-sm font-medium">
+                            یادداشت تایید (اختیاری)
+                          </Label>
+                          <Textarea
+                            id={`notes-${order.id}`}
+                            placeholder="یادداشت یا توضیحات مربوط به تایید پرداخت..."
+                            defaultValue={confirmationNotes[order.id] || ''}
+                            onChange={(e) => {
+                              confirmationNotesRef.current[order.id] = e.target.value;
+                            }}
+                            className="mt-1"
+                            rows={2}
+                          />
+                        </div>
+                        
                         <Button
                           onClick={() => handleConfirmPayment(order.id)}
                           className="w-full gap-2"
@@ -704,7 +899,7 @@ const PharmacyAccountantDashboard: React.FC<PharmacyAccountantDashboardProps> = 
                       </div>
                     )}
 
-                    {(order.workflow_status === 'invoice_issued' || order.workflow_status === 'payment_rejected') && (
+                    {((order.workflow_status === 'invoice_issued' || order.workflow_status === 'payment_rejected') && !(uploadedImages.get(order.id) || order.payment_proof_url)) && (
                       <div className="mt-4 space-y-4">
                         <div>
                           <Label htmlFor={`payment-${order.id}`} className="text-sm font-medium">
@@ -741,6 +936,18 @@ const PharmacyAccountantDashboard: React.FC<PharmacyAccountantDashboardProps> = 
                           <p className="text-xs text-muted-foreground mt-1">
                             فرمت‌های مجاز: تصاویر (JPG, PNG) و PDF
                           </p>
+                          
+                          {/* Image Preview */}
+                          {uploadedImages.get(order.id) && (
+                            <div className="mt-3 p-3 border rounded-lg bg-muted/30">
+                              <p className="text-sm font-medium mb-2">پیش‌نمایش تصویر آپلود شده:</p>
+                              <img 
+                                src={uploadedImages.get(order.id)} 
+                                alt="پیش‌نمایش رسید پرداخت"
+                                className="max-w-full max-h-64 object-contain rounded-md border"
+                              />
+                            </div>
+                          )}
                         </div>
                         
                         <div className="flex gap-2">
@@ -911,14 +1118,20 @@ const PharmacyAccountantDashboard: React.FC<PharmacyAccountantDashboardProps> = 
                   )}
                   
                   {order.payment_proof_url && (
-                    <div className="mt-3">
+                    <div className="mt-4 p-3 border border-green-200 dark:border-green-800 rounded-lg bg-white dark:bg-background">
+                      <p className="text-sm font-medium mb-2">رسید پرداخت:</p>
+                      <img 
+                        src={order.payment_proof_url} 
+                        alt="رسید پرداخت"
+                        className="max-w-full max-h-96 object-contain rounded-md border mb-2"
+                      />
                       <a 
                         href={order.payment_proof_url} 
                         target="_blank" 
                         rel="noopener noreferrer"
                         className="text-sm text-primary hover:underline"
                       >
-                        مشاهده رسید پرداخت
+                        باز کردن در تب جدید
                       </a>
                     </div>
                   )}

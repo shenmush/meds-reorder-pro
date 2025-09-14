@@ -50,7 +50,7 @@ const PharmacyStaffDashboard: React.FC<PharmacyStaffDashboardProps> = ({ user, o
   const getStatusBadge = (status: string) => {
     const statusMap = {
       'pending': { label: 'در انتظار بررسی', variant: 'secondary' as const },
-      'approved_pm': { label: 'تایید شده', variant: 'default' as const },
+      'approved': { label: 'تایید شده', variant: 'default' as const },
       'needs_revision_ps': { label: 'نیاز به ویرایش', variant: 'destructive' as const },
       'needs_revision_pm': { label: 'نیاز به ویرایش مدیر', variant: 'destructive' as const },
       'approved_bs': { label: 'در حال پردازش', variant: 'default' as const },

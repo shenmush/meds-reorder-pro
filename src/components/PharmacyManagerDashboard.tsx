@@ -75,6 +75,30 @@ const PharmacyManagerDashboard: React.FC<PharmacyManagerDashboardProps> = ({ use
     initializeDashboard();
   }, []);
 
+  // Real-time updates for orders
+  useEffect(() => {
+    const channel = supabase
+      .channel('pharmacy-manager-orders')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'orders'
+        },
+        (payload) => {
+          console.log('Order updated:', payload);
+          // Refresh orders when any order is updated
+          fetchOrders();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
   const handleSignOut = async () => {
     try {
       await supabase.auth.signOut();
@@ -354,6 +378,20 @@ const PharmacyManagerDashboard: React.FC<PharmacyManagerDashboardProps> = ({ use
       setActionNotes("");
       setSelectedOrder(null);
       setPendingAction(null);
+      
+      // Optimistically update the order in the local state
+      setOrders(prevOrders => 
+        prevOrders.map(order => 
+          order.id === orderId 
+            ? { ...order, workflow_status: newStatus, updated_at: new Date().toISOString() }
+            : order
+        ).filter(order => 
+          // Remove orders that are no longer actionable by pharmacy manager
+          ['pending', 'needs_revision_pm', 'approved_bs', 'needs_revision_pm_pricing', 'needs_revision_pa'].includes(order.workflow_status)
+        )
+      );
+      
+      // Also fetch fresh data to ensure consistency
       fetchOrders();
     } catch (error) {
       console.error('Error updating order:', error);
@@ -371,9 +409,18 @@ const PharmacyManagerDashboard: React.FC<PharmacyManagerDashboardProps> = ({ use
     const statusMap = {
       'pending': { label: 'در انتظار بررسی', variant: 'secondary' as const },
       'needs_revision_pm': { label: 'نیاز به ویرایش مدیر', variant: 'destructive' as const },
-      'approved_bs': { label: 'در انتظار قیمت‌گذاری', variant: 'default' as const },
+      'approved_pm': { label: 'تایید شده توسط مدیر', variant: 'default' as const },
+      'approved_bs': { label: 'تایید شده توسط بارمان', variant: 'default' as const },
+      'invoice_issued': { label: 'فاکتور صادر شده', variant: 'secondary' as const },
+      'payment_uploaded': { label: 'رسید آپلود شده', variant: 'default' as const },
+      'payment_verified': { label: 'پرداخت تایید شده', variant: 'default' as const },
+      'completed': { label: 'تکمیل شده', variant: 'default' as const },
+      'rejected': { label: 'رد شده', variant: 'destructive' as const },
+      'needs_revision_ps': { label: 'نیاز به ویرایش کارمند', variant: 'destructive' as const },
+      'needs_revision_bs': { label: 'نیاز به ویرایش بارمان', variant: 'destructive' as const },
       'needs_revision_pm_pricing': { label: 'نیاز به ویرایش قیمت‌گذاری', variant: 'destructive' as const },
       'needs_revision_pa': { label: 'نیاز به ویرایش حسابداری', variant: 'destructive' as const },
+      'payment_rejected': { label: 'پرداخت رد شده', variant: 'destructive' as const },
     };
     
     const config = statusMap[status as keyof typeof statusMap] || { label: status, variant: 'secondary' as const };

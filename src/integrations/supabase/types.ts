@@ -14,6 +14,69 @@ export type Database = {
   }
   public: {
     Tables: {
+      barman_orders: {
+        Row: {
+          bonus_percentage: number | null
+          bonus_quantity: number | null
+          company_name: string
+          created_at: string
+          created_by: string
+          drug_id: string
+          drug_name: string
+          drug_type: string
+          erx_code: string | null
+          gtin: string | null
+          id: string
+          irc: string | null
+          notes: string | null
+          order_date: string
+          payment_method: string | null
+          quantity_ordered: number
+          total_received_quantity: number
+          updated_at: string
+        }
+        Insert: {
+          bonus_percentage?: number | null
+          bonus_quantity?: number | null
+          company_name: string
+          created_at?: string
+          created_by: string
+          drug_id: string
+          drug_name: string
+          drug_type: string
+          erx_code?: string | null
+          gtin?: string | null
+          id?: string
+          irc?: string | null
+          notes?: string | null
+          order_date?: string
+          payment_method?: string | null
+          quantity_ordered: number
+          total_received_quantity?: number
+          updated_at?: string
+        }
+        Update: {
+          bonus_percentage?: number | null
+          bonus_quantity?: number | null
+          company_name?: string
+          created_at?: string
+          created_by?: string
+          drug_id?: string
+          drug_name?: string
+          drug_type?: string
+          erx_code?: string | null
+          gtin?: string | null
+          id?: string
+          irc?: string | null
+          notes?: string | null
+          order_date?: string
+          payment_method?: string | null
+          quantity_ordered?: number
+          total_received_quantity?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       chemical_drugs: {
         Row: {
           action: string | null
@@ -58,6 +121,30 @@ export type Database = {
           license_owner_company_name?: string | null
           license_owner_company_national_id?: string | null
           package_count?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      consolidated_drug_status: {
+        Row: {
+          created_at: string
+          drug_id: string
+          id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          drug_id: string
+          id?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          drug_id?: string
+          id?: string
+          status?: string
           updated_at?: string
         }
         Relationships: []
@@ -425,6 +512,10 @@ export type Database = {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: boolean
+      }
+      is_manager_of_pharmacy: {
+        Args: { _pharmacy_id: string }
         Returns: boolean
       }
     }
