@@ -1,318 +1,236 @@
 import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Play } from 'lucide-react';
-import LandingLayout from '@/components/layout/LandingLayout';
-import transformIllustration from '@/assets/transform-illustration.svg';
-import missionIllustration from '@/assets/mission.svg';
-import efficiencyIllustration from '@/assets/efficiency-unlocked.svg';
-import frontlineImage from '@/assets/frontline-insight.jpg';
-import ownSystemsImage from '@/assets/own-systems.jpg';
-import missionImage from '@/assets/mission.jpg';
+import { Pill, ArrowLeft, Shield, Clock, Users, Star } from 'lucide-react';
 
 const HomePage = () => {
   const navigate = useNavigate();
   
   return (
-    <LandingLayout>
-      {/* Hero Section */}
-      <section className="relative min-h-[700px] overflow-hidden bg-slate-50 pt-4">
-        <div className="container mx-auto px-4 relative z-10">
-          <div className="grid lg:grid-cols-2 gap-12 items-center min-h-[700px] pt-8">
-            {/* Left Content */}
-            <div className="space-y-8 lg:pr-8">
-              <h1 className="text-4xl lg:text-5xl xl:text-6xl font-black leading-tight text-teal-900">
-                کمک به وارد کردن
-                <br />
-                داروخانه شما
-                <br />
-                به عصر دیجیتال
-              </h1>
-              
-              <p className="text-lg lg:text-xl text-slate-600 leading-relaxed max-w-lg">
-                توانمندسازی بیماران، حداکثر کارایی و پیدا کردن جریان کاری شما با سامانه داروخانه
-              </p>
-              
-              <Button 
-                size="lg" 
-                className="bg-yellow-400 hover:bg-yellow-500 text-slate-900 font-semibold px-8 py-3 rounded-full transition-all duration-200 shadow-lg hover:shadow-xl"
-              >
-                <Play className="ml-2 h-5 w-5" />
-                مشاهده ویدیو
-              </Button>
+    <div className="min-h-screen bg-slate-900 text-white overflow-hidden" dir="rtl">
+      {/* Header */}
+      <header className="relative z-50 px-6 py-6">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          {/* Logo */}
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-emerald-500 rounded-lg">
+              <Pill className="h-6 w-6 text-white" />
             </div>
+            <span className="text-xl font-bold">فارمان</span>
+          </div>
 
-            {/* Right Illustration - Using PharmacyX illustration */}
-            <div className="relative lg:pl-8">
-              <div className="relative w-full h-96 lg:h-[500px] flex items-center justify-center">
-                <img 
-                  src={transformIllustration} 
-                  alt="PharmacyX Illustration" 
-                  className="w-full h-full object-contain"
-                />
+          {/* Navigation */}
+          <nav className="hidden md:flex items-center gap-8 text-sm">
+            <a href="#features" className="hover:text-emerald-400 transition-colors">ویژگی‌ها</a>
+            <a href="#about" className="hover:text-emerald-400 transition-colors">درباره ما</a>
+            <a href="#contact" className="hover:text-emerald-400 transition-colors">تماس با ما</a>
+          </nav>
+
+          {/* CTA Button */}
+          <Button 
+            onClick={() => navigate('/login')}
+            className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-2 rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl"
+          >
+            ورود
+          </Button>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="relative">
+        {/* Hero Section */}
+        <section className="px-6 py-16 lg:py-24">
+          <div className="max-w-7xl mx-auto">
+            <div className="grid lg:grid-cols-2 gap-12 items-center">
+              {/* Left Content */}
+              <div className="space-y-8">
+                <div className="inline-flex items-center gap-2 px-4 py-2 bg-slate-800 rounded-full text-sm text-emerald-400 border border-slate-700">
+                  <Star className="h-4 w-4" />
+                  سیستم مدیریت داروخانه هوشمند
+                </div>
+                
+                <h1 className="text-4xl lg:text-6xl font-bold leading-tight">
+                  مدیریت هوشمند
+                  <br />
+                  <span className="text-emerald-400">داروخانه شما</span>
+                </h1>
+                
+                <p className="text-xl text-slate-300 leading-relaxed">
+                  پلتفرم جامع مدیریت داروخانه که سفارش‌گیری، موجودی و فروش را ساده‌تر می‌کند
+                </p>
+                
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <Button 
+                    onClick={() => navigate('/login')}
+                    className="bg-emerald-500 hover:bg-emerald-600 text-white px-8 py-4 rounded-lg font-semibold text-lg transition-all duration-200 shadow-lg hover:shadow-xl flex items-center gap-2"
+                  >
+                    شروع کنید
+                    <ArrowLeft className="h-5 w-5" />
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    className="border-slate-600 text-slate-300 hover:bg-slate-800 px-8 py-4 rounded-lg font-semibold text-lg"
+                  >
+                    مشاهده دمو
+                  </Button>
+                </div>
+                
+                {/* Stats */}
+                <div className="grid grid-cols-3 gap-8 pt-8 border-t border-slate-700">
+                  <div>
+                    <div className="text-2xl font-bold text-emerald-400">+500</div>
+                    <div className="text-sm text-slate-400">داروخانه فعال</div>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-emerald-400">+10K</div>
+                    <div className="text-sm text-slate-400">سفارش ثبت شده</div>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-emerald-400">24/7</div>
+                    <div className="text-sm text-slate-400">پشتیبانی</div>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-        </div>
-      </section>
 
-      {/* Subtitle Section */}
-      <section className="py-16 bg-slate-50">
-        <div className="container mx-auto px-4 text-center">
-          <p className="text-lg lg:text-xl text-teal-900 leading-relaxed max-w-4xl mx-auto">
-            سامانه داروخانه داروسازان و تیم‌هایشان را آزاد می‌کند تا با فرآیندهای هموارتر، گردش کارهای بدون کاغذ و خدمات خودخدمات بیماران بر مراقبت عالی بیماران تمرکز کنند.
-          </p>
-        </div>
-      </section>
-
-      {/* Transform Section */}
-      <section className="py-20 bg-white">
-        <div className="container mx-auto px-4">
-          <div className="grid lg:grid-cols-2 gap-16 items-center">
-            <div className="space-y-8">
-              <h2 className="text-4xl lg:text-5xl font-black text-teal-900 mb-8 leading-tight">
-                تبدیل تجربه مشتری
-              </h2>
-              
-              <p className="text-lg text-slate-600 leading-relaxed mb-8">
-                توانمندسازی بیماران برای ثبت سفارش و پیگیری نسخه‌ها از طریق اپلیکیشن وب دوستانه ما که مخصوص کاربران داروخانه‌های محلی طراحی شده است.
-              </p>
-              
-              <ul className="space-y-4">
-                <li className="flex items-center gap-4">
-                  <div className="w-6 h-6 bg-teal-600 rounded-full flex items-center justify-center flex-shrink-0">
-                    <div className="w-2 h-2 bg-white rounded-full"></div>
-                  </div>
-                  <span className="text-slate-700 text-lg">تأیید هویت بیماران با استفاده از سامانه ملی</span>
-                </li>
-                <li className="flex items-center gap-4">
-                  <div className="w-6 h-6 bg-teal-600 rounded-full flex items-center justify-center flex-shrink-0">
-                    <div className="w-2 h-2 bg-white rounded-full"></div>
-                  </div>
-                  <span className="text-slate-700 text-lg">اتصال بیماران، پزشکان و خدمات داروخانه</span>
-                </li>
-                <li className="flex items-center gap-4">
-                  <div className="w-6 h-6 bg-teal-600 rounded-full flex items-center justify-center flex-shrink-0">
-                    <div className="w-2 h-2 bg-white rounded-full"></div>
-                  </div>
-                  <span className="text-slate-700 text-lg">سفارش‌گیری آسان از بیماران</span>
-                </li>
-                <li className="flex items-center gap-4">
-                  <div className="w-6 h-6 bg-teal-600 rounded-full flex items-center justify-center flex-shrink-0">
-                    <div className="w-2 h-2 bg-white rounded-full"></div>
-                  </div>
-                  <span className="text-slate-700 text-lg">پرداخت‌های یکپارچه</span>
-                </li>
-                <li className="flex items-center gap-4">
-                  <div className="w-6 h-6 bg-teal-600 rounded-full flex items-center justify-center flex-shrink-0">
-                    <div className="w-2 h-2 bg-white rounded-full"></div>
-                  </div>
-                  <span className="text-slate-700 text-lg">چت وب یکپارچه</span>
-                </li>
-              </ul>
-            </div>
-            
-            <div className="flex items-center justify-center lg:pl-8">
-              <img 
-                src={transformIllustration} 
-                alt="تبدیل تجربه مشتری" 
-                className="w-full max-w-md h-auto object-contain"
-              />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Paperless Section */}
-      <section className="py-20 bg-slate-50">
-        <div className="container mx-auto px-4">
-          <div className="grid lg:grid-cols-2 gap-16 items-center">
-            <div className="flex items-center justify-center order-2 lg:order-1 lg:pr-8">
-              <img 
-                src={missionIllustration} 
-                alt="آزادی بدون کاغذ" 
-                className="w-full max-w-md h-auto object-contain"
-              />
-            </div>
-            
-            <div className="space-y-8 order-1 lg:order-2">
-              <h2 className="text-4xl lg:text-5xl font-black text-teal-900 mb-8 leading-tight">
-                کشف آزادی بدون کاغذ
-              </h2>
-              
-              <p className="text-lg text-slate-600 leading-relaxed mb-8">
-                سیستم قدرتمند و مبتنی بر ابر ما فرآیندهای پرهرج و مرج را با گردش کار دیجیتال آرام می‌کند و بررسی‌های بالینی ذخیره شده و دقت بارکد را برای ایمنی پیشرفته ارائه می‌دهد.
-              </p>
-              
-              <ul className="space-y-4">
-                <li className="flex items-center gap-4">
-                  <div className="w-6 h-6 bg-teal-600 rounded-full flex items-center justify-center flex-shrink-0">
-                    <div className="w-2 h-2 bg-white rounded-full"></div>
-                  </div>
-                  <span className="text-slate-700 text-lg">گردش کار بدون کاغذ</span>
-                </li>
-                <li className="flex items-center gap-4">
-                  <div className="w-6 h-6 bg-teal-600 rounded-full flex items-center justify-center flex-shrink-0">
-                    <div className="w-2 h-2 bg-white rounded-full"></div>
-                  </div>
-                  <span className="text-slate-700 text-lg">بررسی‌های بالینی ذخیره شده</span>
-                </li>
-                <li className="flex items-center gap-4">
-                  <div className="w-6 h-6 bg-teal-600 rounded-full flex items-center justify-center flex-shrink-0">
-                    <div className="w-2 h-2 bg-white rounded-full"></div>
-                  </div>
-                  <span className="text-slate-700 text-lg">بررسی دقت بارکد</span>
-                </li>
-                <li className="flex items-center gap-4">
-                  <div className="w-6 h-6 bg-teal-600 rounded-full flex items-center justify-center flex-shrink-0">
-                    <div className="w-2 h-2 bg-white rounded-full"></div>
-                  </div>
-                  <span className="text-slate-700 text-lg">مدیریت موجودی به موقع</span>
-                </li>
-                <li className="flex items-center gap-4">
-                  <div className="w-6 h-6 bg-teal-600 rounded-full flex items-center justify-center flex-shrink-0">
-                    <div className="w-2 h-2 bg-white rounded-full"></div>
-                  </div>
-                  <span className="text-slate-700 text-lg">مبتنی بر ابر برای راه‌اندازی و نگهداری ساده</span>
-                </li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Pioneer Section */}
-      <section className="py-20 bg-white">
-        <div className="container mx-auto px-4">
-          <div className="grid lg:grid-cols-2 gap-16 items-center">
-            <div className="space-y-8">
-              <h2 className="text-4xl lg:text-5xl font-black text-teal-900 mb-8 leading-tight">
-                پیشگام داروخانه محلی شوید
-              </h2>
-              
-              <p className="text-lg text-slate-600 leading-relaxed mb-8">
-                سامانه داروخانه اولین ارائه‌دهنده راه‌حل‌های داروخانه محلی در ایران است که خدمات عالی خودخدمات مشتری را با پلتفرم قدرتمندی برای کارایی عملیاتی ترکیب می‌کند.
-              </p>
-              
-              <p className="text-lg text-slate-600 leading-relaxed">
-                به جامعه رو به رشد داروخانه‌هایی بپیوندید که مصمم هستند از قدرت تکنولوژی استفاده کنند - نه اینکه توسط آن کنار گذاشته شوند.
-              </p>
-            </div>
-            
-            <div className="flex items-center justify-center lg:pl-8">
-              <img 
-                src={efficiencyIllustration} 
-                alt="پیشگام داروخانه محلی" 
-                className="w-full max-w-md h-auto object-contain"
-              />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Built by pharmacists section */}
-      <section className="py-20 bg-slate-50">
-        <div className="container mx-auto px-4 text-center">
-          <h3 className="text-3xl lg:text-4xl font-black text-teal-900 mb-16">
-            ساخته شده توسط داروسازان محلی، برای داروسازان محلی
-          </h3>
-          
-          <div className="grid md:grid-cols-3 gap-12">
-            <div className="bg-white rounded-2xl overflow-hidden shadow-lg">
-              <img 
-                src={frontlineImage} 
-                alt="بینش خط مقدم" 
-                className="w-full h-48 object-cover"
-              />
-              <div className="p-6">
-                <p className="text-slate-700 font-semibold text-lg">بینش خط مقدم</p>
-              </div>
-            </div>
-            
-            <div className="bg-white rounded-2xl overflow-hidden shadow-lg">
-              <img 
-                src={ownSystemsImage} 
-                alt="سیستم‌های خود ما" 
-                className="w-full h-48 object-cover"
-              />
-              <div className="p-6">
-                <p className="text-slate-700 font-semibold text-lg">سیستم‌های خود ما</p>
-              </div>
-            </div>
-            
-            <div className="bg-white rounded-2xl overflow-hidden shadow-lg">
-              <img 
-                src={missionImage} 
-                alt="ماموریت ما" 
-                className="w-full h-48 object-cover"
-              />
-              <div className="p-6">
-                <p className="text-slate-700 font-semibold text-lg">ماموریت ما</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="py-20 bg-slate-50 relative overflow-hidden">
-        <div className="container mx-auto px-4 text-center relative z-10">
-          <div className="max-w-4xl mx-auto flex flex-col lg:flex-row items-center justify-center gap-8">
-            {/* Book Demo Button and Text */}
-            <div className="flex flex-col items-center lg:items-start space-y-6">
-              <Button 
-                onClick={() => navigate('/login')}
-                size="lg" 
-                className="bg-yellow-400 hover:bg-yellow-500 text-slate-900 font-bold px-12 py-4 text-xl rounded-full shadow-lg hover:shadow-xl transition-all duration-200"
-              >
-                ورود
-              </Button>
-            </div>
-            
-            {/* Pharmacist Illustration */}
-            <div className="relative">
-              <div className="w-32 h-48 relative">
-                {/* Pharmacist figure */}
-                <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2">
-                  {/* Head */}
-                  <div className="w-16 h-16 bg-slate-100 rounded-full mx-auto mb-2 relative">
-                    <div className="w-12 h-12 bg-slate-200 rounded-full mx-auto mt-2"></div>
-                    {/* Hair */}
-                    <div className="absolute -top-2 left-2 w-12 h-8 bg-teal-900 rounded-t-full"></div>
+              {/* Right Visual */}
+              <div className="relative">
+                {/* Main Dashboard Mockup */}
+                <div className="relative bg-slate-800 rounded-2xl p-6 shadow-2xl border border-slate-700">
+                  {/* Header */}
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-3">
+                      <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                      <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                      <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                    </div>
+                    <div className="text-slate-400 text-sm">پنل مدیریت داروخانه</div>
                   </div>
                   
-                  {/* Body - White coat */}
-                  <div className="w-20 h-24 bg-white rounded-lg mx-auto relative border-2 border-slate-200">
-                    {/* Coat details */}
-                    <div className="w-2 h-2 bg-slate-400 rounded-full absolute top-2 left-2"></div>
-                    <div className="w-2 h-2 bg-slate-400 rounded-full absolute top-4 left-2"></div>
-                    <div className="w-4 h-1 bg-slate-300 absolute top-2 right-2"></div>
+                  {/* Dashboard Content */}
+                  <div className="space-y-4">
+                    {/* Stats Cards */}
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="bg-slate-700 p-3 rounded-lg">
+                        <div className="text-emerald-400 text-lg font-bold">142</div>
+                        <div className="text-slate-400 text-xs">سفارش امروز</div>
+                      </div>
+                      <div className="bg-slate-700 p-3 rounded-lg">
+                        <div className="text-blue-400 text-lg font-bold">28</div>
+                        <div className="text-slate-400 text-xs">در انتظار</div>
+                      </div>
+                      <div className="bg-slate-700 p-3 rounded-lg">
+                        <div className="text-purple-400 text-lg font-bold">85%</div>
+                        <div className="text-slate-400 text-xs">موجودی</div>
+                      </div>
+                    </div>
                     
-                    {/* Arms */}
-                    <div className="absolute -left-4 top-3 w-8 h-3 bg-white rounded-full border border-slate-200"></div>
-                    <div className="absolute -right-4 top-3 w-8 h-3 bg-white rounded-full border border-slate-200"></div>
-                    
-                    {/* Legs */}
-                    <div className="absolute -bottom-6 left-2 w-3 h-8 bg-teal-900 rounded-b-lg"></div>
-                    <div className="absolute -bottom-6 right-2 w-3 h-8 bg-teal-900 rounded-b-lg"></div>
+                    {/* Orders List */}
+                    <div className="bg-slate-700 rounded-lg p-4">
+                      <div className="text-sm font-semibold mb-3 text-slate-200">آخرین سفارشات</div>
+                      <div className="space-y-2">
+                        {[1, 2, 3].map((item) => (
+                          <div key={item} className="flex items-center justify-between py-2 border-b border-slate-600 last:border-0">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 bg-slate-600 rounded-full"></div>
+                              <div>
+                                <div className="text-xs text-slate-200">سفارش #{1000 + item}</div>
+                                <div className="text-xs text-slate-400">داروخانه مرکزی</div>
+                              </div>
+                            </div>
+                            <div className="text-xs text-emerald-400">تکمیل شده</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
-                  
-                  {/* Scarf flowing */}
-                  <div className="absolute top-4 -right-8 w-16 h-2 bg-slate-300 rounded-full transform rotate-12"></div>
+                </div>
+
+                {/* Floating Elements */}
+                <div className="absolute -top-4 -right-4 bg-emerald-500 p-3 rounded-lg shadow-lg">
+                  <Shield className="h-6 w-6 text-white" />
+                </div>
+                <div className="absolute -bottom-4 -left-4 bg-blue-500 p-3 rounded-lg shadow-lg">
+                  <Clock className="h-6 w-6 text-white" />
                 </div>
               </div>
             </div>
           </div>
-        </div>
-        
-        {/* Wave shape */}
-        <div className="absolute bottom-0 left-0 right-0">
-          <svg viewBox="0 0 1200 120" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-20">
-            <path d="M0 120L50 110C100 100 200 80 300 70C400 60 500 60 600 65C700 70 800 80 900 85C1000 90 1100 90 1150 90L1200 90V120H1150C1100 120 1000 120 900 120C800 120 700 120 600 120C500 120 400 120 300 120C200 120 100 120 50 120H0V120Z" fill="#1e293b"/>
-          </svg>
-        </div>
-      </section>
-    </LandingLayout>
+        </section>
+
+        {/* Features Section */}
+        <section id="features" className="px-6 py-16 bg-slate-800/50">
+          <div className="max-w-7xl mx-auto">
+            <div className="text-center mb-16">
+              <h2 className="text-3xl lg:text-4xl font-bold mb-4">
+                ویژگی‌های <span className="text-emerald-400">فارمان</span>
+              </h2>
+              <p className="text-slate-300 text-lg">
+                همه چیزی که برای مدیریت بهتر داروخانه نیاز دارید
+              </p>
+            </div>
+
+            <div className="grid md:grid-cols-3 gap-8">
+              {/* Feature 1 */}
+              <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 hover:border-emerald-500 transition-colors">
+                <div className="p-3 bg-emerald-500/10 rounded-lg w-fit mb-4">
+                  <Pill className="h-6 w-6 text-emerald-400" />
+                </div>
+                <h3 className="text-xl font-semibold mb-3">مدیریت دارو</h3>
+                <p className="text-slate-400">
+                  مدیریت کامل موجودی داروها با سیستم هشدار اتمام موجودی
+                </p>
+              </div>
+
+              {/* Feature 2 */}
+              <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 hover:border-emerald-500 transition-colors">
+                <div className="p-3 bg-emerald-500/10 rounded-lg w-fit mb-4">
+                  <Users className="h-6 w-6 text-emerald-400" />
+                </div>
+                <h3 className="text-xl font-semibold mb-3">مدیریت مشتریان</h3>
+                <p className="text-slate-400">
+                  ثبت و پیگیری سفارشات مشتریان با سیستم CRM یکپارچه
+                </p>
+              </div>
+
+              {/* Feature 3 */}
+              <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 hover:border-emerald-500 transition-colors">
+                <div className="p-3 bg-emerald-500/10 rounded-lg w-fit mb-4">
+                  <Shield className="h-6 w-6 text-emerald-400" />
+                </div>
+                <h3 className="text-xl font-semibold mb-3">امنیت بالا</h3>
+                <p className="text-slate-400">
+                  حفاظت از اطلاعات با بالاترین استانداردهای امنیتی
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* CTA Section */}
+        <section className="px-6 py-16">
+          <div className="max-w-4xl mx-auto text-center">
+            <h2 className="text-3xl lg:text-4xl font-bold mb-6">
+              آماده شروع هستید؟
+            </h2>
+            <p className="text-slate-300 text-lg mb-8">
+              همین امروز داروخانه خود را به آینده متصل کنید
+            </p>
+            <Button 
+              onClick={() => navigate('/login')}
+              className="bg-emerald-500 hover:bg-emerald-600 text-white px-8 py-4 rounded-lg font-semibold text-lg transition-all duration-200 shadow-lg hover:shadow-xl"
+            >
+              شروع رایگان
+            </Button>
+          </div>
+        </section>
+      </main>
+
+      {/* Background Elements */}
+      <div className="fixed inset-0 pointer-events-none">
+        <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl"></div>
+      </div>
+    </div>
   );
 };
 
