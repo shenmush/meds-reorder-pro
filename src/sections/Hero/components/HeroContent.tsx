@@ -9,9 +9,9 @@ export const HeroContent = () => {
       
       <AnimatedSection animation="slideUp" delay={400}>
         <p className="text-xl box-border caret-transparent tracking-[-0.4px] leading-6 mb-[26.6667px] md:text-2xl md:tracking-[-0.48px] md:leading-[30px] md:mb-[30px]">
-          Empower your patients, maximise efficiency -{" "}
+          سفارشات چند داروخانه رو جمع کن و با قدرت بیشتری{" "}
           <br className="text-base box-border caret-transparent hidden tracking-[-0.32px] leading-[17.7778px] md:text-lg md:inline-flex md:tracking-[-0.36px] md:leading-[22px]" />
-          and find your flow with PharmacyX
+          از شرکت های داروسازی خرید کن
         </p>
       </AnimatedSection>
       
