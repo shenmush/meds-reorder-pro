@@ -1,6 +1,6 @@
 import React from 'react';
 import LandingHeader from './LandingHeader';
-import LandingFooter from './LandingFooter';
+import { Footer } from '@/sections/Footer';
 
 interface LandingLayoutProps {
   children: React.ReactNode;
@@ -13,7 +13,7 @@ const LandingLayout = ({ children }: LandingLayoutProps) => {
       <main className="flex-1">
         {children}
       </main>
-      <LandingFooter />
+      <Footer />
     </div>
   );
 };
