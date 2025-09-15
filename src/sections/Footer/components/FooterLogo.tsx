@@ -5,11 +5,11 @@ export const FooterLogo = () => {
         href="/"
         className="text-white text-xl box-border caret-transparent block tracking-[-0.4px] leading-[17.7778px] text-nowrap mb-4 md:text-[22.5px] md:tracking-[-0.45px] md:leading-[22px]"
       >
-        <span className="font-bold">PharmacyX</span>
+        <span className="font-bold">بارمان</span>
       </a>
       <p className="text-white/70 text-sm leading-relaxed">
-        Built by community pharmacists, for community pharmacists. 
-        Helping pharmacies embrace the digital age with innovative solutions.
+        ساخته شده توسط داروسازان برای داروسازان.
+        کمک به داروخانه‌ها برای پذیرش عصر دیجیتال با راه‌حل‌های نوآورانه.
       </p>
     </div>
   );

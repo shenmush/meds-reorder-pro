@@ -7,6 +7,7 @@ import { WhyPharmacyXSection } from "@/sections/WhyPharmacyXSection";
 import { ExploreSection } from "@/sections/ExploreSection";
 import { EnterpriseSection } from "@/sections/EnterpriseSection";
 import { TestimonialsCarousel } from "@/sections/TestimonialsCarousel";
+import { CTASection } from "@/sections/CTASection";
 
 export const Main = () => {
   return (
@@ -26,6 +27,7 @@ export const Main = () => {
       <ExploreSection />
       <EnterpriseSection />
       <TestimonialsCarousel />
+      <CTASection />
     </main>
   );
 };
