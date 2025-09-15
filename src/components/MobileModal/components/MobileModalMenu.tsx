@@ -4,28 +4,23 @@ export const MobileModalMenu = () => {
       <nav>
         <ul className="space-y-4">
           <li>
-            <a href="#" className="block text-lg text-gray-800 hover:text-cyan-600 py-2">
-              Products
+            <a href="/why-barman" className="block text-lg text-gray-800 hover:text-cyan-600 py-2">
+              چرا بارمان؟
             </a>
           </li>
           <li>
-            <a href="#" className="block text-lg text-gray-800 hover:text-cyan-600 py-2">
-              Why PharmacyX?
+            <a href="/support" className="block text-lg text-gray-800 hover:text-cyan-600 py-2">
+              پشتیبانی و مشاوره
             </a>
           </li>
           <li>
-            <a href="#" className="block text-lg text-gray-800 hover:text-cyan-600 py-2">
-              Enterprise
+            <a href="/faq" className="block text-lg text-gray-800 hover:text-cyan-600 py-2">
+              سوالات متداول
             </a>
           </li>
           <li>
-            <a href="#" className="block text-lg text-gray-800 hover:text-cyan-600 py-2">
-              Case Studies
-            </a>
-          </li>
-          <li>
-            <a href="#" className="block text-lg text-gray-800 hover:text-cyan-600 py-2">
-              Support
+            <a href="/blog" className="block text-lg text-gray-800 hover:text-cyan-600 py-2">
+              وبلاگ
             </a>
           </li>
         </ul>
