@@ -218,6 +218,33 @@ Beautiful, professional, and Persian-friendly
     border: 1px solid hsl(var(--border) / 0.5);
   }
 
+  /* Wave animations */
+  .wave-desktop::before {
+    animation: wave-flow-desktop 8s ease-in-out infinite;
+  }
+
+  .wave-mobile::before {
+    animation: wave-flow-mobile 6s ease-in-out infinite;
+  }
+
+  @keyframes wave-flow-desktop {
+    0%, 100% {
+      background-position-x: 0px;
+    }
+    50% {
+      background-position-x: -200px;
+    }
+  }
+
+  @keyframes wave-flow-mobile {
+    0%, 100% {
+      background-position-x: 0px;
+    }
+    50% {
+      background-position-x: -150px;
+    }
+  }
+
   .gradient-text {
     @apply bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent;
   }
