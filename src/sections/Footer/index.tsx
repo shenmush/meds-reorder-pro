@@ -1,4 +1,5 @@
 import { Linkedin } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 export const Footer = () => {
   return (
@@ -26,30 +27,30 @@ export const Footer = () => {
 
           {/* Navigation Links */}
           <div className="flex flex-wrap gap-x-8 gap-y-4 items-center">
-            <a 
-              href="#" 
-              className="text-white hover:text-gray-300 transition-colors duration-200 font-medium"
-            >
-              سیستم داروخانه
-            </a>
-            <a 
-              href="#" 
-              className="text-white hover:text-gray-300 transition-colors duration-200 font-medium"
-            >
-              اپلیکیشن بیماران
-            </a>
-            <a 
-              href="#" 
+            <Link 
+              to="/about" 
               className="text-white hover:text-gray-300 transition-colors duration-200 font-medium"
             >
               چرا بارمان؟
-            </a>
-            <a 
-              href="#" 
+            </Link>
+            <Link 
+              to="/contact" 
               className="text-white hover:text-gray-300 transition-colors duration-200 font-medium"
             >
-              سازمانی
-            </a>
+              پشتیبانی و مشاوره
+            </Link>
+            <Link 
+              to="/faq" 
+              className="text-white hover:text-gray-300 transition-colors duration-200 font-medium"
+            >
+              سوالات متداول
+            </Link>
+            <Link 
+              to="/blog" 
+              className="text-white hover:text-gray-300 transition-colors duration-200 font-medium"
+            >
+              وبلاگ
+            </Link>
             
             {/* LinkedIn Icon */}
             <a 

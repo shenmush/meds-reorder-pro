@@ -1,27 +1,29 @@
+import { Link } from "react-router-dom";
+
 export const MobileModalMenu = () => {
   return (
     <div className="flex-1 px-5 py-6">
       <nav>
         <ul className="space-y-4">
           <li>
-            <a href="/why-barman" className="block text-lg text-gray-800 hover:text-cyan-600 py-2">
+            <Link to="/about" className="block text-lg text-gray-800 hover:text-cyan-600 py-2 transition-colors">
               چرا بارمان؟
-            </a>
+            </Link>
           </li>
           <li>
-            <a href="/support" className="block text-lg text-gray-800 hover:text-cyan-600 py-2">
+            <Link to="/contact" className="block text-lg text-gray-800 hover:text-cyan-600 py-2 transition-colors">
               پشتیبانی و مشاوره
-            </a>
+            </Link>
           </li>
           <li>
-            <a href="/faq" className="block text-lg text-gray-800 hover:text-cyan-600 py-2">
+            <Link to="/faq" className="block text-lg text-gray-800 hover:text-cyan-600 py-2 transition-colors">
               سوالات متداول
-            </a>
+            </Link>
           </li>
           <li>
-            <a href="/blog" className="block text-lg text-gray-800 hover:text-cyan-600 py-2">
+            <Link to="/blog" className="block text-lg text-gray-800 hover:text-cyan-600 py-2 transition-colors">
               وبلاگ
-            </a>
+            </Link>
           </li>
         </ul>
       </nav>
