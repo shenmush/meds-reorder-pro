@@ -18,7 +18,9 @@ import {
   Settings,
   Users
 } from 'lucide-react';
-import LandingLayout from '@/components/layout/LandingLayout';
+import { Navbar } from "@/sections/Navbar";
+import { Footer } from "@/sections/Footer";
+import { MobileModal } from "@/components/MobileModal";
 
 const FAQPage = () => {
   const faqCategories = [
@@ -92,7 +94,9 @@ const FAQPage = () => {
   ];
 
   return (
-    <LandingLayout>
+    <div className="text-cyan-950 text-base not-italic normal-nums font-normal accent-auto bg-white box-border caret-transparent block tracking-[-0.32px] leading-6 list-outside list-disc overflow-x-hidden overflow-y-auto text-start indent-[0px] normal-case visible border-separate font-gt_walsheim md:text-lg md:tracking-[-0.36px] md:leading-[27px]">
+      <Navbar />
+      
       {/* Hero Section */}
       <section className="py-20 lg:py-32 bg-gradient-to-br from-primary/5 to-secondary/5">
         <div className="container mx-auto px-4">
@@ -235,7 +239,10 @@ const FAQPage = () => {
           </Card>
         </div>
       </section>
-    </LandingLayout>
+      
+      <Footer />
+      <MobileModal />
+    </div>
   );
 };
 
