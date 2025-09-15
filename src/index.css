@@ -228,20 +228,20 @@ Beautiful, professional, and Persian-friendly
   }
 
   @keyframes wave-flow-desktop {
-    0%, 100% {
-      background-position-x: 0px;
+    0% {
+      background-position-x: -2540px;
     }
-    50% {
-      background-position-x: -200px;
+    100% {
+      background-position-x: 2540px;
     }
   }
 
   @keyframes wave-flow-mobile {
-    0%, 100% {
-      background-position-x: 0px;
+    0% {
+      background-position-x: -1270px;
     }
-    50% {
-      background-position-x: -150px;
+    100% {
+      background-position-x: 1270px;
     }
   }
 
