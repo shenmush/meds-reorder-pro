@@ -218,24 +218,7 @@ Beautiful, professional, and Persian-friendly
     border: 1px solid hsl(var(--border) / 0.5);
   }
 
-/* Wave animations */
-@keyframes wave {
-  0% { 
-    transform: translateX(-10%) translateY(0px) scaleX(1); 
-  }
-  25% { 
-    transform: translateX(-10%) translateY(-5px) scaleX(1.05); 
-  }
-  50% { 
-    transform: translateX(-5%) translateY(-3px) scaleX(1.02); 
-  }
-  75% { 
-    transform: translateX(-10%) translateY(-8px) scaleX(1.08); 
-  }
-  100% { 
-    transform: translateX(-10%) translateY(0px) scaleX(1); 
-  }
-}
+/* Wave animations - removed custom animation, using default behavior */
   .wave-desktop::before {
     animation: wave-flow-desktop 30s linear infinite;
   }
