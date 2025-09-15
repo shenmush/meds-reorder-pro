@@ -249,27 +249,4 @@ Beautiful, professional, and Persian-friendly
   .border-gradient {
     border-image: var(--gradient-primary) 1;
   }
-
-  /* Wave animation */
-  @keyframes wave {
-    0% {
-      transform: translateX(0) translateY(0);
-    }
-    25% {
-      transform: translateX(-10px) translateY(3px);
-    }
-    50% {
-      transform: translateX(0) translateY(6px);
-    }
-    75% {
-      transform: translateX(10px) translateY(3px);
-    }
-    100% {
-      transform: translateX(0) translateY(0);
-    }
-  }
-
-  .animate-wave {
-    animation: wave 4s ease-in-out infinite;
-  }
 }
