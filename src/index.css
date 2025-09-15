@@ -220,11 +220,11 @@ Beautiful, professional, and Persian-friendly
 
   /* Wave animations */
   .wave-desktop::before {
-    animation: wave-flow-desktop 8s ease-in-out infinite;
+    animation: wave-flow-desktop 15s linear infinite;
   }
 
   .wave-mobile::before {
-    animation: wave-flow-mobile 6s ease-in-out infinite;
+    animation: wave-flow-mobile 12s linear infinite;
   }
 
   @keyframes wave-flow-desktop {
