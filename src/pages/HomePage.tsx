@@ -1,5 +1,7 @@
 import { Navbar } from "@/sections/Navbar";
 import { Hero } from "@/sections/Hero";
+import { Main } from "@/sections/Main";
+import { Footer } from "@/sections/Footer";
 import { MobileModal } from "@/components/MobileModal";
 
 const HomePage = () => {
@@ -12,6 +14,8 @@ const HomePage = () => {
       />
       <Navbar />
       <Hero />
+      <Main />
+      <Footer />
       <MobileModal />
     </body>
   );
