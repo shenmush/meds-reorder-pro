@@ -125,48 +125,69 @@ const StaffManagement: React.FC<StaffManagementProps> = ({ user, pharmacyId, pha
         return;
       }
 
+      console.log('Starting staff creation...');
+
       // Get the session token
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        console.error('Session error:', sessionError);
+        throw new Error('خطا در دریافت session');
+      }
       
       if (!session?.access_token) {
+        console.error('No access token found');
         throw new Error('ورود مجدد مورد نیاز است');
       }
 
+      console.log('Calling Edge Function with token...');
+
       // Call Edge Function to create user
-      const { data, error } = await supabase.functions.invoke('create-staff-user', {
-        body: {
-          email: email.trim(),
-          password: password,
-          displayName: staffName.trim(),
-          role: role
-        },
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      });
+      try {
+        const { data, error } = await supabase.functions.invoke('create-staff-user', {
+          body: {
+            email: email.trim(),
+            password: password,
+            displayName: staffName.trim(),
+            role: role
+          },
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
+        });
 
-      if (error) {
-        throw new Error(error.message || 'خطا در ایجاد کاربر');
+        console.log('Edge Function response:', { data, error });
+
+        if (error) {
+          console.error('Edge Function error:', error);
+          throw new Error(error.message || 'خطا در ایجاد کاربر');
+        }
+
+        if (data?.error) {
+          console.error('Edge Function data error:', data.error);
+          throw new Error(data.error);
+        }
+
+        console.log('Staff created successfully:', data);
+
+        toast({
+          title: "موفق",
+          description: `${role === 'pharmacy_staff' ? 'کارمند' : 'حسابدار'} جدید با موفقیت ایجاد شد`,
+        });
+
+        // Reset form
+        setStaffName('');
+        setEmail('');
+        setPassword('');
+        setRole('pharmacy_staff');
+        setShowForm(false);
+        
+        // Refresh list
+        fetchStaffList();
+      } catch (funcError: any) {
+        console.error('Function call error:', funcError);
+        throw new Error(funcError.message || 'خطا در ایجاد کاربر');
       }
-
-      if (data?.error) {
-        throw new Error(data.error);
-      }
-
-      toast({
-        title: "موفق",
-        description: `${role === 'pharmacy_staff' ? 'کارمند' : 'حسابدار'} جدید با موفقیت ایجاد شد`,
-      });
-
-      // Reset form
-      setStaffName('');
-      setEmail('');
-      setPassword('');
-      setRole('pharmacy_staff');
-      setShowForm(false);
-      
-      // Refresh list
-      fetchStaffList();
     } catch (error: any) {
       console.error('Error creating staff:', error);
       toast({
