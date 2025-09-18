@@ -393,13 +393,20 @@ const OrdersManagement: React.FC<OrdersManagementProps> = ({
 
   // Handle edit order
   const handleEditOrder = async (order: Order) => {
+    console.log('Starting edit order for:', order.id);
+    console.log('Order workflow status:', order.workflow_status);
+    console.log('Current order items:', order.items);
+    
     // Load order items if not already loaded
     let orderWithItems = order;
     if (!order.items) {
+      console.log('Loading order items...');
       const items = await fetchOrderItems(order.id);
+      console.log('Fetched items:', items);
       orderWithItems = { ...order, items };
     }
     
+    console.log('Final order with items:', orderWithItems);
     setSelectedOrderForEdit(orderWithItems);
     setEditDialogOpen(true);
   };
