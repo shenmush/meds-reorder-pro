@@ -302,9 +302,18 @@ const PharmacyAccountantDashboard: React.FC<PharmacyAccountantDashboardProps> = 
         workflow_status: 'payment_uploaded'
       };
       
-      if (publicUrl && (!order?.payment_proof_url || file)) {
+      // Only update payment fields if we have a new file or existing proof
+      if (publicUrl) {
         updateData.payment_proof_url = publicUrl;
-        updateData.payment_date = new Date().toISOString();
+        if (file || !order?.payment_date) {
+          updateData.payment_date = new Date().toISOString();
+        }
+      } else if (order?.payment_proof_url) {
+        // Keep existing payment proof if no new file uploaded
+        updateData.payment_proof_url = order.payment_proof_url;
+        if (!order.payment_date) {
+          updateData.payment_date = new Date().toISOString();
+        }
       }
       
       const { error: updateError } = await supabase
