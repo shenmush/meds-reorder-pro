@@ -299,27 +299,19 @@ const PharmacyAccountantDashboard: React.FC<PharmacyAccountantDashboardProps> = 
       
       // Update order status and payment proof URL
       const updateData: any = {
-        workflow_status: 'payment_uploaded'
+        workflow_status: 'payment_uploaded',
+        payment_proof_url: publicUrl,
+        payment_date: new Date().toISOString()
       };
       
-      // Only update payment fields if we have a new file or existing proof
-      if (publicUrl) {
-        updateData.payment_proof_url = publicUrl;
-        if (file || !order?.payment_date) {
-          updateData.payment_date = new Date().toISOString();
-        }
-      } else if (order?.payment_proof_url) {
-        // Keep existing payment proof if no new file uploaded
-        updateData.payment_proof_url = order.payment_proof_url;
-        if (!order.payment_date) {
-          updateData.payment_date = new Date().toISOString();
-        }
-      }
+      console.log('Update data for order:', orderId, updateData);
       
       const { error: updateError } = await supabase
         .from('orders')
         .update(updateData)
         .eq('id', orderId);
+
+      console.log('Update result - Error:', updateError);
 
       if (updateError) throw updateError;
 
