@@ -150,17 +150,27 @@ const PharmacyOrderTracking: React.FC<PharmacyOrderTrackingProps> = ({ pharmacyI
               let expiryDate = null;
               if (drugStatus?.status === 'ordered') {
                 isOrderedByBarman = true;
-                // مقدار سفارش داده شده رو از barman_orders بگیریم
-                const { data: barmanOrder } = await supabase
-                  .from('barman_orders')
-                  .select('quantity_ordered, expiry_date')
-                  .eq('drug_id', item.drug_id)
-                  .maybeSingle();
                 
-                console.log('Barman order for drug:', item.drug_id, barmanOrder);
-                barmanOrderQuantity = barmanOrder?.quantity_ordered || item.quantity;
-                expiryDate = barmanOrder?.expiry_date || null;
-                console.log('Expiry date:', expiryDate);
+                console.log('Looking for barman_order with drug_id:', item.drug_id);
+                
+                // مقدار سفارش داده شده رو از barman_orders بگیریم
+                const { data: barmanOrder, error: barmanError } = await supabase
+                  .from('barman_orders')
+                  .select('*')
+                  .eq('drug_id', item.drug_id);
+                
+                console.log('Barman orders query result:', { data: barmanOrder, error: barmanError });
+                
+                if (barmanOrder && barmanOrder.length > 0) {
+                  // اگر چندتا سفارش برای همین دارو هست، آخری رو بگیریم
+                  const latestOrder = barmanOrder[barmanOrder.length - 1];
+                  barmanOrderQuantity = latestOrder?.quantity_ordered || item.quantity;
+                  expiryDate = latestOrder?.expiry_date || null;
+                  console.log('Found barman order:', latestOrder);
+                } else {
+                  barmanOrderQuantity = item.quantity;
+                  console.log('No barman order found for drug_id:', item.drug_id);
+                }
               }
 
               const finalItem = {
