@@ -63,7 +63,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
 
   const fetchUserRole = async () => {
     try {
-      // Fetch all roles for the user to handle multiple roles, including pharmacy_id
+      console.log('Fetching user role for:', user.id);
+      
+      // Check if user has any roles
       const { data: roles, error } = await supabase
         .from('user_roles')
         .select('role, pharmacy_id')
@@ -71,48 +73,53 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
 
       if (error) {
         console.error('Error fetching user role:', error);
-        // If no roles found, might need pharmacy setup
         setNeedsPharmacySetup(true);
         setUserRole(null);
         return;
       }
 
-      // If user has multiple roles, prioritize in this order:
-      const roleHierarchy: Array<'admin' | 'pharmacy_manager' | 'barman_manager' | 'barman_accountant' | 'pharmacy_accountant' | 'barman_staff' | 'pharmacy_staff' | 'user'> = 
-        ['admin', 'pharmacy_manager', 'barman_manager', 'barman_accountant', 'pharmacy_accountant', 'barman_staff', 'pharmacy_staff', 'user'];
-      
-      if (roles && roles.length > 0) {
-        const userRoles = roles.map(r => r.role);
-        
-        // Find the highest priority role
-        for (const role of roleHierarchy) {
-          if (userRoles.includes(role)) {
-            setUserRole(role);
-            
-            // Special case: if user is pharmacy_manager but doesn't have a pharmacy_id, need setup
-            if (role === 'pharmacy_manager') {
-              const pharmacyManagerRole = roles.find(r => r.role === 'pharmacy_manager');
-              if (!pharmacyManagerRole?.pharmacy_id) {
-                setNeedsPharmacySetup(true);
-                return;
-              }
-            }
-            
-            setNeedsPharmacySetup(false);
-            return;
-          }
-        }
-        
-        // If no matching role, might need setup
+      console.log('User roles found:', roles);
+
+      // If no roles, user needs to setup pharmacy
+      if (!roles || roles.length === 0) {
+        console.log('No roles found - needs pharmacy setup');
         setNeedsPharmacySetup(true);
         setUserRole(null);
+        return;
+      }
+
+      // Role hierarchy for priority
+      const roleHierarchy = ['admin', 'pharmacy_manager', 'barman_manager', 'barman_accountant', 'pharmacy_accountant', 'barman_staff', 'pharmacy_staff', 'user'];
+      
+      // Find the highest priority role
+      let foundRole = null;
+      for (const hierarchyRole of roleHierarchy) {
+        const userRole = roles.find(r => r.role === hierarchyRole);
+        if (userRole) {
+          foundRole = userRole;
+          break;
+        }
+      }
+
+      if (foundRole) {
+        console.log('Found role:', foundRole);
+        setUserRole(foundRole.role);
+        
+        // Check if pharmacy_manager needs a pharmacy
+        if (foundRole.role === 'pharmacy_manager' && !foundRole.pharmacy_id) {
+          console.log('Pharmacy manager without pharmacy - needs setup');
+          setNeedsPharmacySetup(true);
+          return;
+        }
+        
+        setNeedsPharmacySetup(false);
       } else {
-        // No roles found - need pharmacy setup
+        console.log('No valid role found - needs setup');
         setNeedsPharmacySetup(true);
         setUserRole(null);
       }
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error fetching user role:', error);
       setNeedsPharmacySetup(true);
       setUserRole(null);
     }

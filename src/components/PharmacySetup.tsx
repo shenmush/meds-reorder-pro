@@ -32,6 +32,8 @@ const PharmacySetup: React.FC<PharmacySetupProps> = ({ user, onSetupComplete }) 
         return;
       }
 
+      console.log('Starting pharmacy setup for user:', user.id);
+
       // Create the pharmacy
       const { data: pharmacyData, error: pharmacyError } = await supabase
         .from('pharmacies')
@@ -46,12 +48,14 @@ const PharmacySetup: React.FC<PharmacySetupProps> = ({ user, onSetupComplete }) 
         throw new Error('خطا در ایجاد داروخانه');
       }
 
+      console.log('Pharmacy created:', pharmacyData);
+
       // Insert user role as pharmacy manager
       const { error: roleError } = await supabase
         .from('user_roles')
         .insert({
           user_id: user.id,
-          role: 'pharmacy_manager' as any,
+          role: 'pharmacy_manager',
           pharmacy_id: pharmacyData.id
         });
 
@@ -60,13 +64,17 @@ const PharmacySetup: React.FC<PharmacySetupProps> = ({ user, onSetupComplete }) 
         throw new Error('خطا در تعیین نقش کاربری');
       }
 
+      console.log('User role created successfully');
+
       toast({
         title: "تنظیمات کامل شد",
         description: "داروخانه شما با موفقیت ایجاد شد",
       });
 
+      // Call completion callback
       onSetupComplete();
     } catch (error: any) {
+      console.error('Setup error:', error);
       toast({
         title: "خطا",
         description: error.message || "خطایی رخ داده است",
