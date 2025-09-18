@@ -64,10 +64,23 @@ const EditOrderDialog: React.FC<EditOrderDialogProps> = ({
 
   useEffect(() => {
     if (isOpen) {
+      console.log('EditOrderDialog opened with orderItems:', orderItems);
+      console.log('Current items before update:', currentItems);
+      
+      // Reset and initialize items only when dialog opens
       setCurrentItems([...orderItems]);
       setNotes(orderNotes || "");
+      
+      console.log('Setting currentItems to:', [...orderItems]);
+    } else {
+      // Clear when dialog closes to prevent stale data
+      setCurrentItems([]);
+      setNotes("");
+      setDrugSearchTerm("");
+      setSearchResults([]);
+      setShowAddDrug(false);
     }
-  }, [isOpen, orderItems, orderNotes]);
+  }, [isOpen]); // Only depend on isOpen to prevent re-initialization
 
   // Search for drugs when search term changes
   useEffect(() => {
