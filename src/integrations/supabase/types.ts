@@ -445,53 +445,6 @@ export type Database = {
         }
         Relationships: []
       }
-      pharmacy_staff_accounts: {
-        Row: {
-          created_at: string
-          created_by: string
-          id: string
-          is_active: boolean
-          password_hash: string
-          pharmacy_id: string
-          role: Database["public"]["Enums"]["app_role"]
-          staff_name: string
-          updated_at: string
-          username: string
-        }
-        Insert: {
-          created_at?: string
-          created_by: string
-          id?: string
-          is_active?: boolean
-          password_hash: string
-          pharmacy_id: string
-          role: Database["public"]["Enums"]["app_role"]
-          staff_name: string
-          updated_at?: string
-          username: string
-        }
-        Update: {
-          created_at?: string
-          created_by?: string
-          id?: string
-          is_active?: boolean
-          password_hash?: string
-          pharmacy_id?: string
-          role?: Database["public"]["Enums"]["app_role"]
-          staff_name?: string
-          updated_at?: string
-          username?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "pharmacy_staff_accounts_pharmacy_id_fkey"
-            columns: ["pharmacy_id"]
-            isOneToOne: false
-            referencedRelation: "pharmacies"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       profiles: {
         Row: {
           created_at: string

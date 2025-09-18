@@ -8,16 +8,15 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Plus, UserPlus, Users, Eye, EyeOff, Trash2 } from 'lucide-react';
+import { Loader2, Plus, UserPlus, Users, Trash2 } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
-interface StaffAccount {
+interface StaffMember {
   id: string;
-  staff_name: string;
-  username: string;
-  password_hash: string;
-  role: 'pharmacy_staff' | 'pharmacy_accountant' | 'user' | 'admin' | 'pharmacy_manager' | 'barman_staff' | 'barman_manager' | 'barman_accountant';
-  is_active: boolean;
+  user_id: string;
+  display_name: string;
+  role: 'pharmacy_staff' | 'pharmacy_accountant';
+  email: string;
   created_at: string;
 }
 
@@ -28,15 +27,14 @@ interface StaffManagementProps {
 }
 
 const StaffManagement: React.FC<StaffManagementProps> = ({ user, pharmacyId, pharmacyName }) => {
-  const [staffList, setStaffList] = useState<StaffAccount[]>([]);
+  const [staffList, setStaffList] = useState<StaffMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [showForm, setShowForm] = useState(false);
-  const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
   
   // Form state
   const [staffName, setStaffName] = useState('');
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<'pharmacy_staff' | 'pharmacy_accountant'>('pharmacy_staff');
   
@@ -44,15 +42,36 @@ const StaffManagement: React.FC<StaffManagementProps> = ({ user, pharmacyId, pha
 
   const fetchStaffList = async () => {
     try {
-      const { data, error } = await supabase
-        .from('pharmacy_staff_accounts')
-        .select('*')
+      // Get user roles for this pharmacy
+      const { data: userRoles, error } = await supabase
+        .from('user_roles')
+        .select(`
+          id,
+          user_id,
+          role,
+          created_at,
+          profiles!inner(
+            display_name,
+            user_id
+          )
+        `)
         .eq('pharmacy_id', pharmacyId)
-        .eq('is_active', true)
+        .in('role', ['pharmacy_staff', 'pharmacy_accountant'])
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setStaffList(data || []);
+
+      // Transform data to our interface
+      const transformedStaff = (userRoles || []).map(item => ({
+        id: item.id,
+        user_id: item.user_id,
+        display_name: item.profiles?.display_name || 'نام نمایشی تنظیم نشده',
+        role: item.role as 'pharmacy_staff' | 'pharmacy_accountant',
+        email: 'کارمند داروخانه', // Hide email for privacy
+        created_at: item.created_at
+      }));
+
+      setStaffList(transformedStaff);
     } catch (error: any) {
       console.error('Error fetching staff:', error);
       toast({
@@ -75,7 +94,7 @@ const StaffManagement: React.FC<StaffManagementProps> = ({ user, pharmacyId, pha
 
     try {
       // Validate fields
-      if (!staffName.trim() || !username.trim() || !password.trim()) {
+      if (!staffName.trim() || !email.trim() || !password.trim()) {
         toast({
           title: "خطا",
           description: "لطفاً همه فیلدها را پر کنید",
@@ -106,30 +125,44 @@ const StaffManagement: React.FC<StaffManagementProps> = ({ user, pharmacyId, pha
         return;
       }
 
-      // Create simple hash for password (in production, use proper bcrypt)
-      const passwordHash = password; // For now, storing plain text (should be hashed)
+      // Create user account in Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: email.trim(),
+        password: password,
+        options: {
+          data: {
+            display_name: staffName.trim()
+          }
+        }
+      });
 
-      const { error } = await supabase
-        .from('pharmacy_staff_accounts')
-        .insert({
-          pharmacy_id: pharmacyId,
-          staff_name: staffName.trim(),
-          username: username.trim(),
-          password_hash: passwordHash,
-          role: role,
-          created_by: user.id
-        });
-
-      if (error) {
-        if (error.code === '23505') { // Unique constraint violation
+      if (authError) {
+        if (authError.message.includes('already registered')) {
           toast({
             title: "خطا",
-            description: "این نام کاربری قبلاً استفاده شده است",
+            description: "این ایمیل قبلاً ثبت شده است",
             variant: "destructive",
           });
           return;
         }
-        throw error;
+        throw authError;
+      }
+
+      if (!authData.user) {
+        throw new Error('کاربر ایجاد نشد');
+      }
+
+      // Create user role
+      const { error: roleError } = await supabase
+        .from('user_roles')
+        .insert({
+          user_id: authData.user.id,
+          role: role,
+          pharmacy_id: pharmacyId
+        });
+
+      if (roleError) {
+        throw roleError;
       }
 
       toast({
@@ -139,7 +172,7 @@ const StaffManagement: React.FC<StaffManagementProps> = ({ user, pharmacyId, pha
 
       // Reset form
       setStaffName('');
-      setUsername('');
+      setEmail('');
       setPassword('');
       setRole('pharmacy_staff');
       setShowForm(false);
@@ -158,35 +191,28 @@ const StaffManagement: React.FC<StaffManagementProps> = ({ user, pharmacyId, pha
     }
   };
 
-  const handleDeactivateStaff = async (staffId: string, staffName: string) => {
+  const handleRemoveStaff = async (staffId: string, staffName: string) => {
     try {
       const { error } = await supabase
-        .from('pharmacy_staff_accounts')
-        .update({ is_active: false })
+        .from('user_roles')
+        .delete()
         .eq('id', staffId);
 
       if (error) throw error;
 
       toast({
         title: "موفق",
-        description: `${staffName} غیرفعال شد`,
+        description: `${staffName} از داروخانه حذف شد`,
       });
 
       fetchStaffList();
     } catch (error: any) {
       toast({
         title: "خطا",
-        description: "خطا در غیرفعال کردن کارمند",
+        description: "خطا در حذف کارمند",
         variant: "destructive",
       });
     }
-  };
-
-  const togglePasswordVisibility = (staffId: string) => {
-    setShowPasswords(prev => ({
-      ...prev,
-      [staffId]: !prev[staffId]
-    }));
   };
 
   const getRoleLabel = (role: string) => {
@@ -254,6 +280,7 @@ const StaffManagement: React.FC<StaffManagementProps> = ({ user, pharmacyId, pha
                         onChange={(e) => setStaffName(e.target.value)}
                         placeholder="مثال: علی احمدی"
                         required
+                        className="text-right"
                       />
                     </div>
                     <div className="space-y-2">
@@ -273,12 +300,13 @@ const StaffManagement: React.FC<StaffManagementProps> = ({ user, pharmacyId, pha
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="username">نام کاربری</Label>
+                      <Label htmlFor="email">ایمیل</Label>
                       <Input
-                        id="username"
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
-                        placeholder="مثال: ali.ahmadi"
+                        id="email"
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="مثال: ali@example.com"
                         required
                         dir="ltr"
                       />
@@ -290,9 +318,9 @@ const StaffManagement: React.FC<StaffManagementProps> = ({ user, pharmacyId, pha
                         type="password"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        placeholder="رمز عبور"
+                        placeholder="رمز عبور (حداقل 6 کاراکتر)"
                         required
-                        minLength={4}
+                        minLength={6}
                         dir="ltr"
                       />
                     </div>
@@ -333,33 +361,21 @@ const StaffManagement: React.FC<StaffManagementProps> = ({ user, pharmacyId, pha
               {staffList.map((staff) => (
                 <Card key={staff.id} className="p-4">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div>
-                        <h3 className="font-medium">{staff.staff_name}</h3>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-sm text-muted-foreground">
-                            نام کاربری: {staff.username}
-                          </span>
-                          <Badge variant={getRoleVariant(staff.role)}>
-                            {getRoleLabel(staff.role)}
-                          </Badge>
-                        </div>
-                        <div className="flex items-center gap-2 mt-2">
-                          <span className="text-sm text-muted-foreground">رمز عبور:</span>
-                          <code className="text-xs bg-muted px-2 py-1 rounded">
-                            {showPasswords[staff.id] ? staff.password_hash : '••••••••'}
-                          </code>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => togglePasswordVisibility(staff.id)}
-                          >
-                            {showPasswords[staff.id] ? (
-                              <EyeOff className="h-4 w-4" />
-                            ) : (
-                              <Eye className="h-4 w-4" />
-                            )}
-                          </Button>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1 text-right">
+                          <h3 className="font-medium">{staff.display_name}</h3>
+                          <div className="flex items-center justify-end gap-2 mt-1">
+                            <Badge variant={getRoleVariant(staff.role)}>
+                              {getRoleLabel(staff.role)}
+                            </Badge>
+                            <span className="text-sm text-muted-foreground">
+                              {staff.email}
+                            </span>
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-1 text-right">
+                            تاریخ ایجاد: {new Date(staff.created_at).toLocaleDateString('fa-IR')}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -371,19 +387,19 @@ const StaffManagement: React.FC<StaffManagementProps> = ({ user, pharmacyId, pha
                       </AlertDialogTrigger>
                       <AlertDialogContent>
                         <AlertDialogHeader>
-                          <AlertDialogTitle>غیرفعال کردن کارمند</AlertDialogTitle>
+                          <AlertDialogTitle>حذف کارمند</AlertDialogTitle>
                           <AlertDialogDescription>
-                            آیا از غیرفعال کردن {staff.staff_name} اطمینان دارید؟
-                            این عمل امکان ورود کارمند را غیرفعال می‌کند.
+                            آیا از حذف {staff.display_name} از داروخانه اطمینان دارید؟
+                            این عمل غیرقابل بازگشت است.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                           <AlertDialogCancel>انصراف</AlertDialogCancel>
                           <AlertDialogAction
-                            onClick={() => handleDeactivateStaff(staff.id, staff.staff_name)}
+                            onClick={() => handleRemoveStaff(staff.id, staff.display_name)}
                             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                           >
-                            غیرفعال کردن
+                            حذف کارمند
                           </AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>

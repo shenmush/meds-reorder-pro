@@ -2,23 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@supabase/supabase-js';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
-import { Building2, Users, UserCheck, UserCog, UserPlus, Loader2 } from 'lucide-react';
-
-interface PharmacyStaff {
-  id: string;
-  user_id: string;
-  role: string;
-  display_name?: string;
-  email?: string;
-  last_sign_in_at?: string | null;
-}
+import { Building2, Loader2 } from 'lucide-react';
+import StaffManagement from './StaffManagement';
 
 interface Pharmacy {
   id: string;
@@ -41,8 +32,6 @@ const PharmacyDetails: React.FC<PharmacyDetailsProps> = ({
   onPharmacyUpdate,
   userRole
 }) => {
-  const [staff, setStaff] = useState<PharmacyStaff[]>([]);
-  const [staffLoading, setStaffLoading] = useState(true);
   const [formData, setFormData] = useState({
     name: pharmacy?.name || '',
     license_number: pharmacy?.license_number || '',
@@ -51,12 +40,6 @@ const PharmacyDetails: React.FC<PharmacyDetailsProps> = ({
   });
   const [profileLoading, setProfileLoading] = useState(false);
   const { toast } = useToast();
-
-  useEffect(() => {
-    if (pharmacy?.id) {
-      fetchPharmacyStaff();
-    }
-  }, [pharmacy?.id]);
 
   useEffect(() => {
     if (pharmacy) {
@@ -68,69 +51,6 @@ const PharmacyDetails: React.FC<PharmacyDetailsProps> = ({
       });
     }
   }, [pharmacy]);
-
-  const fetchPharmacyStaff = async () => {
-    if (!pharmacy?.id) {
-      setStaffLoading(false);
-      return;
-    }
-
-    try {
-      setStaffLoading(true);
-      
-      // Get all user_roles for this pharmacy (without join to avoid filtering)
-      const { data: staffRoles, error: rolesError } = await supabase
-        .from('user_roles')
-        .select('id, user_id, role')
-        .eq('pharmacy_id', pharmacy.id);
-
-      if (rolesError) throw rolesError;
-
-          // Get profiles for each staff member - no need for auth data for non-admin users
-          const staffWithDetails = await Promise.all(
-            (staffRoles || []).map(async (staff) => {
-              try {
-                // Get display name from profiles
-                const { data: profile } = await supabase
-                  .from('profiles')
-                  .select('display_name')
-                  .eq('user_id', staff.user_id)
-                  .single();
-                
-                return {
-                  id: staff.id,
-                  user_id: staff.user_id,
-                  role: staff.role,
-                  display_name: profile?.display_name || 'نام نمایشی تنظیم نشده',
-                  email: 'کارمند داروخانه', // Hide email for privacy
-                  last_sign_in_at: null // Hide last sign in for privacy
-                };
-              } catch (error) {
-                console.error('Error fetching staff details for user:', staff.user_id, error);
-                return {
-                  id: staff.id,
-                  user_id: staff.user_id,
-                  role: staff.role,
-                  display_name: 'نام نمایشی تنظیم نشده',
-                  email: 'کارمند داروخانه',
-                  last_sign_in_at: null
-                };
-              }
-            })
-          );
-
-      setStaff(staffWithDetails);
-    } catch (error: any) {
-      toast({
-        title: "خطا",
-        description: "خطا در بارگذاری اطلاعات کارمندان",
-        variant: "destructive",
-      });
-      console.error('Error fetching staff:', error);
-    } finally {
-      setStaffLoading(false);
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -185,45 +105,6 @@ const PharmacyDetails: React.FC<PharmacyDetailsProps> = ({
       ...prev,
       [name]: value
     }));
-  };
-
-  const getRoleLabel = (role: string) => {
-    switch (role) {
-      case 'pharmacy_staff':
-        return 'کارمند داروخانه';
-      case 'pharmacy_accountant':
-        return 'حسابدار داروخانه';
-      case 'pharmacy_manager':
-        return 'مدیر داروخانه';
-      default:
-        return role;
-    }
-  };
-
-  const getRoleIcon = (role: string) => {
-    switch (role) {
-      case 'pharmacy_staff':
-        return <UserCheck className="h-4 w-4" />;
-      case 'pharmacy_accountant':
-        return <UserCog className="h-4 w-4" />;
-      case 'pharmacy_manager':
-        return <UserPlus className="h-4 w-4" />;
-      default:
-        return <Users className="h-4 w-4" />;
-    }
-  };
-
-  const getRoleVariant = (role: string) => {
-    switch (role) {
-      case 'pharmacy_staff':
-        return 'secondary';
-      case 'pharmacy_accountant':
-        return 'outline';
-      case 'pharmacy_manager':
-        return 'default';
-      default:
-        return 'secondary';
-    }
   };
 
   const canEdit = userRole === 'pharmacy_manager' || userRole === 'admin';
@@ -323,72 +204,13 @@ const PharmacyDetails: React.FC<PharmacyDetailsProps> = ({
       <Separator />
 
       {/* Staff Management Section */}
-      <Card className="shadow-[var(--shadow-medium)]">
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Users className="h-5 w-5 text-primary" />
-            <div>
-              <CardTitle className="text-right">مدیریت کارمندان</CardTitle>
-              <CardDescription className="text-right">
-                لیست کارمندان داروخانه {pharmacy?.name}
-              </CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {staffLoading ? (
-            <div className="flex items-center justify-center p-8">
-              <div className="text-center">
-                <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
-                <p className="text-muted-foreground">در حال بارگذاری کارمندان...</p>
-              </div>
-            </div>
-          ) : staff.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              هیچ کارمندی یافت نشد
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {staff.map((member) => (
-                <div
-                  key={member.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    {getRoleIcon(member.role)}
-                    <div className="flex-1">
-                      <p className="font-medium text-right">
-                        {member.display_name}
-                      </p>
-                      <p className="text-sm text-muted-foreground text-right">
-                        {member.email}
-                      </p>
-                      <p className="text-xs text-muted-foreground text-right">
-                        آخرین ورود: {member.last_sign_in_at 
-                          ? new Date(member.last_sign_in_at).toLocaleDateString('fa-IR', {
-                              year: 'numeric',
-                              month: 'short',
-                              day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })
-                          : 'هرگز'
-                        }
-                      </p>
-                    </div>
-                  </div>
-                  <Badge 
-                    variant={getRoleVariant(member.role) as any}
-                    className="gap-1"
-                  >
-                    {getRoleLabel(member.role)}
-                  </Badge>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {pharmacy?.id && (
+        <StaffManagement
+          user={user}
+          pharmacyId={pharmacy.id}
+          pharmacyName={pharmacy.name}
+        />
+      )}
     </div>
   );
 };

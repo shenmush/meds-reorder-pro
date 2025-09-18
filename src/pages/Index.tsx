@@ -2,24 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
 import AuthPage from '@/components/AuthPage';
-import StaffAuthPage from '@/components/StaffAuthPage';
 import Dashboard from '@/components/Dashboard';
-import UserSettings from '@/components/UserSettings';
-
-interface StaffLoginData {
-  staff_id: string;
-  pharmacy_id: string;
-  staff_name: string;
-  username: string;
-  role: string;
-  pharmacy_name: string;
-}
 
 const Index = () => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [staffData, setStaffData] = useState<StaffLoginData | null>(null);
-  const [loginMode, setLoginMode] = useState<'manager' | 'staff'>('manager');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

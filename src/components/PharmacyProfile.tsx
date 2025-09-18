@@ -61,22 +61,11 @@ const PharmacyProfile: React.FC<PharmacyProfileProps> = ({
           description: "اطلاعات داروخانه با موفقیت بروزرسانی شد",
         });
       } else {
-        // Create new pharmacy profile
-        const { data, error } = await supabase
-          .from('pharmacies')
-          .insert({
-            ...formData,
-            user_id: user.id,
-          })
-          .select()
-          .single();
-
-        if (error) throw error;
-        
-        onPharmacyUpdate(data);
+        // Create new pharmacy (this should not happen as PharmacySetup handles this)
         toast({
-          title: "ثبت موفق",
-          description: "اطلاعات داروخانه با موفقیت ثبت شد",
+          title: "خطا",
+          description: "لطفاً ابتدا داروخانه خود را از طریق تنظیمات اولیه ایجاد کنید",
+          variant: "destructive",
         });
       }
     } catch (error: any) {
