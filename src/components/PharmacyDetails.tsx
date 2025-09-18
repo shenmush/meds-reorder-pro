@@ -55,45 +55,70 @@ const PharmacyDetails: React.FC<PharmacyDetailsProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!pharmacy?.id) {
-      toast({
-        title: "خطا",
-        description: "اطلاعات داروخانه یافت نشد",
-        variant: "destructive",
-      });
-      return;
-    }
-    
     try {
       setProfileLoading(true);
       
-      const { data, error } = await supabase
-        .from('pharmacies')
-        .update({
-          name: formData.name,
-          license_number: formData.license_number || null,
-          phone: formData.phone || null,
-          address: formData.address || null,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', pharmacy.id)
-        .select()
-        .single();
+      if (pharmacy?.id) {
+        // Update existing pharmacy
+        const { data, error } = await supabase
+          .from('pharmacies')
+          .update({
+            name: formData.name,
+            license_number: formData.license_number || null,
+            phone: formData.phone || null,
+            address: formData.address || null,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', pharmacy.id)
+          .select()
+          .single();
 
-      if (error) throw error;
+        if (error) throw error;
 
-      onPharmacyUpdate(data);
-      toast({
-        title: "موفقیت",
-        description: "اطلاعات داروخانه با موفقیت به‌روزرسانی شد",
-      });
+        onPharmacyUpdate(data);
+        toast({
+          title: "موفقیت",
+          description: "اطلاعات داروخانه با موفقیت به‌روزرسانی شد",
+        });
+      } else {
+        // Create new pharmacy
+        const { data: pharmacyData, error: pharmacyError } = await supabase
+          .from('pharmacies')
+          .insert({
+            name: formData.name,
+            license_number: formData.license_number || null,
+            phone: formData.phone || null,
+            address: formData.address || null,
+          })
+          .select()
+          .single();
+
+        if (pharmacyError) throw pharmacyError;
+
+        // Create pharmacy manager role for the user
+        const { error: roleError } = await supabase
+          .from('user_roles')
+          .insert({
+            user_id: user.id,
+            role: 'pharmacy_manager',
+            pharmacy_id: pharmacyData.id
+          });
+
+        if (roleError) throw roleError;
+
+        onPharmacyUpdate(pharmacyData);
+        toast({
+          title: "موفقیت",
+          description: "داروخانه با موفقیت ایجاد شد",
+        });
+      }
     } catch (error: any) {
       toast({
         title: "خطا",
-        description: "خطا در به‌روزرسانی اطلاعات داروخانه",
+        description: "خطا در ثبت اطلاعات داروخانه",
         variant: "destructive",
       });
-      console.error('Error updating pharmacy:', error);
+      console.error('Error with pharmacy:', error);
     } finally {
       setProfileLoading(false);
     }
