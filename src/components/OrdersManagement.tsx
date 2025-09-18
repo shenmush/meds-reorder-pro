@@ -434,6 +434,12 @@ const OrdersManagement: React.FC<OrdersManagementProps> = ({
           <div className="flex items-center justify-between">
             <div className="space-y-1">
               <p className="text-sm">تعداد اقلام: {order.total_items}</p>
+              {order.creatorName && (
+                <p className="text-sm text-muted-foreground">
+                  <UserIcon className="h-3 w-3 inline ml-1" />
+                  ثبت شده توسط: {order.creatorName}
+                </p>
+              )}
               {order.notes && (
                 <p className="text-sm text-muted-foreground">یادداشت: {order.notes}</p>
               )}

@@ -39,6 +39,8 @@ interface Order {
   created_at: string;
   updated_at: string;
   total_items: number;
+  created_by?: string;
+  createdByName?: string;
   items?: OrderItem[];
 }
 
@@ -147,14 +149,55 @@ const PharmacyManagerDashboard: React.FC<PharmacyManagerDashboardProps> = ({ use
 
   const fetchOrders = async () => {
     try {
+      // Get user's pharmacy first
+      const { data: userRole, error: roleError } = await supabase
+        .from('user_roles')
+        .select('pharmacy_id')
+        .eq('user_id', user.id)
+        .eq('role', 'pharmacy_manager')
+        .maybeSingle();
+
+      if (roleError || !userRole?.pharmacy_id) {
+        console.error('Error getting pharmacy or no pharmacy found');
+        setOrders([]);
+        return;
+      }
+
+      // Fetch orders for this pharmacy only
       const { data, error } = await supabase
         .from('orders')
         .select('*')
+        .eq('pharmacy_id', userRole.pharmacy_id)
         .in('workflow_status', ['pending', 'needs_revision_pm', 'approved_bs', 'needs_revision_pm_pricing', 'needs_revision_pa'])
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setOrders(data || []);
+
+      // Fetch creator names for orders that have created_by
+      const ordersWithCreatorNames = await Promise.all(
+        (data || []).map(async (order) => {
+          let createdByName = 'نامشخص';
+          
+          if (order.created_by) {
+            const { data: profile, error: profileError } = await supabase
+              .from('profiles')
+              .select('display_name')
+              .eq('user_id', order.created_by)
+              .maybeSingle();
+              
+            if (!profileError && profile?.display_name) {
+              createdByName = profile.display_name;
+            }
+          }
+          
+          return {
+            ...order,
+            createdByName
+          };
+        })
+      );
+
+      setOrders(ordersWithCreatorNames);
     } catch (error) {
       console.error('Error fetching orders:', error);
       toast.error('خطا در بارگذاری سفارشات');
@@ -498,6 +541,12 @@ const PharmacyManagerDashboard: React.FC<PharmacyManagerDashboardProps> = ({ use
                 <div className="flex items-center justify-between">
                   <div className="space-y-1">
                     <p className="text-sm">تعداد اقلام: {order.total_items}</p>
+                    {order.createdByName && (
+                      <p className="text-sm text-muted-foreground">
+                        <UserIcon className="h-3 w-3 inline ml-1" />
+                        ثبت شده توسط: {order.createdByName}
+                      </p>
+                    )}
                     {order.notes && (
                       <p className="text-sm text-muted-foreground">یادداشت: {order.notes}</p>
                     )}
