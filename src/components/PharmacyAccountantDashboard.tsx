@@ -304,14 +304,10 @@ const PharmacyAccountantDashboard: React.FC<PharmacyAccountantDashboardProps> = 
         payment_date: new Date().toISOString()
       };
       
-      console.log('Update data for order:', orderId, updateData);
-      
       const { error: updateError } = await supabase
         .from('orders')
         .update(updateData)
         .eq('id', orderId);
-
-      console.log('Update result - Error:', updateError);
 
       if (updateError) throw updateError;
 
