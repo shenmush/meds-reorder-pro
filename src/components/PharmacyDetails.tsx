@@ -30,7 +30,7 @@ interface Pharmacy {
 
 interface PharmacyDetailsProps {
   user: User;
-  pharmacy: Pharmacy;
+  pharmacy: Pharmacy | null;
   onPharmacyUpdate: (pharmacy: Pharmacy) => void;
   userRole: string;
 }
@@ -53,8 +53,10 @@ const PharmacyDetails: React.FC<PharmacyDetailsProps> = ({
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchPharmacyStaff();
-  }, [pharmacy.id]);
+    if (pharmacy?.id) {
+      fetchPharmacyStaff();
+    }
+  }, [pharmacy?.id]);
 
   useEffect(() => {
     if (pharmacy) {
@@ -68,6 +70,11 @@ const PharmacyDetails: React.FC<PharmacyDetailsProps> = ({
   }, [pharmacy]);
 
   const fetchPharmacyStaff = async () => {
+    if (!pharmacy?.id) {
+      setStaffLoading(false);
+      return;
+    }
+
     try {
       setStaffLoading(true);
       
@@ -140,7 +147,7 @@ const PharmacyDetails: React.FC<PharmacyDetailsProps> = ({
           address: formData.address || null,
           updated_at: new Date().toISOString()
         })
-        .eq('id', pharmacy.id)
+        .eq('id', pharmacy!.id)
         .select()
         .single();
 
@@ -222,7 +229,7 @@ const PharmacyDetails: React.FC<PharmacyDetailsProps> = ({
             <div>
               <CardTitle className="text-right">مشخصات داروخانه</CardTitle>
               <CardDescription className="text-right">
-                اطلاعات و مشخصات داروخانه {pharmacy.name}
+                اطلاعات و مشخصات داروخانه {pharmacy?.name}
               </CardDescription>
             </div>
           </div>
@@ -314,7 +321,7 @@ const PharmacyDetails: React.FC<PharmacyDetailsProps> = ({
             <div>
               <CardTitle className="text-right">مدیریت کارمندان</CardTitle>
               <CardDescription className="text-right">
-                لیست کارمندان داروخانه {pharmacy.name}
+                لیست کارمندان داروخانه {pharmacy?.name}
               </CardDescription>
             </div>
           </div>
