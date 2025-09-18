@@ -25,9 +25,12 @@ const AuthPage: React.FC<AuthPageProps> = ({ user, onAuthChange }) => {
     setLoading(true);
 
     try {
+      // Add @temp.local if @ is not present in email
+      const processedEmail = email.includes('@') ? email : `${email}@temp.local`;
+      
       if (isLogin) {
         const { data, error } = await supabase.auth.signInWithPassword({
-          email,
+          email: processedEmail,
           password,
         });
         
@@ -43,7 +46,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ user, onAuthChange }) => {
       } else {
         // Simple signup - no pharmacy creation yet
         const { data, error } = await supabase.auth.signUp({
-          email,
+          email: processedEmail,
           password,
           options: {
             emailRedirectTo: `${window.location.origin}/`
@@ -97,11 +100,11 @@ const AuthPage: React.FC<AuthPageProps> = ({ user, onAuthChange }) => {
         <CardContent>
           <form onSubmit={handleAuth} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-right block">ایمیل</Label>
+              <Label htmlFor="email" className="text-right block">ایمیل یا نام کاربری</Label>
               <Input
                 id="email"
-                type="email"
-                placeholder="example@pharmacy.com"
+                type="text"
+                placeholder="example@pharmacy.com یا test_s1"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
