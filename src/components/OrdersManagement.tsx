@@ -8,10 +8,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, ShoppingCart, History, Eye, CheckCircle, XCircle, Edit, Calendar as CalendarIcon, Search, Filter, UserIcon } from "lucide-react";
+import { Loader2, ShoppingCart, History, Eye, CheckCircle, XCircle, Edit, Calendar as CalendarIcon, Search, Filter, UserIcon, Settings } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import EditOrderDialog from './EditOrderDialog';
 
 interface OrderItem {
   id: string;
@@ -62,6 +63,10 @@ const OrdersManagement: React.FC<OrdersManagementProps> = ({
   const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
+  
+  // Edit dialog states
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [selectedOrderForEdit, setSelectedOrderForEdit] = useState<Order | null>(null);
   
   // Filter states
   const [searchTerm, setSearchTerm] = useState("");
@@ -381,6 +386,21 @@ const OrdersManagement: React.FC<OrdersManagementProps> = ({
     return actionableStatuses.includes(workflowStatus);
   };
 
+  // Function to determine if order can be edited (only pending or needs_revision_ps)
+  const canEditOrder = (workflowStatus: string) => {
+    return ['pending', 'needs_revision_ps'].includes(workflowStatus);
+  };
+
+  // Handle edit order
+  const handleEditOrder = (order: Order) => {
+    setSelectedOrderForEdit(order);
+    setEditDialogOpen(true);
+  };
+
+  const handleOrderUpdated = () => {
+    fetchOrders(); // Refresh orders after edit
+  };
+
   const renderOrderCard = (order: Order, ordersList: Order[], setOrdersList: React.Dispatch<React.SetStateAction<Order[]>>, isActiveTab: boolean = true) => {
     // Determine if actions should be shown based on order status, user actions, and tab type
     const shouldShowActions = showActions && canUserActOnOrder(order.workflow_status) && isActiveTab;
@@ -413,6 +433,17 @@ const OrdersManagement: React.FC<OrdersManagementProps> = ({
                 <Eye className="h-4 w-4 mr-1" />
                 {expandedOrders.has(order.id) ? 'بستن' : 'مشاهده'}
               </Button>
+              {canEditOrder(order.workflow_status) && (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => handleEditOrder(order)}
+                  className="gap-1"
+                >
+                  <Settings className="h-4 w-4" />
+                  ویرایش کامل
+                </Button>
+              )}
               {shouldShowActions && (
                 <>
                   <Button 
@@ -707,6 +738,21 @@ const OrdersManagement: React.FC<OrdersManagementProps> = ({
           </Tabs>
         </CardContent>
       </Card>
+      
+      {/* Edit Order Dialog */}
+      {selectedOrderForEdit && (
+        <EditOrderDialog
+          isOpen={editDialogOpen}
+          onClose={() => {
+            setEditDialogOpen(false);
+            setSelectedOrderForEdit(null);
+          }}
+          orderId={selectedOrderForEdit.id}
+          orderItems={selectedOrderForEdit.items || []}
+          orderNotes={selectedOrderForEdit.notes}
+          onOrderUpdated={handleOrderUpdated}
+        />
+      )}
     </div>
   );
 };

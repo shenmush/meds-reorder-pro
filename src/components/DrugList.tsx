@@ -8,8 +8,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Loader2, Pill, Package, Search, ShoppingCart, Plus, Minus, Filter, Send, ChevronLeft, ChevronRight } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Loader2, Pill, Package, Search, ShoppingCart, Plus, Minus, Filter, Send, ChevronLeft, ChevronRight, Edit } from "lucide-react";
 import { toast } from "sonner";
+import EditOrderDialog from './EditOrderDialog';
 
 interface Drug {
   id: string;
@@ -27,65 +29,14 @@ interface CartItem {
   quantity: number;
 }
 
-const ITEMS_PER_PAGE = 12;
-
-// Drug Cart Controls Component
-const DrugCartControls: React.FC<{ drug: Drug; onAddToCart: (drug: Drug, quantity: number) => void }> = ({ drug, onAddToCart }) => {
-  const [quantity, setQuantity] = useState(1);
-
-  const handleQuantityChange = (newQuantity: number) => {
-    if (newQuantity >= 1) {
-      setQuantity(newQuantity);
-    }
-  };
-
-  const handleAddToCart = () => {
-    onAddToCart(drug, quantity);
-    setQuantity(1); // Reset after adding
-  };
-
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <div className="flex items-center gap-2">
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => handleQuantityChange(quantity - 1)}
-          className="h-8 w-8 p-0 rounded-lg"
-          disabled={quantity <= 1}
-        >
-          <Minus className="h-3 w-3" />
-        </Button>
-        
-        <Input
-          type="number"
-          min="1"
-          value={quantity}
-          onChange={(e) => handleQuantityChange(parseInt(e.target.value) || 1)}
-          className="w-16 text-center h-8 rounded-lg"
-        />
-        
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => handleQuantityChange(quantity + 1)}
-          className="h-8 w-8 p-0 rounded-lg"
-        >
-          <Plus className="h-3 w-3" />
-        </Button>
-      </div>
-
-      <Button
-        size="sm"
-        onClick={handleAddToCart}
-        className="gap-2 rounded-lg"
-      >
-        <ShoppingCart className="h-3 w-3" />
-        افزودن
-      </Button>
-    </div>
-  );
-};
+interface PendingOrder {
+  id: string;
+  notes: string | null;
+  created_at: string;
+  total_items: number;
+  workflow_status: string;
+  items?: any[];
+}
 
 const DrugList: React.FC = () => {
   const [drugs, setDrugs] = useState<Drug[]>([]);
@@ -98,20 +49,29 @@ const DrugList: React.FC = () => {
   const [submittingOrder, setSubmittingOrder] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
+  const [activeTab, setActiveTab] = useState("drugs");
+  
+  // Pending orders states
+  const [pendingOrders, setPendingOrders] = useState<PendingOrder[]>([]);
+  const [pendingOrdersLoading, setPendingOrdersLoading] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [selectedOrderForEdit, setSelectedOrderForEdit] = useState<PendingOrder | null>(null);
 
-  const ITEMS_PER_PAGE_SERVER = 50; // Items per page from server
+  const ITEMS_PER_PAGE_SERVER = 50;
   const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE_SERVER);
 
   useEffect(() => {
     fetchDrugs();
-  }, [currentPage, typeFilter]);
+    if (activeTab === "orders") {
+      fetchPendingOrders();
+    }
+  }, [currentPage, typeFilter, activeTab]);
 
-  // Debounced search effect
   useEffect(() => {
     const timer = setTimeout(() => {
-      setCurrentPage(1); // Reset to first page on search
+      setCurrentPage(1);
       fetchDrugs();
-    }, 500); // Wait 500ms after user stops typing
+    }, 500);
 
     return () => clearTimeout(timer);
   }, [searchTerm]);
@@ -127,12 +87,10 @@ const DrugList: React.FC = () => {
         .select('id, full_brand_name, irc, package_count, license_owner_company_name, erx_code, gtin', { count: 'exact' })
         .eq('is_active', true);
 
-      // Apply search filter
       if (searchTerm.trim() !== "") {
         query = query.or(`full_brand_name.ilike.%${searchTerm}%,irc.ilike.%${searchTerm}%,license_owner_company_name.ilike.%${searchTerm}%`);
       }
 
-      // Apply type filter for chemical drugs
       if (typeFilter === "all" || typeFilter === "chemical") {
         const { data: chemicalData, error: chemicalError, count: chemicalCount } = await query
           .range(startIndex, endIndex);
@@ -155,115 +113,8 @@ const DrugList: React.FC = () => {
           })));
         }
 
-        // If we have space and need other types, fetch them
-        if (typeFilter === "all" && allDrugs.length < ITEMS_PER_PAGE_SERVER) {
-          // Fetch medical supplies
-          let medicalQuery = supabase.from('medical_supplies')
-            .select('id, title, irc, package_count, license_owner_company_name', { count: 'exact' })
-            .eq('is_active', true);
-
-          if (searchTerm.trim() !== "") {
-            medicalQuery = medicalQuery.or(`title.ilike.%${searchTerm}%,irc.ilike.%${searchTerm}%,license_owner_company_name.ilike.%${searchTerm}%`);
-          }
-
-          const remainingItems = ITEMS_PER_PAGE_SERVER - allDrugs.length;
-          const { data: medicalData, error: medicalError, count: medicalCount } = await medicalQuery
-            .range(0, remainingItems - 1);
-
-          if (!medicalError && medicalData) {
-            allDrugs.push(...medicalData.map((drug: any) => ({
-              id: drug.id,
-              name: drug.title,
-              irc: drug.irc,
-              package_count: drug.package_count,
-              company_name: drug.license_owner_company_name,
-              type: 'medical' as const
-            })));
-            totalItems += medicalCount || 0;
-          }
-
-          // Fetch natural products if still have space
-          if (allDrugs.length < ITEMS_PER_PAGE_SERVER) {
-            let naturalQuery = supabase.from('natural_products')
-              .select('id, full_en_brand_name, irc, license_owner_name', { count: 'exact' })
-              .eq('is_active', true);
-
-            if (searchTerm.trim() !== "") {
-              naturalQuery = naturalQuery.or(`full_en_brand_name.ilike.%${searchTerm}%,irc.ilike.%${searchTerm}%,license_owner_name.ilike.%${searchTerm}%`);
-            }
-
-            const finalRemainingItems = ITEMS_PER_PAGE_SERVER - allDrugs.length;
-            const { data: naturalData, error: naturalError, count: naturalCount } = await naturalQuery
-              .range(0, finalRemainingItems - 1);
-
-            if (!naturalError && naturalData) {
-              allDrugs.push(...naturalData.map((drug: any) => ({
-                id: drug.id,
-                name: drug.full_en_brand_name,
-                irc: drug.irc,
-                package_count: null,
-                company_name: drug.license_owner_name,
-                type: 'natural' as const
-              })));
-              totalItems += naturalCount || 0;
-            }
-          }
-        }
-
         setDrugs(allDrugs);
         setTotalCount(totalItems);
-      } else if (typeFilter === "medical") {
-        // Fetch only medical supplies
-        let medicalQuery = supabase.from('medical_supplies')
-          .select('id, title, irc, package_count, license_owner_company_name', { count: 'exact' })
-          .eq('is_active', true);
-
-        if (searchTerm.trim() !== "") {
-          medicalQuery = medicalQuery.or(`title.ilike.%${searchTerm}%,irc.ilike.%${searchTerm}%,license_owner_company_name.ilike.%${searchTerm}%`);
-        }
-
-        const { data: medicalData, error: medicalError, count: medicalCount } = await medicalQuery
-          .range(startIndex, endIndex);
-
-        if (medicalError) throw medicalError;
-
-        const mappedDrugs = medicalData?.map((drug: any) => ({
-          id: drug.id,
-          name: drug.title,
-          irc: drug.irc,
-          package_count: drug.package_count,
-          company_name: drug.license_owner_company_name,
-          type: 'medical' as const
-        })) || [];
-
-        setDrugs(mappedDrugs);
-        setTotalCount(medicalCount || 0);
-      } else if (typeFilter === "natural") {
-        // Fetch only natural products
-        let naturalQuery = supabase.from('natural_products')
-          .select('id, full_en_brand_name, irc, license_owner_name', { count: 'exact' })
-          .eq('is_active', true);
-
-        if (searchTerm.trim() !== "") {
-          naturalQuery = naturalQuery.or(`full_en_brand_name.ilike.%${searchTerm}%,irc.ilike.%${searchTerm}%,license_owner_name.ilike.%${searchTerm}%`);
-        }
-
-        const { data: naturalData, error: naturalError, count: naturalCount } = await naturalQuery
-          .range(startIndex, endIndex);
-
-        if (naturalError) throw naturalError;
-
-        const mappedDrugs = naturalData?.map((drug: any) => ({
-          id: drug.id,
-          name: drug.full_en_brand_name,
-          irc: drug.irc,
-          package_count: null,
-          company_name: drug.license_owner_name,
-          type: 'natural' as const
-        })) || [];
-
-        setDrugs(mappedDrugs);
-        setTotalCount(naturalCount || 0);
       }
     } catch (error) {
       console.error('Error fetching drugs:', error);
@@ -273,6 +124,150 @@ const DrugList: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchPendingOrders = async () => {
+    try {
+      setPendingOrdersLoading(true);
+      
+      const { data: userRole, error: roleError } = await supabase
+        .from('user_roles')
+        .select('pharmacy_id')
+        .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
+        .maybeSingle();
+
+      if (roleError || !userRole?.pharmacy_id) {
+        return;
+      }
+
+      const { data: orders, error } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('pharmacy_id', userRole.pharmacy_id)
+        .in('workflow_status', ['pending', 'needs_revision_ps'])
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      setPendingOrders(orders || []);
+    } catch (error) {
+      console.error('Error fetching pending orders:', error);
+      toast.error('خطا در بارگذاری سفارشات');
+    } finally {
+      setPendingOrdersLoading(false);
+    }
+  };
+
+  const fetchOrderItems = async (orderId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('order_items')
+        .select(`
+          id,
+          quantity,
+          drug_id
+        `)
+        .eq('order_id', orderId);
+
+      if (error) throw error;
+
+      const itemsWithDrugs = await Promise.all((data || []).map(async (item) => {
+        const [chemical, medical, natural] = await Promise.all([
+          supabase.from('chemical_drugs').select(`
+            full_brand_name,
+            license_owner_company_name,
+            irc,
+            gtin,
+            erx_code,
+            package_count
+          `).eq('id', item.drug_id).maybeSingle(),
+          supabase.from('medical_supplies').select(`
+            title,
+            license_owner_company_name,
+            irc,
+            gtin,
+            erx_code,
+            package_count
+          `).eq('id', item.drug_id).maybeSingle(),
+          supabase.from('natural_products').select(`
+            full_en_brand_name,
+            license_owner_name,
+            irc,
+            gtin,
+            erx_code,
+            package_count
+          `).eq('id', item.drug_id).maybeSingle()
+        ]);
+
+        let drugInfo = {
+          name: 'نامشخص',
+          type: 'نامشخص',
+          company: 'نامشخص',
+          irc: 'نامشخص',
+          gtin: 'نامشخص',
+          erx_code: 'نامشخص',
+          package_count: null
+        };
+
+        if (chemical.data) {
+          drugInfo = {
+            name: chemical.data.full_brand_name,
+            type: 'دارو شیمیایی',
+            company: chemical.data.license_owner_company_name || 'نامشخص',
+            irc: chemical.data.irc || 'نامشخص',
+            gtin: chemical.data.gtin || 'نامشخص',
+            erx_code: chemical.data.erx_code || 'نامشخص',
+            package_count: chemical.data.package_count
+          };
+        } else if (medical.data) {
+          drugInfo = {
+            name: medical.data.title,
+            type: 'تجهیزات پزشکی',
+            company: medical.data.license_owner_company_name || 'نامشخص',
+            irc: medical.data.irc || 'نامشخص',
+            gtin: medical.data.gtin || 'نامشخص',
+            erx_code: medical.data.erx_code || 'نامشخص',
+            package_count: medical.data.package_count
+          };
+        } else if (natural.data) {
+          drugInfo = {
+            name: natural.data.full_en_brand_name,
+            type: 'محصولات طبیعی',
+            company: natural.data.license_owner_name || 'نامشخص',
+            irc: natural.data.irc || 'نامشخص',
+            gtin: natural.data.gtin || 'نامشخص',
+            erx_code: natural.data.erx_code || 'نامشخص',
+            package_count: natural.data.package_count
+          };
+        }
+
+        return {
+          ...item,
+          drug_name: drugInfo.name,
+          drug_type: drugInfo.type,
+          drug_company: drugInfo.company,
+          drug_irc: drugInfo.irc,
+          drug_gtin: drugInfo.gtin,
+          drug_erx_code: drugInfo.erx_code,
+          drug_package_count: drugInfo.package_count
+        };
+      }));
+
+      return itemsWithDrugs;
+    } catch (error) {
+      console.error('Error fetching order items:', error);
+      return [];
+    }
+  };
+
+  const handleEditOrder = async (order: PendingOrder) => {
+    const items = await fetchOrderItems(order.id);
+    setSelectedOrderForEdit({ ...order, items });
+    setEditDialogOpen(true);
+  };
+
+  const handleOrderUpdated = () => {
+    fetchPendingOrders();
   };
 
   const getDrugTypeBadge = (type: string) => {
@@ -286,24 +281,20 @@ const DrugList: React.FC = () => {
     return <Badge variant={config.variant}>{config.label}</Badge>;
   };
 
-  const addToCartWithQuantity = (drug: Drug, quantity: number) => {
+  const addToCart = (drug: Drug) => {
     setCart(prev => {
       const existingItem = prev.find(item => item.drug.id === drug.id);
       if (existingItem) {
         return prev.map(item =>
           item.drug.id === drug.id
-            ? { ...item, quantity: item.quantity + quantity }
+            ? { ...item, quantity: item.quantity + 1 }
             : item
         );
       } else {
-        return [...prev, { drug, quantity }];
+        return [...prev, { drug, quantity: 1 }];
       }
     });
-    toast.success(`${quantity} عدد ${drug.name} به سبد خرید اضافه شد`);
-  };
-
-  const addToCart = (drug: Drug) => {
-    addToCartWithQuantity(drug, 1);
+    toast.success(`${drug.name} به سبد خرید اضافه شد`);
   };
 
   const updateCartQuantity = (drugId: string, newQuantity: number) => {
@@ -333,7 +324,6 @@ const DrugList: React.FC = () => {
     try {
       setSubmittingOrder(true);
 
-      // Get user's pharmacy ID
       const { data: userRole, error: roleError } = await supabase
         .from('user_roles')
         .select('pharmacy_id')
@@ -345,7 +335,6 @@ const DrugList: React.FC = () => {
         return;
       }
 
-      // Create order
       const currentUser = (await supabase.auth.getUser()).data.user;
       const { data: order, error: orderError } = await supabase
         .from('orders')
@@ -362,7 +351,6 @@ const DrugList: React.FC = () => {
 
       if (orderError) throw orderError;
 
-      // Add order items
       const orderItems = cart.map(item => ({
         order_id: order.id,
         drug_id: item.drug.id,
@@ -388,316 +376,265 @@ const DrugList: React.FC = () => {
     }
   };
 
-  const goToPage = (page: number) => {
-    setCurrentPage(page);
-  };
-
-
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="drugs" className="flex items-center gap-2">
+            <Pill className="h-4 w-4" />
+            فهرست داروها
+          </TabsTrigger>
+          <TabsTrigger value="orders" className="flex items-center gap-2">
+            <Edit className="h-4 w-4" />
+            سفارشات قابل ویرایش
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="drugs" className="mt-6">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Pill className="h-5 w-5" />
+                    فهرست داروها و تجهیزات پزشکی
+                  </CardTitle>
+                  <CardDescription>
+                    جستجو و سفارش داروها، تجهیزات پزشکی و محصولات طبیعی
+                  </CardDescription>
+                </div>
+                <Button 
+                  onClick={() => setIsCartOpen(true)}
+                  className="gap-2"
+                  variant={cart.length > 0 ? "default" : "outline"}
+                >
+                  <ShoppingCart className="h-4 w-4" />
+                  سبد خرید {cart.length > 0 && `(${getTotalItems()})`}
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col md:flex-row gap-4 mb-6">
+                <div className="relative flex-1">
+                  <Search className="absolute right-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="جستجو در فهرست داروها..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pr-10"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Filter className="h-4 w-4 text-muted-foreground" />
+                  <Select value={typeFilter} onValueChange={setTypeFilter}>
+                    <SelectTrigger className="w-48">
+                      <SelectValue placeholder="نوع محصول" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">همه محصولات</SelectItem>
+                      <SelectItem value="chemical">داروهای شیمیایی</SelectItem>
+                      <SelectItem value="medical">تجهیزات پزشکی</SelectItem>
+                      <SelectItem value="natural">محصولات طبیعی</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              
+              {loading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="text-center">
+                    <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
+                    <p className="text-muted-foreground">در حال جستجو...</p>
+                  </div>
+                </div>
+              ) : drugs.length === 0 ? (
+                <div className="text-center py-8">
+                  <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <p className="text-muted-foreground">
+                    {searchTerm || typeFilter !== "all" ? 'نتیجه‌ای یافت نشد' : 'هیچ دارویی در سیستم ثبت نشده است'}
+                  </p>
+                </div>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {drugs.map((drug) => (
+                    <Card key={drug.id} className="hover:shadow-md transition-shadow border-border/60 rounded-xl overflow-hidden">
+                      <CardContent className="p-4 space-y-4">
+                        <div className="space-y-2">
+                          <div className="flex items-start justify-between gap-2">
+                            {getDrugTypeBadge(drug.type)}
+                          </div>
+                          
+                          <h3 className="font-bold text-lg leading-tight text-foreground">
+                            {drug.name}
+                          </h3>
+                        </div>
+
+                        {drug.company_name && (
+                          <div className="flex items-center gap-2 text-sm">
+                            <Package className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                            <span className="text-muted-foreground truncate">{drug.company_name}</span>
+                          </div>
+                        )}
+
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div className="bg-muted/20 p-2 rounded-lg">
+                            <div className="text-xs text-muted-foreground">کد IRC</div>
+                            <div className="font-mono text-xs font-medium">{drug.irc}</div>
+                          </div>
+                          {drug.package_count && (
+                            <div className="bg-muted/20 p-2 rounded-lg">
+                              <div className="text-xs text-muted-foreground">تعداد در بسته</div>
+                              <div className="font-medium">{drug.package_count}</div>
+                            </div>
+                          )}
+                        </div>
+
+                        <Button
+                          onClick={() => addToCart(drug)}
+                          className="w-full gap-2 btn-primary"
+                        >
+                          <ShoppingCart className="h-4 w-4" />
+                          افزودن به سبد
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="orders" className="mt-6">
+          <Card>
+            <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Pill className="h-5 w-5" />
-                فهرست داروها و تجهیزات پزشکی
+                <Edit className="h-5 w-5" />
+                سفارشات قابل ویرایش
               </CardTitle>
               <CardDescription>
-                جستجو و سفارش داروها، تجهیزات پزشکی و محصولات طبیعی
+                سفارشاتی که هنوز تایید نشده‌اند و قابل ویرایش هستند
               </CardDescription>
-            </div>
-            <Button 
-              onClick={() => setIsCartOpen(true)}
-              className="gap-2"
-              variant={cart.length > 0 ? "default" : "outline"}
-            >
-              <ShoppingCart className="h-4 w-4" />
-              سبد خرید {cart.length > 0 && `(${getTotalItems()})`}
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col md:flex-row gap-4 mb-6">
-            <div className="relative flex-1">
-              <Search className="absolute right-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="جستجو در فهرست داروها..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pr-10"
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-muted-foreground" />
-              <Select value={typeFilter} onValueChange={setTypeFilter}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="نوع محصول" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">همه محصولات</SelectItem>
-                  <SelectItem value="chemical">داروهای شیمیایی</SelectItem>
-                  <SelectItem value="medical">تجهیزات پزشکی</SelectItem>
-                  <SelectItem value="natural">محصولات طبیعی</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="text-center">
-                <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
-                <p className="text-muted-foreground">در حال جستجو...</p>
-              </div>
-            </div>
-          ) : drugs.length === 0 ? (
-            <div className="text-center py-8">
-              <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <p className="text-muted-foreground">
-                {searchTerm || typeFilter !== "all" ? 'نتیجه‌ای یافت نشد' : 'هیچ دارویی در سیستم ثبت نشده است'}
-              </p>
-            </div>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {drugs.map((drug) => (
-                <Card key={drug.id} className="hover:shadow-md transition-shadow border-border/60 rounded-xl overflow-hidden">
-                  <CardContent className="p-4 space-y-4">
-                    <div className="space-y-2">
-                      <div className="flex items-start justify-between gap-2">
-                        {getDrugTypeBadge(drug.type)}
-                      </div>
-                      
-                      <h3 className="font-bold text-lg leading-tight text-foreground">
-                        {drug.name}
-                      </h3>
-                    </div>
-
-                    {drug.company_name && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <Package className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                        <span className="text-muted-foreground truncate">{drug.company_name}</span>
-                      </div>
-                    )}
-
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div className="bg-muted/20 p-2 rounded-lg">
-                        <div className="text-xs text-muted-foreground mb-1">کد IRC</div>
-                        <div className="font-mono text-xs">{drug.irc}</div>
-                      </div>
-
-                      {drug.package_count && (
-                        <div className="bg-muted/20 p-2 rounded-lg">
-                          <div className="text-xs text-muted-foreground mb-1">تعداد بسته</div>
-                          <div className="text-xs font-medium">{drug.package_count}</div>
+            </CardHeader>
+            <CardContent>
+              {pendingOrdersLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="text-center">
+                    <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
+                    <p className="text-muted-foreground">در حال بارگذاری...</p>
+                  </div>
+                </div>
+              ) : pendingOrders.length === 0 ? (
+                <div className="text-center py-8">
+                  <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <p className="text-muted-foreground">
+                    هیچ سفارش قابل ویرایشی وجود ندارد
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {pendingOrders.map((order) => (
+                    <Card key={order.id} className="hover:shadow-md transition-shadow">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4 className="font-medium">سفارش #{order.id.slice(0, 8)}</h4>
+                            <p className="text-sm text-muted-foreground">
+                              تاریخ ثبت: {new Date(order.created_at).toLocaleDateString('fa-IR')}
+                            </p>
+                            <p className="text-sm">تعداد آیتم‌ها: {order.total_items}</p>
+                            {order.notes && (
+                              <p className="text-sm text-muted-foreground mt-1">
+                                یادداشت: {order.notes}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant={order.workflow_status === 'pending' ? 'secondary' : 'destructive'}>
+                              {order.workflow_status === 'pending' ? 'در انتظار بررسی' : 'نیاز به ویرایش'}
+                            </Badge>
+                            <Button
+                              onClick={() => handleEditOrder(order)}
+                              className="gap-2"
+                              size="sm"
+                            >
+                              <Edit className="h-4 w-4" />
+                              ویرایش
+                            </Button>
+                          </div>
                         </div>
-                      )}
-
-                      {drug.erx_code && (
-                        <div className="bg-muted/20 p-2 rounded-lg">
-                          <div className="text-xs text-muted-foreground mb-1">کد ERX</div>
-                          <div className="font-mono text-xs">{drug.erx_code}</div>
-                        </div>
-                      )}
-
-                      {drug.gtin && (
-                        <div className="bg-muted/20 p-2 rounded-lg">
-                          <div className="text-xs text-muted-foreground mb-1">کد GTIN</div>
-                          <div className="font-mono text-xs">{drug.gtin}</div>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="pt-2 border-t border-border/60">
-                      <DrugCartControls drug={drug} onAddToCart={addToCartWithQuantity} />
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-
-          {/* Smart Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 mt-6">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => goToPage(currentPage - 1)}
-                disabled={currentPage === 1}
-                className="gap-2"
-              >
-                <ChevronRight className="h-4 w-4" />
-                قبلی
-              </Button>
-              
-              <div className="flex items-center gap-1">
-                {(() => {
-                  const pages = [];
-                  
-                  if (totalPages <= 7) {
-                    // Show all pages if 7 or fewer
-                    for (let i = 1; i <= totalPages; i++) {
-                      pages.push(
-                        <Button
-                          key={i}
-                          variant={currentPage === i ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => goToPage(i)}
-                          className="w-8"
-                        >
-                          {i}
-                        </Button>
-                      );
-                    }
-                  } else {
-                    // Show smart pagination
-                    // Always show first page
-                    pages.push(
-                      <Button
-                        key={1}
-                        variant={currentPage === 1 ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => goToPage(1)}
-                        className="w-8"
-                      >
-                        1
-                      </Button>
-                    );
-
-                    if (currentPage > 3) {
-                      pages.push(
-                        <span key="dots1" className="px-1 text-muted-foreground">...</span>
-                      );
-                    }
-
-                    // Show pages around current page
-                    const start = Math.max(2, currentPage - 1);
-                    const end = Math.min(totalPages - 1, currentPage + 1);
-                    
-                    for (let i = start; i <= end; i++) {
-                      if (i !== 1 && i !== totalPages) {
-                        pages.push(
-                          <Button
-                            key={i}
-                            variant={currentPage === i ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => goToPage(i)}
-                            className="w-8"
-                          >
-                            {i}
-                          </Button>
-                        );
-                      }
-                    }
-
-                    if (currentPage < totalPages - 2) {
-                      pages.push(
-                        <span key="dots2" className="px-1 text-muted-foreground">...</span>
-                      );
-                    }
-
-                    // Always show last page
-                    if (totalPages > 1) {
-                      pages.push(
-                        <Button
-                          key={totalPages}
-                          variant={currentPage === totalPages ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => goToPage(totalPages)}
-                          className="w-8"
-                        >
-                          {totalPages}
-                        </Button>
-                      );
-                    }
-                  }
-                  
-                  return pages;
-                })()}
-              </div>
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => goToPage(currentPage + 1)}
-                disabled={currentPage === totalPages}
-                className="gap-2"
-              >
-                بعدی
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-            </div>
-          )}
-
-          {/* Results summary */}
-          <div className="text-center text-sm text-muted-foreground mt-4">
-            صفحه {currentPage} از {totalPages} - مجموع {totalCount} نتیجه
-          </div>
-        </CardContent>
-      </Card>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* Cart Dialog */}
       <Dialog open={isCartOpen} onOpenChange={setIsCartOpen}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <ShoppingCart className="h-5 w-5" />
-              سبد خرید ({getTotalItems()} قلم)
-            </DialogTitle>
+            <DialogTitle>سبد خرید</DialogTitle>
             <DialogDescription>
-              بررسی و تایید نهایی سفارش
+              بررسی و ثبت سفارش داروها
             </DialogDescription>
           </DialogHeader>
-
+          
           <div className="space-y-4">
             {cart.length === 0 ? (
-              <div className="text-center py-8">
-                <ShoppingCart className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <p className="text-muted-foreground">سبد خرید خالی است</p>
-              </div>
+              <p className="text-center text-muted-foreground py-8">سبد خرید خالی است</p>
             ) : (
               <>
-                {cart.map((item) => (
-                  <Card key={item.drug.id}>
-                    <CardContent className="pt-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <h4 className="font-medium">{item.drug.name}</h4>
-                          <p className="text-sm text-muted-foreground">کد IRC: {item.drug.irc}</p>
+                <div className="space-y-3">
+                  {cart.map((item) => (
+                    <div key={item.drug.id} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div>
+                        <h4 className="font-medium">{item.drug.name}</h4>
+                        <div className="flex items-center gap-2 mt-1">
                           {getDrugTypeBadge(item.drug.type)}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => updateCartQuantity(item.drug.id, item.quantity - 1)}
-                          >
-                            <Minus className="h-4 w-4" />
-                          </Button>
-                          <span className="w-8 text-center">{item.quantity}</span>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => updateCartQuantity(item.drug.id, item.quantity + 1)}
-                          >
-                            <Plus className="h-4 w-4" />
-                          </Button>
+                          <span className="text-sm text-muted-foreground">IRC: {item.drug.irc}</span>
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
-                ))}
-
-                <div className="space-y-4">
-                  <div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => updateCartQuantity(item.drug.id, item.quantity - 1)}
+                          className="h-8 w-8 p-0"
+                        >
+                          <Minus className="h-3 w-3" />
+                        </Button>
+                        <span className="w-8 text-center font-medium">{item.quantity}</span>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => updateCartQuantity(item.drug.id, item.quantity + 1)}
+                          className="h-8 w-8 p-0"
+                        >
+                          <Plus className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center p-3 bg-muted/30 rounded-lg">
+                    <span className="font-medium">مجموع آیتم‌ها:</span>
+                    <span className="text-lg font-bold">{getTotalItems()} عدد</span>
+                  </div>
+                  
+                  <div className="space-y-2">
                     <Label htmlFor="order-notes">یادداشت سفارش (اختیاری)</Label>
                     <Textarea
                       id="order-notes"
-                      placeholder="توضیحات اضافی برای سفارش..."
                       value={orderNotes}
                       onChange={(e) => setOrderNotes(e.target.value)}
-                      className="mt-2"
+                      placeholder="یادداشت برای سفارش..."
+                      rows={3}
                     />
                   </div>
                 </div>
@@ -705,27 +642,37 @@ const DrugList: React.FC = () => {
             )}
           </div>
 
-          <DialogFooter className="gap-2">
+          <DialogFooter>
             <Button variant="outline" onClick={() => setIsCartOpen(false)}>
               بستن
             </Button>
-            {cart.length > 0 && (
-              <Button 
-                onClick={submitOrder} 
-                disabled={submittingOrder}
-                className="gap-2"
-              >
-                {submittingOrder ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Send className="h-4 w-4" />
-                )}
-                ثبت سفارش
-              </Button>
-            )}
+            <Button 
+              onClick={submitOrder} 
+              disabled={cart.length === 0 || submittingOrder}
+              className="gap-2"
+            >
+              {submittingOrder && <Loader2 className="h-4 w-4 animate-spin" />}
+              <Send className="h-4 w-4" />
+              ثبت سفارش
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Order Dialog */}
+      {selectedOrderForEdit && (
+        <EditOrderDialog
+          isOpen={editDialogOpen}
+          onClose={() => {
+            setEditDialogOpen(false);
+            setSelectedOrderForEdit(null);
+          }}
+          orderId={selectedOrderForEdit.id}
+          orderItems={selectedOrderForEdit.items || []}
+          orderNotes={selectedOrderForEdit.notes}
+          onOrderUpdated={handleOrderUpdated}
+        />
+      )}
     </div>
   );
 };
