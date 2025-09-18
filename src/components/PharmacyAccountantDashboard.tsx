@@ -256,7 +256,8 @@ const PharmacyAccountantDashboard: React.FC<PharmacyAccountantDashboardProps> = 
       
       // Check if there's a file to upload
       const file = uploadedFiles.get(orderId);
-      let publicUrl = '';
+      const order = orders.find(o => o.id === orderId);
+      let publicUrl = order?.payment_proof_url || '';
       
       if (file) {
         // Upload file to Supabase Storage with user folder structure
@@ -290,12 +291,18 @@ const PharmacyAccountantDashboard: React.FC<PharmacyAccountantDashboardProps> = 
         setUploadedFiles(newUploadedFiles);
       }
       
+      // Ensure we have a payment proof before allowing confirmation
+      if (!publicUrl) {
+        toast.error('لطفا ابتدا رسید پرداخت را آپلود کنید');
+        return;
+      }
+      
       // Update order status and payment proof URL
       const updateData: any = {
         workflow_status: 'payment_uploaded'
       };
       
-      if (publicUrl) {
+      if (publicUrl && (!order?.payment_proof_url || file)) {
         updateData.payment_proof_url = publicUrl;
         updateData.payment_date = new Date().toISOString();
       }
