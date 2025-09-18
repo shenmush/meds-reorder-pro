@@ -92,7 +92,6 @@ interface BarmanManagerDashboardProps {
 }
 
 const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, onAuthChange }) => {
-  const [finalApprovalOrders, setFinalApprovalOrders] = useState<Order[]>([]);
   const [invoicePendingOrders, setInvoicePendingOrders] = useState<Order[]>([]);
   const [historyOrders, setHistoryOrders] = useState<Order[]>([]);
   const [consolidatedDrugs, setConsolidatedDrugs] = useState<ConsolidatedDrug[]>([]);
@@ -139,20 +138,6 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
     try {
       setLoading(true);
       
-      // Fetch orders ready for final approval (payment verified by accountant)
-      const { data: finalData, error: finalError } = await supabase
-        .from('orders')
-        .select(`
-          *,
-          pharmacies (
-            name
-          )
-        `)
-        .eq('workflow_status', 'payment_verified')
-        .order('created_at', { ascending: false });
-
-      if (finalError) throw finalError;
-
       // Fetch orders awaiting invoice issuance (approved by barman staff)
       const { data: invoiceData, error: invoiceError } = await supabase
         .from('orders')
@@ -180,28 +165,6 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
 
       if (historyError) throw historyError;
 
-      // Fetch order approvals to get the correct notes for payment_verified orders
-      const { data: approvalsData } = await supabase
-        .from('order_approvals')
-        .select('order_id, notes, from_status, to_status, created_at')
-        .in('to_status', ['payment_verified'])
-        .order('created_at', { ascending: false });
-
-      // Map approval notes to orders
-      const approvalNotesMap = new Map();
-      approvalsData?.forEach(approval => {
-        if (approval.to_status === 'payment_verified' && approval.notes) {
-          approvalNotesMap.set(approval.order_id, approval.notes);
-        }
-      });
-
-      // Add approval notes to final orders
-      const finalOrdersWithNotes = finalData?.map(order => ({
-        ...order,
-        accountant_notes: approvalNotesMap.get(order.id) || null
-      })) || [];
-
-      setFinalApprovalOrders(finalOrdersWithNotes);
       setInvoicePendingOrders(invoiceData || []);
       setHistoryOrders(historyData || []);
     } catch (error) {
@@ -584,19 +547,12 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
       newExpanded.add(orderId);
       
       // Fetch order items if not already loaded
-      const allOrders = [...finalApprovalOrders, ...invoicePendingOrders, ...historyOrders];
+      const allOrders = [...invoicePendingOrders, ...historyOrders];
       const order = allOrders.find(o => o.id === orderId);
       if (order && !order.items) {
         const items = await fetchOrderItems(orderId);
         
         // Update the appropriate order list
-        if (finalApprovalOrders.find(o => o.id === orderId)) {
-          setFinalApprovalOrders(prevOrders => 
-            prevOrders.map(o => 
-              o.id === orderId ? { ...o, items } : o
-            )
-          );
-        }
         if (invoicePendingOrders.find(o => o.id === orderId)) {
           setInvoicePendingOrders(prevOrders => 
             prevOrders.map(o => 
@@ -623,13 +579,6 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
       const items = await fetchOrderItems(order.id);
       
         // Update the appropriate order list
-        if (finalApprovalOrders.find(o => o.id === order.id)) {
-          setFinalApprovalOrders(prevOrders => 
-            prevOrders.map(o => 
-              o.id === order.id ? { ...o, items } : o
-            )
-          );
-        }
         if (invoicePendingOrders.find(o => o.id === order.id)) {
           setInvoicePendingOrders(prevOrders => 
             prevOrders.map(o => 
@@ -698,22 +647,6 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
     const totalPrice = unitPrice * quantity;
     
     // Update the appropriate order list
-    if (finalApprovalOrders.find(o => o.id === selectedOrder.id)) {
-      setFinalApprovalOrders(prevOrders => 
-        prevOrders.map(order => 
-          order.id === selectedOrder.id 
-            ? {
-                ...order,
-                items: order.items?.map(item => 
-                  item.id === itemId 
-                    ? { ...item, unit_price: unitPrice, total_price: totalPrice }
-                    : item
-                )
-              }
-            : order
-        )
-      );
-    }
     if (invoicePendingOrders.find(o => o.id === selectedOrder.id)) {
       setInvoicePendingOrders(prevOrders => 
         prevOrders.map(order => 
@@ -820,24 +753,12 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
 
   const handleOrderAction = async (orderId: string, action: 'approve' | 'reject' | 'revision_bs' | 'revision_pm') => {
     try {
-      let statusMap = {};
-      
-      // Different status mapping based on current order status
-      if (selectedOrder?.workflow_status === 'payment_verified') {
-        statusMap = {
-          approve: 'completed', // تایید نهایی برای ارسال به تولیدکننده
-          reject: 'rejected',
-          revision_bs: 'needs_revision_bs',
-          revision_pm: 'needs_revision_pm'
-        };
-      } else {
-        statusMap = {
-          approve: 'approved_pm',
-          reject: 'rejected',
-          revision_bs: 'needs_revision_bs',
-          revision_pm: 'needs_revision_pm'
-        };
-      }
+      let statusMap = {
+        approve: 'approved_pm',
+        reject: 'rejected',
+        revision_bs: 'needs_revision_bs',
+        revision_pm: 'needs_revision_pm'
+      };
 
       // Update order status
       const { error: orderError } = await supabase
@@ -891,7 +812,6 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
       'invoice_issued': { label: 'فاکتور صادر شده', variant: 'secondary' },
       'payment_uploaded': { label: 'رسید آپلود شده', variant: 'default' },
       'payment_verified': { label: 'پرداخت تایید شده', variant: 'default' },
-      'completed': { label: 'تکمیل شده', variant: 'default' },
       'rejected': { label: 'رد شده', variant: 'destructive' },
       'needs_revision_ps': { label: 'نیاز به ویرایش کارمند', variant: 'destructive' },
       'needs_revision_pm': { label: 'نیاز به ویرایش مدیر داروخانه', variant: 'destructive' },
@@ -909,22 +829,12 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
   };
 
   const getActionLabel = () => {
-    if (selectedOrder?.workflow_status === 'payment_verified') {
-      switch (pendingAction) {
-        case 'approve': return 'تایید نهایی و ارسال به تولیدکننده';
-        case 'reject': return 'رد سفارش';
-        case 'revision_bs': return 'برگشت به حسابدار بارمان برای ویرایش';
-        case 'revision_pm': return 'برگشت به مدیر داروخانه برای ویرایش';
-        default: return '';
-      }
-    } else {
-      switch (pendingAction) {
-        case 'approve': return 'تایید نهایی سفارش';
-        case 'reject': return 'رد سفارش';
-        case 'revision_bs': return 'ارجاع به کارمند بارمان';
-        case 'revision_pm': return 'ارجاع به مدیر داروخانه';
-        default: return '';
-      }
+    switch (pendingAction) {
+      case 'approve': return 'تایید نهایی سفارش';
+      case 'reject': return 'رد سفارش';
+      case 'revision_bs': return 'ارجاع به کارمند بارمان';
+      case 'revision_pm': return 'ارجاع به مدیر داروخانه';
+      default: return '';
     }
   };
 
@@ -1135,23 +1045,6 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
         )}
       </CardContent>
     </Card>
-  );
-
-  const FinalApprovalTab = () => (
-    <div className="space-y-6">
-      <div className="grid gap-4">
-        {finalApprovalOrders.length === 0 ? (
-          <Card>
-            <CardContent className="pt-6 text-center">
-              <CheckCircle className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <p className="text-muted-foreground">هیچ سفارشی برای تایید نهایی وجود ندارد</p>
-            </CardContent>
-          </Card>
-        ) : (
-          finalApprovalOrders.map((order) => renderOrderCard(order, true))
-        )}
-      </div>
-    </div>
   );
 
   const InvoicePendingTab = () => (
@@ -1430,15 +1323,11 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
       <div className="container mx-auto px-4 md:px-6 py-4 md:py-8 pb-20 md:pb-8">
         {/* Desktop - All Tabs */}
         <div className="desktop-only">
-          <Tabs defaultValue="final-approval" className="w-full">
-            <TabsList className="grid w-full grid-cols-5">
+          <Tabs defaultValue="consolidated" className="w-full">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="consolidated" className="gap-2">
                 <BarChart3 className="h-4 w-4" />
                 سفارشات تجمیعی
-              </TabsTrigger>
-              <TabsTrigger value="final-approval" className="gap-2">
-                <CheckCircle className="h-4 w-4" />
-                تایید نهایی
               </TabsTrigger>
               <TabsTrigger value="invoice-pending" className="gap-2">
                 <FileText className="h-4 w-4" />
@@ -1456,10 +1345,6 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
 
             <TabsContent value="consolidated" className="mt-6">
               <ConsolidatedDrugsTab />
-            </TabsContent>
-
-            <TabsContent value="final-approval" className="mt-6">
-              <FinalApprovalTab />
             </TabsContent>
 
             <TabsContent value="invoice-pending" className="mt-6">
@@ -1484,11 +1369,7 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
           
           {activeTab === 'reports' && (
             <Tabs value={activeReportsSubTab} onValueChange={setActiveReportsSubTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="final-approval" className="gap-2 text-xs">
-                  <CheckCircle className="h-4 w-4" />
-                  تایید نهایی
-                </TabsTrigger>
+              <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="invoice-pending" className="gap-2 text-xs">
                   <FileText className="h-4 w-4" />
                   صدور فاکتور
@@ -1498,10 +1379,6 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
                   سفارشات تجمیعی
                 </TabsTrigger>
               </TabsList>
-
-              <TabsContent value="final-approval" className="mt-6">
-                <FinalApprovalTab />
-              </TabsContent>
 
               <TabsContent value="invoice-pending" className="mt-6">
                 <InvoicePendingTab />
