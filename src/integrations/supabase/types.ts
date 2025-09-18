@@ -292,6 +292,7 @@ export type Database = {
           drug_id: string
           id: string
           notes: string | null
+          offer_percentage: number | null
           order_id: string
           total_price: number
           unit_price: number
@@ -302,6 +303,7 @@ export type Database = {
           drug_id: string
           id?: string
           notes?: string | null
+          offer_percentage?: number | null
           order_id: string
           total_price: number
           unit_price: number
@@ -312,6 +314,7 @@ export type Database = {
           drug_id?: string
           id?: string
           notes?: string | null
+          offer_percentage?: number | null
           order_id?: string
           total_price?: number
           unit_price?: number
@@ -367,6 +370,7 @@ export type Database = {
           invoice_amount: number | null
           notes: string | null
           payment_date: string | null
+          payment_method: string | null
           payment_proof_url: string | null
           payment_rejection_reason: string | null
           pharmacy_id: string
@@ -383,6 +387,7 @@ export type Database = {
           invoice_amount?: number | null
           notes?: string | null
           payment_date?: string | null
+          payment_method?: string | null
           payment_proof_url?: string | null
           payment_rejection_reason?: string | null
           pharmacy_id: string
@@ -399,6 +404,7 @@ export type Database = {
           invoice_amount?: number | null
           notes?: string | null
           payment_date?: string | null
+          payment_method?: string | null
           payment_proof_url?: string | null
           payment_rejection_reason?: string | null
           pharmacy_id?: string

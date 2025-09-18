@@ -27,6 +27,7 @@ interface OrderItem {
   drug_type?: string;
   unit_price?: number;
   total_price?: number;
+  offer_percentage?: number;
   company_name?: string;
   package_count?: number;
   irc?: string;
@@ -102,6 +103,9 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
   const [isOrderDialogOpen, setIsOrderDialogOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<'approve' | 'reject' | 'revision_bs' | 'revision_pm' | null>(null);
   const [pricingDialogOpen, setPricingDialogOpen] = useState(false);
+  const [paymentMethodDialogOpen, setPaymentMethodDialogOpen] = useState(false);
+  const [paymentMethodInput, setPaymentMethodInput] = useState("");
+  const [pendingInvoiceOrderId, setPendingInvoiceOrderId] = useState<string | null>(null);
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState('drugs');
   const [activeReportsSubTab, setActiveReportsSubTab] = useState('history');
@@ -554,7 +558,8 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
           ...item,
           ...drugInfo,
           unit_price: pricing?.unit_price || 0,
-          total_price: pricing?.total_price || 0
+          total_price: pricing?.total_price || 0,
+          offer_percentage: (pricing as any)?.offer_percentage || 0
         };
       });
 
@@ -654,7 +659,8 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
               order_id: selectedOrder.id,
               drug_id: item.drug_id,
               unit_price: item.unit_price || 0,
-              total_price: item.total_price || 0
+              total_price: item.total_price || 0,
+              offer_percentage: item.offer_percentage || 0
             });
         }
         return Promise.resolve();
@@ -748,14 +754,23 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
   };
 
   const issueInvoice = async (orderId: string) => {
+    // Open payment method dialog first
+    setPendingInvoiceOrderId(orderId);
+    setPaymentMethodDialogOpen(true);
+  };
+
+  const confirmIssueInvoice = async () => {
+    if (!pendingInvoiceOrderId) return;
+
     try {
       const { error } = await supabase
         .from('orders')
         .update({ 
           workflow_status: 'invoice_issued',
+          payment_method: paymentMethodInput || null,
           updated_at: new Date().toISOString()
         })
-        .eq('id', orderId);
+        .eq('id', pendingInvoiceOrderId);
 
       if (error) throw error;
 
@@ -763,22 +778,40 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
       const { error: approvalError } = await supabase
         .from('order_approvals')
         .insert({
-          order_id: orderId,
+          order_id: pendingInvoiceOrderId,
           user_id: user.id,
           from_status: 'approved_bs',
           to_status: 'invoice_issued',
-          notes: 'فاکتور صادر شد'
+          notes: `فاکتور صادر شد - روش پرداخت: ${paymentMethodInput || 'نامشخص'}`
         });
 
       if (approvalError) throw approvalError;
 
       toast.success('فاکتور با موفقیت صادر شد');
+      
+      // Reset states
+      setPaymentMethodDialogOpen(false);
+      setPaymentMethodInput("");
+      setPendingInvoiceOrderId(null);
+      
       fetchAllOrders();
       fetchConsolidatedDrugs();
     } catch (error) {
       console.error('Error issuing invoice:', error);
       toast.error('خطا در صدور فاکتور');
     }
+  };
+
+  const updateItemOffer = (itemId: string, offerPercentage: number) => {
+    // Update the order state in all relevant places
+    setSelectedOrder(prev => prev ? {
+      ...prev,
+      items: prev.items?.map(item => 
+        item.id === itemId 
+          ? { ...item, offer_percentage: offerPercentage }
+          : item
+      )
+    } : prev);
   };
 
   const handleOrderAction = async (orderId: string, action: 'approve' | 'reject' | 'revision_bs' | 'revision_pm') => {
@@ -1542,25 +1575,45 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
                         <p className="text-sm text-muted-foreground">تعداد در بسته: {item.package_count}</p>
                       )}
                     </div>
-                    <div className="text-left space-y-2">
-                      <div>
-                        <Label htmlFor={`price-${item.id}`}>قیمت واحد (تومان)</Label>
-                        <Input
-                          id={`price-${item.id}`}
-                          type="number"
-                          min="0"
-                          value={item.unit_price || ''}
-                          onChange={(e) => updateItemPrice(item.id, Number(e.target.value), item.quantity)}
-                          placeholder="0"
-                          className="w-40"
-                        />
-                      </div>
-                      {(item.unit_price || 0) > 0 && (
-                        <div className="text-sm">
-                          <strong>جمع: {(item.total_price || 0).toLocaleString()} تومان</strong>
-                        </div>
-                      )}
-                    </div>
+                     <div className="text-left space-y-2">
+                       <div className="grid grid-cols-2 gap-2">
+                         <div>
+                           <Label htmlFor={`price-${item.id}`}>قیمت واحد (تومان)</Label>
+                           <Input
+                             id={`price-${item.id}`}
+                             type="number"
+                             min="0"
+                             value={item.unit_price || ''}
+                             onChange={(e) => updateItemPrice(item.id, Number(e.target.value), item.quantity)}
+                             placeholder="0"
+                             className="w-full"
+                           />
+                         </div>
+                         <div>
+                           <Label htmlFor={`offer-${item.id}`}>آفر (%)</Label>
+                           <Input
+                             id={`offer-${item.id}`}
+                             type="number"
+                             min="0"
+                             max="100"
+                             value={item.offer_percentage || ''}
+                             onChange={(e) => updateItemOffer(item.id, Number(e.target.value))}
+                             placeholder="0"
+                             className="w-full"
+                           />
+                         </div>
+                       </div>
+                       {(item.unit_price || 0) > 0 && (
+                         <div className="text-sm space-y-1">
+                           <div><strong>جمع: {(item.total_price || 0).toLocaleString()} تومان</strong></div>
+                           {(item.offer_percentage || 0) > 0 && (
+                             <div className="text-green-600">
+                               آفر {item.offer_percentage}% = {Math.round(((item.total_price || 0) * (item.offer_percentage || 0)) / 100).toLocaleString()} تومان
+                             </div>
+                           )}
+                         </div>
+                       )}
+                     </div>
                   </div>
                 </div>
               ))}
@@ -1579,6 +1632,41 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
             </Button>
             <Button onClick={savePricing}>
               ذخیره قیمت‌گذاری
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Payment Method Dialog */}
+      <Dialog open={paymentMethodDialogOpen} onOpenChange={setPaymentMethodDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>روش پرداخت</DialogTitle>
+            <DialogDescription>
+              لطفاً روش پرداخت را برای صدور فاکتور مشخص کنید
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="payment-method">روش پرداخت</Label>
+              <Input
+                id="payment-method"
+                value={paymentMethodInput}
+                onChange={(e) => setPaymentMethodInput(e.target.value)}
+                placeholder="مثال: نقدی، چک، کارت بانکی، ..."
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setPaymentMethodDialogOpen(false);
+              setPaymentMethodInput("");
+              setPendingInvoiceOrderId(null);
+            }}>
+              انصراف
+            </Button>
+            <Button onClick={confirmIssueInvoice}>
+              صدور فاکتور
             </Button>
           </DialogFooter>
         </DialogContent>

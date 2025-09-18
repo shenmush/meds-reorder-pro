@@ -28,6 +28,7 @@ interface OrderItem {
   drug_package_count?: number;
   unit_price?: number;
   total_price?: number;
+  offer_percentage?: number;
   pricing_notes?: string;
 }
 
@@ -38,6 +39,7 @@ interface Order {
   created_at: string;
   updated_at: string;
   total_items: number;
+  payment_method?: string | null;
   items?: OrderItem[];
   pharmacy?: {
     name: string;
@@ -107,47 +109,47 @@ const OrdersManagement: React.FC<OrdersManagementProps> = ({
     try {
       setLoading(true);
       
-      // Fetch active orders (only those requiring manager action)
-      const { data: activeData, error: activeError } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('pharmacy_id', pharmacyId)
-        .in('workflow_status', ['pending', 'needs_revision_pm', 'approved_bs', 'needs_revision_pa'])
-        .order('created_at', { ascending: false });
+        // Fetch orders for this pharmacy only
+        const { data, error } = await supabase
+          .from('orders')
+          .select('*, payment_method')
+          .eq('pharmacy_id', pharmacyId)
+          .in('workflow_status', ['pending', 'needs_revision_pm', 'approved_bs', 'needs_revision_pa'])
+          .order('created_at', { ascending: false });
 
-      if (activeError) throw activeError;
+        if (error) throw error;
 
-      // Fetch all orders for history
-      const { data: allData, error: allError } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('pharmacy_id', pharmacyId)
-        .order('created_at', { ascending: false });
+        // Fetch all orders for history
+        const { data: allData, error: allError } = await supabase
+          .from('orders')
+          .select('*, payment_method')
+          .eq('pharmacy_id', pharmacyId)
+          .order('created_at', { ascending: false });
 
-      if (allError) throw allError;
+        if (allError) throw allError;
 
-      // Add creator names to both datasets
-      const addCreatorNames = async (orders: any[]) => {
-        return await Promise.all(orders.map(async (order) => {
-          let creatorName = 'نامشخص';
-          if (order.created_by) {
-            const { data: profileData } = await supabase
-              .from('profiles')
-              .select('display_name')
-              .eq('user_id', order.created_by)
-              .maybeSingle();
-              
-            creatorName = profileData?.display_name || 'نامشخص';
-          }
-          return { ...order, creatorName };
-        }));
-      };
+        // Add creator names to both datasets
+        const addCreatorNames = async (orders: any[]) => {
+          return await Promise.all(orders.map(async (order) => {
+            let creatorName = 'نامشخص';
+            if (order.created_by) {
+              const { data: profileData } = await supabase
+                .from('profiles')
+                .select('display_name')
+                .eq('user_id', order.created_by)
+                .maybeSingle();
+                
+              creatorName = profileData?.display_name || 'نامشخص';
+            }
+            return { ...order, creatorName };
+          }));
+        };
 
-      const activeOrdersWithNames = await addCreatorNames(activeData || []);
-      const allOrdersWithNames = await addCreatorNames(allData || []);
+        const activeOrdersWithNames = await addCreatorNames(data || []);
+        const allOrdersWithNames = await addCreatorNames(allData || []);
 
-      setActiveOrders(activeOrdersWithNames);
-      setAllOrders(allOrdersWithNames);
+        setActiveOrders(activeOrdersWithNames);
+        setAllOrders(allOrdersWithNames);
     } catch (error) {
       console.error('Error fetching orders:', error);
       toast.error('خطا در بارگذاری سفارشات');
@@ -257,6 +259,7 @@ const OrdersManagement: React.FC<OrdersManagementProps> = ({
           supabase.from('order_item_pricing').select(`
             unit_price,
             total_price,
+            offer_percentage,
             notes
           `).eq('order_id', orderId).eq('drug_id', item.drug_id).maybeSingle()
         ]);
@@ -314,6 +317,7 @@ const OrdersManagement: React.FC<OrdersManagementProps> = ({
           drug_package_count: drugInfo.package_count,
           unit_price: pricing.data?.unit_price,
           total_price: pricing.data?.total_price,
+          offer_percentage: pricing.data?.offer_percentage,
           pricing_notes: pricing.data?.notes
         };
       }));
@@ -444,6 +448,11 @@ const OrdersManagement: React.FC<OrdersManagementProps> = ({
               {order.notes && (
                 <p className="text-sm text-muted-foreground">یادداشت: {order.notes}</p>
               )}
+              {order.payment_method && (
+                <p className="text-sm text-muted-foreground">
+                  <strong>روش پرداخت:</strong> {order.payment_method}
+                </p>
+              )}
             </div>
             <div className="flex gap-2">
               <Button 
@@ -544,6 +553,12 @@ const OrdersManagement: React.FC<OrdersManagementProps> = ({
                             <span className="font-medium text-green-600">{Number(item.unit_price).toLocaleString('fa-IR')} تومان</span>
                           </div>
                         )}
+                        {item.offer_percentage && item.offer_percentage > 0 && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">آفر:</span>
+                            <span className="font-medium text-orange-600">%{item.offer_percentage}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                     
@@ -553,6 +568,14 @@ const OrdersManagement: React.FC<OrdersManagementProps> = ({
                           <span className="text-muted-foreground">قیمت کل این قلم:</span>
                           <span className="font-bold text-lg text-green-600">{Number(item.total_price).toLocaleString('fa-IR')} تومان</span>
                         </div>
+                        {item.offer_percentage && item.offer_percentage > 0 && (
+                          <div className="flex justify-between items-center mt-1">
+                            <span className="text-sm text-muted-foreground">مقدار آفر ({item.offer_percentage}%):</span>
+                            <span className="text-sm font-medium text-orange-600">
+                              {Math.round((Number(item.total_price) * item.offer_percentage) / 100).toLocaleString('fa-IR')} تومان
+                            </span>
+                          </div>
+                        )}
                       </div>
                     )}
                     
