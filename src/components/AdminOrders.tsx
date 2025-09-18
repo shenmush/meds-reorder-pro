@@ -8,8 +8,9 @@ import { Calendar, Package, ShoppingCart, TrendingUp, Search, Clock, CheckCircle
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AdminMobileFilters from './AdminMobileFilters';
 import AdminDrugOrders from './AdminDrugOrders';
@@ -50,6 +51,10 @@ const AdminOrders = () => {
   const [loading, setLoading] = useState(true);
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('pharmacy');
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<OrderWithItems | null>(null);
+  const [newStatus, setNewStatus] = useState('');
+  const [statusComment, setStatusComment] = useState('');
   const { toast } = useToast();
   const isMobile = useIsMobile();
 
@@ -219,18 +224,49 @@ const AdminOrders = () => {
     setFilteredOrders(filtered);
   };
 
-  const updateOrderStatus = async (orderId: string, newStatus: string) => {
-    try {
-      const { error } = await supabase
-        .from('orders')
-        .update({ status: newStatus, updated_at: new Date().toISOString() })
-        .eq('id', orderId);
+  const openStatusDialog = (order: OrderWithItems, status: string) => {
+    setSelectedOrder(order);
+    setNewStatus(status);
+    setStatusComment('');
+    setStatusDialogOpen(true);
+  };
 
-      if (error) throw error;
+  const updateOrderStatus = async () => {
+    if (!selectedOrder || !newStatus) return;
+
+    try {
+      // Update order status
+      const { error: updateError } = await supabase
+        .from('orders')
+        .update({ 
+          status: newStatus, 
+          workflow_status: newStatus === 'pending' ? 'revision_pm' : newStatus,
+          updated_at: new Date().toISOString() 
+        })
+        .eq('id', selectedOrder.id);
+
+      if (updateError) throw updateError;
+
+      // Add order approval record if comment is provided
+      if (statusComment.trim()) {
+        const { error: approvalError } = await supabase
+          .from('order_approvals')
+          .insert({
+            order_id: selectedOrder.id,
+            user_id: (await supabase.auth.getUser()).data.user?.id,
+            from_status: selectedOrder.status,
+            to_status: newStatus,
+            notes: statusComment.trim()
+          });
+
+        if (approvalError) {
+          console.error('Error adding approval record:', approvalError);
+        }
+      }
 
       setOrders(prevOrders =>
         prevOrders.map(order =>
-          order.id === orderId
+          order.id === selectedOrder.id
             ? { ...order, status: newStatus, updated_at: new Date().toISOString() }
             : order
         )
@@ -240,6 +276,11 @@ const AdminOrders = () => {
         title: "موفقیت",
         description: "وضعیت سفارش با موفقیت تغییر کرد",
       });
+
+      setStatusDialogOpen(false);
+      setSelectedOrder(null);
+      setNewStatus('');
+      setStatusComment('');
     } catch (error) {
       console.error('Error updating order status:', error);
       toast({
@@ -437,20 +478,20 @@ const AdminOrders = () => {
                   {/* Status Change */}
                   <div className="space-y-2">
                     <div className="text-xs text-muted-foreground">تغییر وضعیت:</div>
-                    <Select 
-                      value={order.status} 
-                      onValueChange={(value) => updateOrderStatus(order.id, value)}
-                    >
-                      <SelectTrigger className="w-full h-8 text-xs rounded-lg">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pending">در انتظار</SelectItem>
-                        <SelectItem value="processing">در حال پردازش</SelectItem>
-                        <SelectItem value="completed">تکمیل شده</SelectItem>
-                        <SelectItem value="cancelled">لغو شده</SelectItem>
-                      </SelectContent>
-                    </Select>
+                      <Select 
+                        value={order.status} 
+                        onValueChange={(value) => openStatusDialog(order, value)}
+                      >
+                        <SelectTrigger className="w-full h-8 text-xs rounded-lg">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pending">در انتظار</SelectItem>
+                          <SelectItem value="processing">در حال پردازش</SelectItem>
+                          <SelectItem value="completed">تکمیل شده</SelectItem>
+                          <SelectItem value="cancelled">لغو شده</SelectItem>
+                        </SelectContent>
+                      </Select>
                   </div>
 
                   {/* Expand Button */}
@@ -548,7 +589,7 @@ const AdminOrders = () => {
                       </Badge>
                       <Select 
                         value={order.status} 
-                        onValueChange={(value) => updateOrderStatus(order.id, value)}
+                        onValueChange={(value) => openStatusDialog(order, value)}
                       >
                         <SelectTrigger className="w-40">
                           <SelectValue />
@@ -626,6 +667,54 @@ const AdminOrders = () => {
           <AdminDrugOrders dateFilter={dateFilter} statusFilter={statusFilter} />
         </TabsContent>
       </Tabs>
+
+      {/* Status Change Dialog */}
+      <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>تغییر وضعیت سفارش</DialogTitle>
+            <DialogDescription>
+              آیا از تغییر وضعیت سفارش اطمینان دارید؟
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {selectedOrder && (
+              <div className="p-3 bg-muted/20 rounded-lg">
+                <div className="text-sm font-medium mb-1">داروخانه: {selectedOrder.pharmacies.name}</div>
+                <div className="text-xs text-muted-foreground">
+                  تغییر از "{selectedOrder.status === 'pending' ? 'در انتظار' : 
+                           selectedOrder.status === 'processing' ? 'در حال پردازش' : 
+                           selectedOrder.status === 'completed' ? 'تکمیل شده' : 'لغو شده'}" 
+                  به "{newStatus === 'pending' ? 'در انتظار' : 
+                       newStatus === 'processing' ? 'در حال پردازش' : 
+                       newStatus === 'completed' ? 'تکمیل شده' : 'لغو شده'}"
+                </div>
+              </div>
+            )}
+            
+            <div className="space-y-2">
+              <Label htmlFor="status-comment">توضیحات (اختیاری)</Label>
+              <Textarea
+                id="status-comment"
+                value={statusComment}
+                onChange={(e) => setStatusComment(e.target.value)}
+                placeholder="دلیل تغییر وضعیت یا توضیحات مربوطه..."
+                rows={3}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setStatusDialogOpen(false)}>
+              انصراف
+            </Button>
+            <Button onClick={updateOrderStatus}>
+              تأیید تغییر
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
