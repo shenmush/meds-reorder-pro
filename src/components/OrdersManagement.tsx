@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import EditOrderDialog from './EditOrderDialog';
+import PharmacyOrderTracking from './PharmacyOrderTracking';
 
 interface OrderItem {
   id: string;
@@ -601,7 +602,7 @@ const OrdersManagement: React.FC<OrdersManagementProps> = ({
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="active" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="active" className="flex items-center gap-2">
                 <ShoppingCart className="h-4 w-4" />
                 سفارشات فعال
@@ -609,6 +610,10 @@ const OrdersManagement: React.FC<OrdersManagementProps> = ({
               <TabsTrigger value="history" className="flex items-center gap-2">
                 <History className="h-4 w-4" />
                 تاریخچه سفارشات
+              </TabsTrigger>
+              <TabsTrigger value="tracking" className="flex items-center gap-2">
+                <Eye className="h-4 w-4" />
+                پیگیری سفارشات
               </TabsTrigger>
             </TabsList>
 
@@ -754,6 +759,10 @@ const OrdersManagement: React.FC<OrdersManagementProps> = ({
                   {filteredOrders.map((order) => renderOrderCard(order, filteredOrders, setFilteredOrders, false))}
                 </div>
               )}
+            </TabsContent>
+
+            <TabsContent value="tracking" className="space-y-4">
+              <PharmacyOrderTracking pharmacyId={pharmacyId} />
             </TabsContent>
           </Tabs>
         </CardContent>
