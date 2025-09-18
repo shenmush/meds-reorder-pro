@@ -139,17 +139,19 @@ const PharmacyOrderTracking: React.FC<PharmacyOrderTrackingProps> = ({ pharmacyI
               let isOrderedByBarman = false;
               let barmanOrderQuantity = 0;
 
+              // به جای includes، از PostgreSQL operator استفاده کنیم
               const { data: drugStatus } = await supabase
                 .from('consolidated_drug_status')
                 .select('status, order_item_ids')
                 .eq('drug_id', item.drug_id)
+                .contains('order_item_ids', [item.id])
                 .maybeSingle();
 
-              console.log('Debug tracking - item.id:', item.id);
-              console.log('Debug tracking - item.drug_id:', item.drug_id);  
-              console.log('Debug tracking - drugStatus:', drugStatus);
+              console.log('Debug tracking V2 - item.id:', item.id);
+              console.log('Debug tracking V2 - item.drug_id:', item.drug_id);  
+              console.log('Debug tracking V2 - drugStatus:', drugStatus);
 
-              if (drugStatus?.status === 'ordered' && drugStatus.order_item_ids?.includes(item.id)) {
+              if (drugStatus?.status === 'ordered') {
                 isOrderedByBarman = true;
                 // مقدار سفارش داده شده رو از barman_orders بگیریم
                 const { data: barmanOrder } = await supabase
@@ -161,8 +163,8 @@ const PharmacyOrderTracking: React.FC<PharmacyOrderTrackingProps> = ({ pharmacyI
                 barmanOrderQuantity = barmanOrder?.quantity_ordered || item.quantity;
               }
 
-              console.log('Debug tracking - isOrderedByBarman:', isOrderedByBarman);
-              console.log('Debug tracking - barmanOrderQuantity:', barmanOrderQuantity);
+              console.log('Debug tracking V2 - isOrderedByBarman:', isOrderedByBarman);
+              console.log('Debug tracking V2 - barmanOrderQuantity:', barmanOrderQuantity);
 
               return {
                 ...item,
