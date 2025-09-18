@@ -14,45 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      barman_order_items: {
-        Row: {
-          barman_order_id: string
-          created_at: string
-          id: string
-          order_item_id: string
-          quantity_fulfilled: number
-        }
-        Insert: {
-          barman_order_id: string
-          created_at?: string
-          id?: string
-          order_item_id: string
-          quantity_fulfilled?: number
-        }
-        Update: {
-          barman_order_id?: string
-          created_at?: string
-          id?: string
-          order_item_id?: string
-          quantity_fulfilled?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "fk_barman_order_items_barman_order"
-            columns: ["barman_order_id"]
-            isOneToOne: false
-            referencedRelation: "barman_orders"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_barman_order_items_order_item"
-            columns: ["order_item_id"]
-            isOneToOne: false
-            referencedRelation: "order_items"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       barman_orders: {
         Row: {
           bonus_percentage: number | null

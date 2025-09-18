@@ -419,21 +419,6 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
 
       if (statusError) throw statusError;
 
-      // Create barman_order_items for tracking which order items are fulfilled
-      if (selectedDrug.order_item_ids && selectedDrug.order_item_ids.length > 0) {
-        const barmanOrderItemsData = selectedDrug.order_item_ids.map(orderItemId => ({
-          barman_order_id: orderData.id,
-          order_item_id: orderItemId,
-          quantity_fulfilled: quantityOrdered
-        }));
-
-        const { error: orderItemsError } = await supabase
-          .from('barman_order_items')
-          .insert(barmanOrderItemsData);
-
-        if (orderItemsError) throw orderItemsError;
-      }
-
       if (statusError) throw statusError;
 
       toast.success('سفارش با موفقیت ثبت شد');
