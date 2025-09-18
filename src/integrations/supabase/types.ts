@@ -437,6 +437,7 @@ export type Database = {
         Row: {
           address: string | null
           created_at: string
+          english_name: string | null
           id: string
           license_number: string | null
           max_accountants: number | null
@@ -448,6 +449,7 @@ export type Database = {
         Insert: {
           address?: string | null
           created_at?: string
+          english_name?: string | null
           id?: string
           license_number?: string | null
           max_accountants?: number | null
@@ -459,6 +461,7 @@ export type Database = {
         Update: {
           address?: string | null
           created_at?: string
+          english_name?: string | null
           id?: string
           license_number?: string | null
           max_accountants?: number | null

@@ -14,6 +14,7 @@ import StaffManagement from './StaffManagement';
 interface Pharmacy {
   id: string;
   name: string;
+  english_name?: string;
   address?: string;
   phone?: string;
   license_number?: string;
@@ -34,6 +35,7 @@ const PharmacyDetails: React.FC<PharmacyDetailsProps> = ({
 }) => {
   const [formData, setFormData] = useState({
     name: pharmacy?.name || '',
+    english_name: pharmacy?.english_name || '',
     license_number: pharmacy?.license_number || '',
     phone: pharmacy?.phone || '',
     address: pharmacy?.address || '',
@@ -45,6 +47,7 @@ const PharmacyDetails: React.FC<PharmacyDetailsProps> = ({
     if (pharmacy) {
       setFormData({
         name: pharmacy.name || '',
+        english_name: pharmacy.english_name || '',
         license_number: pharmacy.license_number || '',
         phone: pharmacy.phone || '',
         address: pharmacy.address || '',
@@ -64,6 +67,7 @@ const PharmacyDetails: React.FC<PharmacyDetailsProps> = ({
           .from('pharmacies')
           .update({
             name: formData.name,
+            english_name: formData.english_name || null,
             license_number: formData.license_number || null,
             phone: formData.phone || null,
             address: formData.address || null,
@@ -86,6 +90,7 @@ const PharmacyDetails: React.FC<PharmacyDetailsProps> = ({
           .from('pharmacies')
           .insert({
             name: formData.name,
+            english_name: formData.english_name || null,
             license_number: formData.license_number || null,
             phone: formData.phone || null,
             address: formData.address || null,
@@ -165,6 +170,22 @@ const PharmacyDetails: React.FC<PharmacyDetailsProps> = ({
                   required
                   disabled={!canEdit}
                   className="text-right"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="english_name" className="text-right block">
+                  نام انگلیسی داروخانه
+                </Label>
+                <Input
+                  id="english_name"
+                  name="english_name"
+                  value={formData.english_name}
+                  onChange={handleInputChange}
+                  placeholder="نام انگلیسی داروخانه را وارد کنید"
+                  disabled={!canEdit}
+                  className="text-left"
+                  dir="ltr"
                 />
               </div>
 
