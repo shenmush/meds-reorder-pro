@@ -17,7 +17,6 @@ const AuthPage: React.FC<AuthPageProps> = ({ user, onAuthChange }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [pharmacyName, setPharmacyName] = useState('');
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
@@ -42,16 +41,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ user, onAuthChange }) => {
           });
         }
       } else {
-        // Validate pharmacy name for signup
-        if (!pharmacyName.trim()) {
-          toast({
-            title: "خطا",
-            description: "لطفاً نام داروخانه را وارد کنید",
-            variant: "destructive",
-          });
-          return;
-        }
-
+        // Simple signup - no pharmacy creation yet
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
@@ -63,34 +53,6 @@ const AuthPage: React.FC<AuthPageProps> = ({ user, onAuthChange }) => {
         if (error) throw error;
         
         if (data.user) {
-          // First create the pharmacy
-          const { data: pharmacyData, error: pharmacyError } = await supabase
-            .from('pharmacies')
-            .insert({
-              name: pharmacyName.trim()
-            })
-            .select()
-            .single();
-
-          if (pharmacyError) {
-            console.error('Error creating pharmacy:', pharmacyError);
-            throw new Error('خطا در ایجاد داروخانه');
-          }
-
-          // Then insert user role as pharmacy manager
-          const { error: roleError } = await supabase
-            .from('user_roles')
-            .insert({
-              user_id: data.user.id,
-              role: 'pharmacy_manager' as any,
-              pharmacy_id: pharmacyData.id
-            });
-
-          if (roleError) {
-            console.error('Error inserting user role:', roleError);
-            throw new Error('خطا در تعیین نقش کاربری');
-          }
-
           toast({
             title: "ثبت نام موفق",
             description: "حساب کاربری شما ایجاد شد. لطفاً ایمیل خود را بررسی کنید.",
@@ -123,12 +85,12 @@ const AuthPage: React.FC<AuthPageProps> = ({ user, onAuthChange }) => {
             </div>
           </div>
           <CardTitle className="text-2xl text-right">
-            {isLogin ? 'ورود به سیستم' : 'ثبت نام مدیر داروخانه'}
+            {isLogin ? 'ورود به سیستم' : 'ثبت نام حساب کاربری'}
           </CardTitle>
           <CardDescription className="text-right">
             {isLogin 
               ? 'به سیستم مدیریت سفارشات داروخانه وارد شوید'
-              : 'برای ایجاد حساب مدیریت داروخانه ثبت نام کنید'
+              : 'برای ایجاد حساب کاربری ثبت نام کنید'
             }
           </CardDescription>
         </CardHeader>
@@ -160,21 +122,6 @@ const AuthPage: React.FC<AuthPageProps> = ({ user, onAuthChange }) => {
                 minLength={6}
               />
             </div>
-            
-            {!isLogin && (
-              <div className="space-y-2">
-                <Label htmlFor="pharmacyName" className="text-right block">نام داروخانه</Label>
-                <Input
-                  id="pharmacyName"
-                  type="text"
-                  placeholder="داروخانه مهر"
-                  value={pharmacyName}
-                  onChange={(e) => setPharmacyName(e.target.value)}
-                  required
-                  className="text-right"
-                />
-              </div>
-            )}
 
             <Button
               type="submit"

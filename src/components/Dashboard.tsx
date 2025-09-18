@@ -6,6 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { LogOut, Pill, ShoppingCart, User as UserIcon, BarChart3 } from 'lucide-react';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import DrugList from './DrugList';
+import PharmacySetup from './PharmacySetup';
 import PharmacyProfile from './PharmacyProfile';
 import AdminAddDrug from './AdminAddDrug';
 import AdminPharmacies from './AdminPharmacies';
@@ -38,6 +39,7 @@ interface Pharmacy {
 const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
   const [pharmacy, setPharmacy] = useState<Pharmacy | null>(null);
   const [loading, setLoading] = useState(true);
+  const [needsPharmacySetup, setNeedsPharmacySetup] = useState(false);
   const [activeTab, setActiveTab] = useState<'drugs' | 'profile' | 'orders' | 'pharmacies' | 'reports' | 'upload'>('drugs');
   const [userRole, setUserRole] = useState<string | null>(null);
   const { toast } = useToast();
@@ -69,7 +71,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
 
       if (error) {
         console.error('Error fetching user role:', error);
-        setUserRole('user'); // Default to user role
+        // If no roles found, might need pharmacy setup
+        setNeedsPharmacySetup(true);
+        setUserRole(null);
         return;
       }
 
@@ -84,18 +88,23 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
         for (const role of roleHierarchy) {
           if (userRoles.includes(role)) {
             setUserRole(role);
+            setNeedsPharmacySetup(false);
             return;
           }
         }
         
-        // If no matching role, default to user
-        setUserRole('user');
+        // If no matching role, might need setup
+        setNeedsPharmacySetup(true);
+        setUserRole(null);
       } else {
-        setUserRole('user');
+        // No roles found - need pharmacy setup
+        setNeedsPharmacySetup(true);
+        setUserRole(null);
       }
     } catch (error) {
       console.error('Error:', error);
-      setUserRole('user');
+      setNeedsPharmacySetup(true);
+      setUserRole(null);
     }
   };
 
@@ -144,9 +153,20 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
     }
   };
 
+  const handlePharmacySetupComplete = () => {
+    // Refresh user role and pharmacy data after setup
+    fetchUserRole();
+    fetchPharmacyProfile();
+  };
+
   const handleTabChange = (tab: string) => {
     setActiveTab(tab as any);
   };
+
+  // Show pharmacy setup if user needs it
+  if (needsPharmacySetup) {
+    return <PharmacySetup user={user} onSetupComplete={handlePharmacySetupComplete} />;
+  }
 
   if (loading) {
     return (
