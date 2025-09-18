@@ -261,6 +261,12 @@ const PharmacyAccountantDashboard: React.FC<PharmacyAccountantDashboardProps> = 
 
       if (updateError) throw updateError;
 
+      // Clean up preview URL after successful upload
+      URL.revokeObjectURL(previewUrl);
+      const cleanUploadedImages = new Map(uploadedImages);
+      cleanUploadedImages.delete(orderId);
+      setUploadedImages(cleanUploadedImages);
+
       toast.success('رسید پرداخت با موفقیت آپلود شد');
       fetchOrders();
       fetchPaymentHistory();
@@ -269,8 +275,12 @@ const PharmacyAccountantDashboard: React.FC<PharmacyAccountantDashboardProps> = 
       toast.error('خطا در آپلود رسید پرداخت');
       // Remove preview if upload failed
       const newUploadedImages = new Map(uploadedImages);
-      newUploadedImages.delete(orderId);
-      setUploadedImages(newUploadedImages);
+      const previewUrl = newUploadedImages.get(orderId);
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+        newUploadedImages.delete(orderId);
+        setUploadedImages(newUploadedImages);
+      }
     } finally {
       setUploadingOrderId(null);
     }
@@ -848,14 +858,6 @@ const PharmacyAccountantDashboard: React.FC<PharmacyAccountantDashboardProps> = 
                               src={uploadedImages.get(order.id) || order.payment_proof_url} 
                               alt="رسید پرداخت"
                               className="max-w-full max-h-96 object-contain rounded-md border"
-                              onLoad={() => {
-                                // Clean up blob URL after image loads if it's a preview
-                                if (uploadedImages.get(order.id)) {
-                                  setTimeout(() => {
-                                    URL.revokeObjectURL(uploadedImages.get(order.id)!);
-                                  }, 1000);
-                                }
-                              }}
                             />
                           </div>
                         )}
