@@ -54,11 +54,15 @@ serve(async (req) => {
     const pharmacyId = userRoles[0].pharmacy_id;
 
     // Get request body
-    const { email, password, displayName, role } = await req.json();
+    const { displayName, role, pharmacyEnglishName, rolePrefix, roleNumber } = await req.json();
 
-    if (!email || !password || !displayName || !role) {
+    if (!displayName || !role || !pharmacyEnglishName || !rolePrefix || !roleNumber) {
       throw new Error('Missing required fields');
     }
+
+    // Generate username and password
+    const username = `${pharmacyEnglishName}_${rolePrefix}${roleNumber}`;
+    const password = Math.random().toString(36).slice(-6);
 
     if (!['pharmacy_staff', 'pharmacy_accountant'].includes(role)) {
       throw new Error('Invalid role');
@@ -88,12 +92,13 @@ serve(async (req) => {
 
     // Create the user with metadata indicating it's created by manager
     const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
-      email: email,
+      email: `${username}@temp.local`, // Temporary email format
       password: password,
       user_metadata: {
         display_name: displayName,
         created_by_manager: true,
-        pharmacy_id: pharmacyId
+        pharmacy_id: pharmacyId,
+        username: username
       },
       email_confirm: true // Auto-confirm email
     });
@@ -129,7 +134,8 @@ serve(async (req) => {
         success: true, 
         user: {
           id: newUser.user.id,
-          email: newUser.user.email,
+          username: username,
+          password: password,
           display_name: displayName,
           role: role
         }

@@ -26,22 +26,39 @@ interface StaffManagementProps {
   pharmacyName: string;
 }
 
+interface CreatedStaffResponse {
+  username: string;
+  password: string;
+  display_name: string;
+  role: string;
+}
+
 const StaffManagement: React.FC<StaffManagementProps> = ({ user, pharmacyId, pharmacyName }) => {
   const [staffList, setStaffList] = useState<StaffMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [pharmacyEnglishName, setPharmacyEnglishName] = useState('');
+  const [createdStaff, setCreatedStaff] = useState<CreatedStaffResponse | null>(null);
   
   // Form state
   const [staffName, setStaffName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [role, setRole] = useState<'pharmacy_staff' | 'pharmacy_accountant'>('pharmacy_staff');
   
   const { toast } = useToast();
 
   const fetchStaffList = async () => {
     try {
+      // Get pharmacy english name
+      const { data: pharmacy, error: pharmacyError } = await supabase
+        .from('pharmacies')
+        .select('english_name')
+        .eq('id', pharmacyId)
+        .single();
+
+      if (pharmacyError) throw pharmacyError;
+      setPharmacyEnglishName(pharmacy.english_name || 'pharmacy');
+
       // Get user roles for this pharmacy
       const { data: userRoles, error } = await supabase
         .from('user_roles')
@@ -94,10 +111,10 @@ const StaffManagement: React.FC<StaffManagementProps> = ({ user, pharmacyId, pha
 
     try {
       // Validate fields
-      if (!staffName.trim() || !email.trim() || !password.trim()) {
+      if (!staffName.trim()) {
         toast({
           title: "خطا",
-          description: "لطفاً همه فیلدها را پر کنید",
+          description: "لطفاً نام کارمند را وارد کنید",
           variant: "destructive",
         });
         return;
@@ -142,14 +159,20 @@ const StaffManagement: React.FC<StaffManagementProps> = ({ user, pharmacyId, pha
 
       console.log('Calling Edge Function with token...');
 
+      // Calculate next number for username
+      const currentRoleCount = role === 'pharmacy_staff' ? staffCount : accountantCount;
+      const prefix = role === 'pharmacy_staff' ? 's' : 'a';
+      const nextNumber = currentRoleCount + 1;
+
       // Call Edge Function to create user
       try {
         const { data, error } = await supabase.functions.invoke('create-staff-user', {
           body: {
-            email: email.trim(),
-            password: password,
             displayName: staffName.trim(),
-            role: role
+            role: role,
+            pharmacyEnglishName: pharmacyEnglishName,
+            rolePrefix: prefix,
+            roleNumber: nextNumber
           },
           headers: {
             Authorization: `Bearer ${session.access_token}`,
@@ -170,6 +193,9 @@ const StaffManagement: React.FC<StaffManagementProps> = ({ user, pharmacyId, pha
 
         console.log('Staff created successfully:', data);
 
+        // Set created staff info to show to manager
+        setCreatedStaff(data.user);
+
         toast({
           title: "موفق",
           description: `${role === 'pharmacy_staff' ? 'کارمند' : 'حسابدار'} جدید با موفقیت ایجاد شد`,
@@ -177,8 +203,6 @@ const StaffManagement: React.FC<StaffManagementProps> = ({ user, pharmacyId, pha
 
         // Reset form
         setStaffName('');
-        setEmail('');
-        setPassword('');
         setRole('pharmacy_staff');
         setShowForm(false);
         
@@ -277,6 +301,9 @@ const StaffManagement: React.FC<StaffManagementProps> = ({ user, pharmacyId, pha
             <Card className="mb-6">
               <CardHeader>
                 <CardTitle className="text-lg">ایجاد کارمند جدید</CardTitle>
+                <CardDescription>
+                  نام کاربری و رمز عبور به صورت خودکار ساخته می‌شود
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleCreateStaff} className="space-y-4">
@@ -308,31 +335,6 @@ const StaffManagement: React.FC<StaffManagementProps> = ({ user, pharmacyId, pha
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="email">ایمیل</Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="مثال: ali@example.com"
-                        required
-                        dir="ltr"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="password">رمز عبور اولیه</Label>
-                      <Input
-                        id="password"
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="رمز عبور (حداقل 6 کاراکتر)"
-                        required
-                        minLength={6}
-                        dir="ltr"
-                      />
-                    </div>
                   </div>
                   <div className="flex gap-2">
                     <Button type="submit" disabled={creating}>
@@ -357,6 +359,43 @@ const StaffManagement: React.FC<StaffManagementProps> = ({ user, pharmacyId, pha
                     </Button>
                   </div>
                 </form>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Show created staff credentials */}
+          {createdStaff && (
+            <Card className="mb-6 border-green-200 bg-green-50">
+              <CardHeader>
+                <CardTitle className="text-lg text-green-800">اطلاعات ورود کارمند جدید</CardTitle>
+                <CardDescription className="text-green-700">
+                  لطفاً این اطلاعات را به کارمند ارائه دهید
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-green-800">نام کاربری:</Label>
+                    <div className="p-2 bg-white rounded border font-mono text-left" dir="ltr">
+                      {createdStaff.username}
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-green-800">رمز عبور:</Label>
+                    <div className="p-2 bg-white rounded border font-mono text-left" dir="ltr">
+                      {createdStaff.password}
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-4">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => setCreatedStaff(null)}
+                  >
+                    بستن
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           )}
