@@ -291,11 +291,12 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
 
       if (orderItemsError) throw orderItemsError;
 
-      // Fetch pricing data
+      // Fetch pricing data (latest records first)
       const { data: pricingData, error: pricingError } = await supabase
         .from('order_item_pricing')
         .select('*')
-        .in('order_id', orderIds);
+        .in('order_id', orderIds)
+        .order('created_at', { ascending: false });
 
       if (pricingError) throw pricingError;
 
@@ -366,7 +367,9 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
             drugGroups[drugName] = { name: drugName, count: 0, totalQuantity: 0, totalAmount: 0 };
           }
           
-          const pricing = pricingData?.find(p => p.order_id === order.id && p.drug_id === item.drug_id);
+          // Get the latest pricing for this drug in this order
+          const drugPricingRecords = pricingData?.filter(p => p.order_id === order.id && p.drug_id === item.drug_id) || [];
+          const pricing = drugPricingRecords.length > 0 ? drugPricingRecords[0] : null;
           if (pricing) {
             drugGroups[drugName].count++;
             drugGroups[drugName].totalQuantity += item.quantity;
@@ -445,11 +448,12 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
       const medical = medicalResult.data || [];
       const natural = naturalResult.data || [];
 
-      // Get pricing information
+      // Get pricing information (latest records only)
       const { data: pricing, error: pricingError } = await supabase
         .from('order_item_pricing')
         .select('*')
-        .eq('order_id', orderId);
+        .eq('order_id', orderId)
+        .order('created_at', { ascending: false });
 
       if (pricingError) {
         console.error('Error fetching pricing:', pricingError);
@@ -508,7 +512,9 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
           }
         }
 
-        const priceInfo = pricing?.find(p => p.drug_id === item.drug_id);
+        // Get the latest pricing info for this drug (in case there are multiple records)
+        const drugPricing = pricing?.filter(p => p.drug_id === item.drug_id) || [];
+        const latestPricing = drugPricing.length > 0 ? drugPricing[0] : null;
         return {
           id: item.id,
           drug_id: item.drug_id,
@@ -521,9 +527,9 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
           gtin: drugInfo.gtin,
           erx_code: drugInfo.erx_code,
           quantity: item.quantity,
-          unit_price: priceInfo?.unit_price || 0,
-          total_price: priceInfo?.total_price || 0,
-          offer_percentage: priceInfo?.offer_percentage || 0
+          unit_price: latestPricing?.unit_price || 0,
+          total_price: latestPricing?.total_price || 0,
+          offer_percentage: latestPricing?.offer_percentage || 0
         };
       });
 
