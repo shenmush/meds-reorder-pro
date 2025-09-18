@@ -36,7 +36,22 @@ export type Database = {
           order_item_id?: string
           quantity_fulfilled?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fk_barman_order_items_barman_order"
+            columns: ["barman_order_id"]
+            isOneToOne: false
+            referencedRelation: "barman_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_barman_order_items_order_item"
+            columns: ["order_item_id"]
+            isOneToOne: false
+            referencedRelation: "order_items"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       barman_orders: {
         Row: {

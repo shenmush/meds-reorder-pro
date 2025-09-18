@@ -139,7 +139,7 @@ const PharmacyOrderTracking: React.FC<PharmacyOrderTrackingProps> = ({ pharmacyI
                 .from('barman_order_items')
                 .select(`
                   quantity_fulfilled,
-                  barman_orders!inner(quantity_ordered, total_received_quantity)
+                  barman_orders(quantity_ordered, total_received_quantity)
                 `)
                 .eq('order_item_id', item.id)
                 .maybeSingle();
@@ -153,7 +153,7 @@ const PharmacyOrderTracking: React.FC<PharmacyOrderTrackingProps> = ({ pharmacyI
                 gtin: drugInfo.gtin,
                 erx_code: drugInfo.erx_code,
                 is_ordered: !!barmanOrderItem,
-                barman_order_quantity: barmanOrderItem?.barman_orders?.quantity_ordered || 0
+                barman_order_quantity: (barmanOrderItem?.barman_orders as any)?.quantity_ordered || 0
               };
             })
           );
