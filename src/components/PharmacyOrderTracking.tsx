@@ -157,11 +157,13 @@ const PharmacyOrderTracking: React.FC<PharmacyOrderTrackingProps> = ({ pharmacyI
                   .eq('drug_id', item.drug_id)
                   .maybeSingle();
                 
+                console.log('Barman order for drug:', item.drug_id, barmanOrder);
                 barmanOrderQuantity = barmanOrder?.quantity_ordered || item.quantity;
                 expiryDate = barmanOrder?.expiry_date || null;
+                console.log('Expiry date:', expiryDate);
               }
 
-              return {
+              const finalItem = {
                 ...item,
                 drug_name: drugInfo.name,
                 drug_type: drugInfo.type,
@@ -173,6 +175,9 @@ const PharmacyOrderTracking: React.FC<PharmacyOrderTrackingProps> = ({ pharmacyI
                 barman_order_quantity: barmanOrderQuantity,
                 expiry_date: expiryDate
               };
+              
+              console.log('Final item with expiry date:', finalItem);
+              return finalItem;
             })
           );
 
@@ -278,7 +283,9 @@ const PharmacyOrderTracking: React.FC<PharmacyOrderTrackingProps> = ({ pharmacyI
               <CardContent className="pt-0">
                 <div className="space-y-3">
                   <h4 className="font-medium text-sm">جزئیات آیتم‌ها:</h4>
-                  {order.items.map((item) => (
+                  {order.items.map((item) => {
+                    console.log('Rendering item:', item);
+                    return (
                     <div
                       key={item.id}
                       className={`p-3 rounded-lg border ${
@@ -304,10 +311,10 @@ const PharmacyOrderTracking: React.FC<PharmacyOrderTrackingProps> = ({ pharmacyI
                              <p className="text-xs text-muted-foreground">IRC: {item.irc}</p>
                            )}
                            {item.is_ordered && item.expiry_date && (
-                             <p className="text-xs text-green-700 font-medium mt-1">
-                               تاریخ انقضا: {new Date(item.expiry_date).toLocaleDateString('fa-IR')}
-                             </p>
-                           )}
+                              <p className="text-xs text-green-700 font-medium mt-1">
+                                تاریخ انقضا: {new Date(item.expiry_date).toLocaleDateString('fa-IR')}
+                              </p>
+                            )}
                         </div>
                         <div className="text-left">
                           <div className="text-sm font-medium">
@@ -318,8 +325,9 @@ const PharmacyOrderTracking: React.FC<PharmacyOrderTrackingProps> = ({ pharmacyI
                           </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                     </div>
+                    );
+                  })}
                 </div>
               </CardContent>
             )}
