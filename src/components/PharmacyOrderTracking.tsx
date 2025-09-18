@@ -135,21 +135,16 @@ const PharmacyOrderTracking: React.FC<PharmacyOrderTrackingProps> = ({ pharmacyI
               }
 
               // بررسی کنیم که آیا این order_item از طریق barman_orders سفارش داده شده
-              // با چک کردن consolidated_drug_status که order_item_ids داره
               let isOrderedByBarman = false;
               let barmanOrderQuantity = 0;
 
-              // به جای includes، از PostgreSQL operator استفاده کنیم
+              // چک کردن consolidated_drug_status که order_item_ids داره
               const { data: drugStatus } = await supabase
                 .from('consolidated_drug_status')
                 .select('status, order_item_ids')
                 .eq('drug_id', item.drug_id)
                 .contains('order_item_ids', [item.id])
                 .maybeSingle();
-
-              console.log('Debug tracking V2 - item.id:', item.id);
-              console.log('Debug tracking V2 - item.drug_id:', item.drug_id);  
-              console.log('Debug tracking V2 - drugStatus:', drugStatus);
 
               if (drugStatus?.status === 'ordered') {
                 isOrderedByBarman = true;
@@ -162,9 +157,6 @@ const PharmacyOrderTracking: React.FC<PharmacyOrderTrackingProps> = ({ pharmacyI
                 
                 barmanOrderQuantity = barmanOrder?.quantity_ordered || item.quantity;
               }
-
-              console.log('Debug tracking V2 - isOrderedByBarman:', isOrderedByBarman);
-              console.log('Debug tracking V2 - barmanOrderQuantity:', barmanOrderQuantity);
 
               return {
                 ...item,
