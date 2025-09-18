@@ -86,12 +86,14 @@ serve(async (req) => {
       throw new Error('حداکثر 3 حسابدار قابل ایجاد است');
     }
 
-    // Create the user
+    // Create the user with metadata indicating it's created by manager
     const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email: email,
       password: password,
       user_metadata: {
-        display_name: displayName
+        display_name: displayName,
+        created_by_manager: true,
+        pharmacy_id: pharmacyId
       },
       email_confirm: true // Auto-confirm email
     });
@@ -107,7 +109,7 @@ serve(async (req) => {
       throw new Error('کاربر ایجاد نشد');
     }
 
-    // Create user role
+    // Create user role immediately to prevent race condition
     const { error: roleInsertError } = await supabaseAdmin
       .from('user_roles')
       .insert({
