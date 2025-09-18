@@ -109,7 +109,7 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
   const [pendingInvoiceOrderId, setPendingInvoiceOrderId] = useState<string | null>(null);
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState('drugs');
-  const [activeReportsSubTab, setActiveReportsSubTab] = useState('history');
+  const [activeReportsSubTab, setActiveReportsSubTab] = useState('consolidated');
   
   // Order form states
   const [quantityOrdered, setQuantityOrdered] = useState<number>(0);
@@ -1369,7 +1369,7 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
           
           {activeTab === 'reports' && (
             <Tabs value={activeReportsSubTab} onValueChange={setActiveReportsSubTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="invoice-pending" className="gap-2 text-xs">
                   <FileText className="h-4 w-4" />
                   صدور فاکتور
@@ -1377,6 +1377,10 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
                 <TabsTrigger value="consolidated" className="gap-2 text-xs">
                   <BarChart3 className="h-4 w-4" />
                   سفارشات تجمیعی
+                </TabsTrigger>
+                <TabsTrigger value="barman-reports" className="gap-2 text-xs">
+                  <BarChart3 className="h-4 w-4" />
+                  گزارشات بارمان
                 </TabsTrigger>
               </TabsList>
 
@@ -1387,30 +1391,15 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
               <TabsContent value="consolidated" className="mt-6">
                 <ConsolidatedDrugsTab />
               </TabsContent>
-            </Tabs>
-          )}
-
-          {activeTab === 'reports' && (
-            <Tabs value={activeReportsSubTab} onValueChange={setActiveReportsSubTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="history" className="gap-2">
-                  <History className="h-4 w-4" />
-                  تاریخچه
-                </TabsTrigger>
-                <TabsTrigger value="barman-reports" className="gap-2">
-                  <BarChart3 className="h-4 w-4" />
-                  گزارشات بارمان
-                </TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="history" className="mt-6">
-                <HistoryTab />
-              </TabsContent>
 
               <TabsContent value="barman-reports" className="mt-6">
                 <ReportsTab />
               </TabsContent>
             </Tabs>
+          )}
+
+          {activeTab === 'history' && (
+            <HistoryTab />
           )}
         </div>
       </div>
