@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, ShoppingCart, History, Eye, CheckCircle, XCircle, Edit, Calendar as CalendarIcon, Search, Filter } from "lucide-react";
+import { Loader2, ShoppingCart, History, Eye, CheckCircle, XCircle, Edit, Calendar as CalendarIcon, Search, Filter, UserIcon } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -40,6 +40,8 @@ interface Order {
   pharmacy?: {
     name: string;
   };
+  created_by?: string;
+  creatorName?: string;
 }
 
 interface OrdersManagementProps {
@@ -118,8 +120,28 @@ const OrdersManagement: React.FC<OrdersManagementProps> = ({
 
       if (allError) throw allError;
 
-      setActiveOrders(activeData || []);
-      setAllOrders(allData || []);
+      // Add creator names to both datasets
+      const addCreatorNames = async (orders: any[]) => {
+        return await Promise.all(orders.map(async (order) => {
+          let creatorName = 'نامشخص';
+          if (order.created_by) {
+            const { data: profileData } = await supabase
+              .from('profiles')
+              .select('display_name')
+              .eq('user_id', order.created_by)
+              .maybeSingle();
+              
+            creatorName = profileData?.display_name || 'نامشخص';
+          }
+          return { ...order, creatorName };
+        }));
+      };
+
+      const activeOrdersWithNames = await addCreatorNames(activeData || []);
+      const allOrdersWithNames = await addCreatorNames(allData || []);
+
+      setActiveOrders(activeOrdersWithNames);
+      setAllOrders(allOrdersWithNames);
     } catch (error) {
       console.error('Error fetching orders:', error);
       toast.error('خطا در بارگذاری سفارشات');

@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ChevronDown, ChevronUp, Calendar, Package, ShoppingCart, Clock, FileText, Building2, Hash } from 'lucide-react';
+import { ChevronDown, ChevronUp, Calendar, Package, ShoppingCart, Clock, FileText, Building2, Hash, UserIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
 
@@ -34,6 +34,8 @@ interface Order {
   notes?: string;
   items?: OrderItem[];
   itemCount?: number;
+  created_by?: string;
+  creatorName?: string;
 }
 
 interface OrderHistoryProps {
@@ -58,7 +60,15 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ pharmacyId }) => {
     try {
       const { data, error } = await supabase
         .from('orders')
-        .select('*')
+        .select(`
+          *,
+          creator:created_by (
+            id
+          ),
+          creator_profile:created_by (
+            display_name
+          )
+        `)
         .eq('pharmacy_id', pharmacyId)
         .order('created_at', { ascending: false });
 
@@ -76,7 +86,23 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ pharmacyId }) => {
           return { ...order, itemCount: 0 };
         }
         
-        return { ...order, itemCount: itemsData?.length || 0 };
+        // Get creator's display name
+        let creatorName = 'نامشخص';
+        if (order.created_by) {
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('display_name')
+            .eq('user_id', order.created_by)
+            .maybeSingle();
+            
+          creatorName = profileData?.display_name || 'نامشخص';
+        }
+        
+        return { 
+          ...order, 
+          itemCount: itemsData?.length || 0,
+          creatorName 
+        };
       }));
       
       setOrders(ordersWithCounts);
@@ -340,7 +366,15 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ pharmacyId }) => {
                           {formatDate(order.created_at)}
                         </span>
                       </div>
-                      {getStatusBadge(order.status)}
+                      <div className="flex items-center gap-2">
+                        {order.creatorName && (
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground bg-muted/20 px-2 py-1 rounded">
+                            <UserIcon className="h-3 w-3" />
+                            <span>توسط: {order.creatorName}</span>
+                          </div>
+                        )}
+                        {getStatusBadge(order.status)}
+                      </div>
                     </div>
 
                     {/* Order Stats */}

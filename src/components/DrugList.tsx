@@ -346,6 +346,7 @@ const DrugList: React.FC = () => {
       }
 
       // Create order
+      const currentUser = (await supabase.auth.getUser()).data.user;
       const { data: order, error: orderError } = await supabase
         .from('orders')
         .insert({
@@ -353,7 +354,8 @@ const DrugList: React.FC = () => {
           total_items: getTotalItems(),
           notes: orderNotes || null,
           status: 'pending',
-          workflow_status: 'pending'
+          workflow_status: 'pending',
+          created_by: currentUser?.id
         })
         .select()
         .single();
