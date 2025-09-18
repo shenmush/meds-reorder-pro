@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@supabase/supabase-js';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Pill, ShoppingCart } from 'lucide-react';
 
@@ -18,40 +17,9 @@ const AuthPage: React.FC<AuthPageProps> = ({ user, onAuthChange }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [pharmacyName, setPharmacyName] = useState('');
   const [loading, setLoading] = useState(false);
-  const [role, setRole] = useState<string>('pharmacy_manager');
-  const [selectedPharmacy, setSelectedPharmacy] = useState<string>('');
-  const [pharmacies, setPharmacies] = useState<any[]>([]);
-  const [loadingPharmacies, setLoadingPharmacies] = useState(false);
   const { toast } = useToast();
-
-  // Fetch pharmacies when role changes to pharmacy-related role
-  useEffect(() => {
-    if (!isLogin && (role === 'pharmacy_staff' || role === 'pharmacy_accountant')) {
-      fetchPharmacies();
-    }
-  }, [isLogin, role]);
-
-  const fetchPharmacies = async () => {
-    setLoadingPharmacies(true);
-    try {
-      const { data, error } = await supabase
-        .from('pharmacies')
-        .select('id, name')
-        .order('name');
-      
-      if (error) throw error;
-      setPharmacies(data || []);
-    } catch (error: any) {
-      toast({
-        title: "خطا",
-        description: "خطا در بارگیری لیست داروخانه‌ها",
-        variant: "destructive",
-      });
-    } finally {
-      setLoadingPharmacies(false);
-    }
-  };
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,11 +42,11 @@ const AuthPage: React.FC<AuthPageProps> = ({ user, onAuthChange }) => {
           });
         }
       } else {
-        // Validate pharmacy selection for staff roles
-        if ((role === 'pharmacy_staff' || role === 'pharmacy_accountant') && !selectedPharmacy) {
+        // Validate pharmacy name for signup
+        if (!pharmacyName.trim()) {
           toast({
             title: "خطا",
-            description: "لطفاً داروخانه مورد نظر را انتخاب کنید",
+            description: "لطفاً نام داروخانه را وارد کنید",
             variant: "destructive",
           });
           return;
@@ -95,17 +63,32 @@ const AuthPage: React.FC<AuthPageProps> = ({ user, onAuthChange }) => {
         if (error) throw error;
         
         if (data.user) {
-          // Insert user role
+          // First create the pharmacy
+          const { data: pharmacyData, error: pharmacyError } = await supabase
+            .from('pharmacies')
+            .insert({
+              name: pharmacyName.trim()
+            })
+            .select()
+            .single();
+
+          if (pharmacyError) {
+            console.error('Error creating pharmacy:', pharmacyError);
+            throw new Error('خطا در ایجاد داروخانه');
+          }
+
+          // Then insert user role as pharmacy manager
           const { error: roleError } = await supabase
             .from('user_roles')
             .insert({
               user_id: data.user.id,
-              role: role as any,
-              pharmacy_id: (role === 'pharmacy_staff' || role === 'pharmacy_accountant') ? selectedPharmacy : null
+              role: 'pharmacy_manager' as any,
+              pharmacy_id: pharmacyData.id
             });
 
           if (roleError) {
             console.error('Error inserting user role:', roleError);
+            throw new Error('خطا در تعیین نقش کاربری');
           }
 
           toast({
@@ -140,12 +123,12 @@ const AuthPage: React.FC<AuthPageProps> = ({ user, onAuthChange }) => {
             </div>
           </div>
           <CardTitle className="text-2xl text-right">
-            {isLogin ? 'ورود به سیستم' : 'ثبت نام'}
+            {isLogin ? 'ورود به سیستم' : 'ثبت نام مدیر داروخانه'}
           </CardTitle>
           <CardDescription className="text-right">
             {isLogin 
               ? 'به سیستم مدیریت سفارشات داروخانه وارد شوید'
-              : 'حساب کاربری جدید ایجاد کنید'
+              : 'برای ایجاد حساب مدیریت داروخانه ثبت نام کنید'
             }
           </CardDescription>
         </CardHeader>
@@ -179,50 +162,20 @@ const AuthPage: React.FC<AuthPageProps> = ({ user, onAuthChange }) => {
             </div>
             
             {!isLogin && (
-              <>
-                <div className="space-y-2">
-                  <Label className="text-right block">نقش کاربری</Label>
-                  <Select value={role} onValueChange={setRole}>
-                    <SelectTrigger className="w-full text-right">
-                      <SelectValue placeholder="نقش مورد نظر را انتخاب کنید" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pharmacy_manager">مدیر داروخانه</SelectItem>
-                      <SelectItem value="pharmacy_staff">کارمند داروخانه</SelectItem>
-                      <SelectItem value="pharmacy_accountant">حسابدار داروخانه</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {(role === 'pharmacy_staff' || role === 'pharmacy_accountant') && (
-                  <div className="space-y-2">
-                    <Label className="text-right block">انتخاب داروخانه</Label>
-                    <Select value={selectedPharmacy} onValueChange={setSelectedPharmacy}>
-                      <SelectTrigger className="w-full text-right">
-                        <SelectValue placeholder="داروخانه مورد نظر را انتخاب کنید" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {loadingPharmacies ? (
-                          <SelectItem value="loading" disabled>
-                            در حال بارگیری...
-                          </SelectItem>
-                        ) : pharmacies.length > 0 ? (
-                          pharmacies.map((pharmacy) => (
-                            <SelectItem key={pharmacy.id} value={pharmacy.id}>
-                              {pharmacy.name}
-                            </SelectItem>
-                          ))
-                        ) : (
-                          <SelectItem value="no-pharmacies" disabled>
-                            داروخانه‌ای یافت نشد
-                          </SelectItem>
-                        )}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-              </>
+              <div className="space-y-2">
+                <Label htmlFor="pharmacyName" className="text-right block">نام داروخانه</Label>
+                <Input
+                  id="pharmacyName"
+                  type="text"
+                  placeholder="داروخانه مهر"
+                  value={pharmacyName}
+                  onChange={(e) => setPharmacyName(e.target.value)}
+                  required
+                  className="text-right"
+                />
+              </div>
             )}
+
             <Button
               type="submit"
               className="w-full text-lg"
