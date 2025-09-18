@@ -12,6 +12,7 @@ import { ThemeToggle } from '@/components/ui/theme-toggle';
 import PharmacyDetails from './PharmacyDetails';
 import OrdersManagement from './OrdersManagement';
 import DrugList from './DrugList';
+import PharmacyOrderTracking from './PharmacyOrderTracking';
 import MobileBottomNav from './MobileBottomNav';
 import MobileHeader from './MobileHeader';
 
@@ -62,7 +63,7 @@ const PharmacyManagerDashboard: React.FC<PharmacyManagerDashboardProps> = ({ use
   const [actionNotes, setActionNotes] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<'approve' | 'reject' | 'revision' | null>(null);
-  const [activeTab, setActiveTab] = useState<'orders' | 'pharmacy' | 'drugs'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'pharmacy' | 'drugs' | 'tracking'>('orders');
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -712,16 +713,16 @@ const PharmacyManagerDashboard: React.FC<PharmacyManagerDashboardProps> = ({ use
                     <span className="font-medium">داروخانه</span>
                   </Button>
                   <Button
-                    variant={activeTab === 'drugs' ? 'default' : 'ghost'}
-                    onClick={() => setActiveTab('drugs')}
+                    variant={activeTab === 'tracking' ? 'default' : 'ghost'}
+                    onClick={() => setActiveTab('tracking')}
                     className={`gap-3 px-6 py-3 rounded-xl transition-all duration-300 ${
-                      activeTab === 'drugs' 
+                      activeTab === 'tracking' 
                         ? 'btn-primary shadow-medium' 
                         : 'hover:bg-muted/60'
                     }`}
                   >
-                    <Pill className="h-5 w-5" />
-                    <span className="font-medium">فهرست داروها</span>
+                    <Eye className="h-5 w-5" />
+                    <span className="font-medium">پیگیری سفارشات</span>
                   </Button>
                 </div>
               </div>
@@ -745,6 +746,9 @@ const PharmacyManagerDashboard: React.FC<PharmacyManagerDashboardProps> = ({ use
                 />
               )}
               {activeTab === 'drugs' && <DrugList />}
+              {activeTab === 'tracking' && pharmacy && (
+                <PharmacyOrderTracking pharmacyId={pharmacy.id} />
+              )}
             </div>
           </>
         )}

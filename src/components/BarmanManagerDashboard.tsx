@@ -98,8 +98,7 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
   const [pendingAction, setPendingAction] = useState<'approve' | 'reject' | 'revision_bs' | 'revision_pm' | null>(null);
   const [pricingDialogOpen, setPricingDialogOpen] = useState(false);
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
-  const [activeTab, setActiveTab] = useState('orders');
-  const [activeOrdersSubTab, setActiveOrdersSubTab] = useState('final-approval');
+  const [activeTab, setActiveTab] = useState('drugs');
   const [activeReportsSubTab, setActiveReportsSubTab] = useState('history');
   
   // Order form states
@@ -1410,8 +1409,12 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
 
         {/* Mobile - Separated Tabs */}
         <div className="mobile-only">
-          {activeTab === 'orders' && (
-            <Tabs value={activeOrdersSubTab} onValueChange={setActiveOrdersSubTab} className="w-full">
+          {activeTab === 'drugs' && (
+            <ConsolidatedDrugsTab />
+          )}
+          
+          {activeTab === 'reports' && (
+            <Tabs value={activeReportsSubTab} onValueChange={setActiveReportsSubTab} className="w-full">
               <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="final-approval" className="gap-2 text-xs">
                   <CheckCircle className="h-4 w-4" />
