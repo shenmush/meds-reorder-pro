@@ -228,40 +228,59 @@ const EditOrderDialog: React.FC<EditOrderDialogProps> = ({
 
     try {
       setSaving(true);
+      console.log('Starting save order process...');
+      console.log('Current items to save:', currentItems);
 
-      // Delete existing order items
+      // First, delete ALL existing order items for this order
+      console.log('Deleting existing order items for order:', orderId);
       const { error: deleteError } = await supabase
         .from('order_items')
         .delete()
         .eq('order_id', orderId);
 
-      if (deleteError) throw deleteError;
+      if (deleteError) {
+        console.error('Delete error:', deleteError);
+        throw deleteError;
+      }
+      console.log('Successfully deleted existing order items');
 
-      // Insert new order items (only non-temp ones need to be created)
+      // Then insert new order items
       const itemsToInsert = currentItems.map(item => ({
         order_id: orderId,
         drug_id: item.drug_id,
         quantity: item.quantity
       }));
 
+      console.log('Inserting new items:', itemsToInsert);
       const { error: insertError } = await supabase
         .from('order_items')
         .insert(itemsToInsert);
 
-      if (insertError) throw insertError;
+      if (insertError) {
+        console.error('Insert error:', insertError);
+        throw insertError;
+      }
+      console.log('Successfully inserted new order items');
 
       // Update order notes and total items
+      const totalItems = currentItems.reduce((sum, item) => sum + item.quantity, 0);
+      console.log('Updating order with total items:', totalItems);
+      
       const { error: updateError } = await supabase
         .from('orders')
         .update({
           notes: notes || null,
-          total_items: currentItems.reduce((sum, item) => sum + item.quantity, 0),
+          total_items: totalItems,
           workflow_status: 'pending', // Reset to pending after edit
           updated_at: new Date().toISOString()
         })
         .eq('id', orderId);
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error('Update error:', updateError);
+        throw updateError;
+      }
+      console.log('Successfully updated order');
 
       toast.success('سفارش با موفقیت به‌روزرسانی شد');
       onOrderUpdated();
