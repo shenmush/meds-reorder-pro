@@ -64,6 +64,7 @@ interface OrderItem {
   quantity: number;
   unit_price?: number;
   total_price?: number;
+  offer_percentage?: number;
 }
 
 // Order interface
@@ -521,7 +522,8 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
           erx_code: drugInfo.erx_code,
           quantity: item.quantity,
           unit_price: priceInfo?.unit_price || 0,
-          total_price: priceInfo?.total_price || 0
+          total_price: priceInfo?.total_price || 0,
+          offer_percentage: priceInfo?.offer_percentage || 0
         };
       });
 
@@ -1330,11 +1332,11 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
                                               <span className="font-medium text-muted-foreground">قیمت کل:</span>
                                               <p className="font-bold text-green-600">{formatCurrency(item.total_price)} تومان</p>
                                             </div>
-                                            {item.unit_price && item.total_price && item.quantity > 0 && (
+                                            {item.offer_percentage && item.offer_percentage > 0 && (
                                               <div className="space-y-1">
-                                                <span className="font-medium text-muted-foreground">تخفیف:</span>
+                                                <span className="font-medium text-muted-foreground">آفر:</span>
                                                 <p className="font-medium text-orange-600">
-                                                  {((item.unit_price * item.quantity - item.total_price) / (item.unit_price * item.quantity) * 100).toFixed(1)}%
+                                                  {item.offer_percentage}%
                                                 </p>
                                               </div>
                                             )}
@@ -1533,11 +1535,11 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
                                                   <span className="font-medium text-muted-foreground">قیمت کل:</span>
                                                   <p className="font-bold text-green-600">{formatCurrency(item.total_price)} تومان</p>
                                                 </div>
-                                                {item.unit_price && item.total_price && item.quantity > 0 && (
+                                                {item.offer_percentage && item.offer_percentage > 0 && (
                                                   <div className="space-y-1">
-                                                    <span className="font-medium text-muted-foreground">تخفیف:</span>
+                                                    <span className="font-medium text-muted-foreground">آفر:</span>
                                                     <p className="font-medium text-orange-600">
-                                                      {((item.unit_price * item.quantity - item.total_price) / (item.unit_price * item.quantity) * 100).toFixed(1)}%
+                                                      {item.offer_percentage}%
                                                     </p>
                                                   </div>
                                                 )}
