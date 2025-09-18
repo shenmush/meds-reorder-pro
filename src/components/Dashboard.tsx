@@ -63,10 +63,10 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
 
   const fetchUserRole = async () => {
     try {
-      // Fetch all roles for the user to handle multiple roles
+      // Fetch all roles for the user to handle multiple roles, including pharmacy_id
       const { data: roles, error } = await supabase
         .from('user_roles')
-        .select('role')
+        .select('role, pharmacy_id')
         .eq('user_id', user.id);
 
       if (error) {
@@ -88,6 +88,16 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
         for (const role of roleHierarchy) {
           if (userRoles.includes(role)) {
             setUserRole(role);
+            
+            // Special case: if user is pharmacy_manager but doesn't have a pharmacy_id, need setup
+            if (role === 'pharmacy_manager') {
+              const pharmacyManagerRole = roles.find(r => r.role === 'pharmacy_manager');
+              if (!pharmacyManagerRole?.pharmacy_id) {
+                setNeedsPharmacySetup(true);
+                return;
+              }
+            }
+            
             setNeedsPharmacySetup(false);
             return;
           }
