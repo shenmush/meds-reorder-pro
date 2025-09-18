@@ -21,6 +21,7 @@ interface OrderItem {
   drug_type?: string;
   unit_price?: number;
   total_price?: number;
+  offer_percentage?: number;
   company_name?: string;
   package_count?: number;
   irc?: string;
@@ -35,6 +36,7 @@ interface Order {
   workflow_status: string;
   total_items: number;
   notes?: string;
+  payment_method?: string | null;
   payment_proof_url?: string;
   payment_date?: string;
   payment_rejection_reason?: string;
@@ -106,6 +108,7 @@ const PharmacyAccountantDashboard: React.FC<PharmacyAccountantDashboardProps> = 
         .from('orders')
         .select(`
           *,
+          payment_method,
           pharmacies!inner(
             id,
             name
@@ -143,6 +146,7 @@ const PharmacyAccountantDashboard: React.FC<PharmacyAccountantDashboardProps> = 
         .from('orders')
         .select(`
           *,
+          payment_method,
           pharmacies!inner(
             id,
             name
@@ -489,7 +493,7 @@ const PharmacyAccountantDashboard: React.FC<PharmacyAccountantDashboardProps> = 
           .in('id', drugIds),
         supabase
           .from('order_item_pricing')
-          .select('drug_id, unit_price, total_price')
+          .select('drug_id, unit_price, total_price, offer_percentage, notes')
           .eq('order_id', orderId)
       ]);
 
@@ -552,7 +556,8 @@ const PharmacyAccountantDashboard: React.FC<PharmacyAccountantDashboardProps> = 
           ...item,
           ...drugInfo,
           unit_price: pricing?.unit_price || 0,
-          total_price: pricing?.total_price || 0
+          total_price: pricing?.total_price || 0,
+          offer_percentage: pricing?.offer_percentage || 0
         };
       });
 
@@ -700,6 +705,11 @@ const PharmacyAccountantDashboard: React.FC<PharmacyAccountantDashboardProps> = 
                             مبلغ فاکتور: {formatCurrency(order.invoice_amount)}
                           </p>
                         )}
+                        {order.payment_method && (
+                          <p className="text-sm text-muted-foreground">
+                            <strong>روش پرداخت:</strong> {order.payment_method}
+                          </p>
+                        )}
                       </div>
                       <div className="flex flex-col gap-2 items-end">
                         {getStatusBadge(order.workflow_status)}
@@ -786,6 +796,16 @@ const PharmacyAccountantDashboard: React.FC<PharmacyAccountantDashboardProps> = 
                                     <div>
                                       <span className="font-medium">قیمت کل:</span> {(item.total_price || 0).toLocaleString('fa-IR')} تومان
                                     </div>
+                                    {item.offer_percentage && item.offer_percentage > 0 && (
+                                      <>
+                                        <div>
+                                          <span className="font-medium">آفر:</span> {item.offer_percentage}%
+                                        </div>
+                                        <div className="text-orange-600">
+                                          <span className="font-medium">مقدار آفر:</span> {Math.round(((item.total_price || 0) * item.offer_percentage) / 100).toLocaleString('fa-IR')} تومان
+                                        </div>
+                                      </>
+                                    )}
                                   </>
                                 )}
                               </div>
@@ -1029,6 +1049,11 @@ const PharmacyAccountantDashboard: React.FC<PharmacyAccountantDashboardProps> = 
                           مبلغ: {formatCurrency(order.invoice_amount)}
                         </p>
                       )}
+                      {order.payment_method && (
+                        <p className="text-sm text-muted-foreground">
+                          <strong>روش پرداخت:</strong> {order.payment_method}
+                        </p>
+                      )}
                     </div>
                     <div className="flex flex-col gap-2 items-end">
                       {getStatusBadge(order.workflow_status)}
@@ -1101,6 +1126,16 @@ const PharmacyAccountantDashboard: React.FC<PharmacyAccountantDashboardProps> = 
                                   <div>
                                     <span className="font-medium">قیمت کل:</span> {(item.total_price || 0).toLocaleString('fa-IR')} تومان
                                   </div>
+                                  {item.offer_percentage && item.offer_percentage > 0 && (
+                                    <>
+                                      <div>
+                                        <span className="font-medium">آفر:</span> {item.offer_percentage}%
+                                      </div>
+                                      <div className="text-orange-600">
+                                        <span className="font-medium">مقدار آفر:</span> {Math.round(((item.total_price || 0) * item.offer_percentage) / 100).toLocaleString('fa-IR')} تومان
+                                      </div>
+                                    </>
+                                  )}
                                 </>
                               )}
                             </div>
