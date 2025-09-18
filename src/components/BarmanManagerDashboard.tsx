@@ -33,6 +33,8 @@ interface OrderItem {
   irc?: string;
   gtin?: string;
   erx_code?: string;
+  is_received: boolean;
+  received_at?: string;
 }
 
 interface Order {
@@ -461,10 +463,10 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
     try {
       console.log('Fetching order items for order:', orderId);
       
-      // Get all drug IDs from order items first
+      // Get all drug IDs from order items first (including delivery fields)
       const { data: orderItems, error: orderItemsError } = await supabase
         .from('order_items')
-        .select('*')
+        .select('*, is_received, received_at')
         .eq('order_id', orderId);
 
       if (orderItemsError) {
@@ -559,7 +561,9 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
           ...drugInfo,
           unit_price: pricing?.unit_price || 0,
           total_price: pricing?.total_price || 0,
-          offer_percentage: (pricing as any)?.offer_percentage || 0
+          offer_percentage: (pricing as any)?.offer_percentage || 0,
+          is_received: item.is_received || false,
+          received_at: item.received_at
         };
       });
 
@@ -1063,11 +1067,21 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
             <h4 className="font-medium mb-3">جزئیات اقلام سفارش:</h4>
             <div className="space-y-3">
               {order.items.map((item) => (
-                <div key={item.id} className="border rounded-lg p-3 bg-muted/30">
+                <div key={item.id} className={`border rounded-lg p-3 ${item.is_received ? 'bg-green-50 border-green-200' : 'bg-muted/30'}`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-medium text-sm">{item.drug_name}</span>
+                    {item.is_received ? (
+                      <Badge variant="default" className="bg-green-100 text-green-800 text-xs">
+                        تحویل داده شده
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 text-xs">
+                        در انتظار تحویل
+                      </Badge>
+                    )}
+                  </div>
+                  
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-                    <div>
-                      <span className="font-medium">نام دارو:</span> {item.drug_name}
-                    </div>
                     <div>
                       <span className="font-medium">نوع:</span> {item.drug_type}
                     </div>
@@ -1106,6 +1120,12 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
                           <span className="font-medium">قیمت کل:</span> {(item.total_price || 0).toLocaleString('fa-IR')} تومان
                         </div>
                       </>
+                    )}
+                    {item.is_received && item.received_at && (
+                      <div className="md:col-span-2">
+                        <span className="font-medium text-green-700">زمان تحویل:</span> 
+                        <span className="text-green-700"> {new Date(item.received_at).toLocaleDateString('fa-IR')} - {new Date(item.received_at).toLocaleTimeString('fa-IR')}</span>
+                      </div>
                     )}
                   </div>
                 </div>
