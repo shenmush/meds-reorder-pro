@@ -56,6 +56,7 @@ interface ConsolidatedDrug {
   erx_code?: string;
   orders_count: number;
   pharmacies: string[];
+  order_item_ids: string[];
   status?: string;
 }
 
@@ -310,6 +311,8 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
           const existing = drugConsolidation.get(item.drug_id)!;
           existing.total_quantity += item.quantity;
           existing.orders_count += 1;
+          existing.order_item_ids = existing.order_item_ids || [];
+          existing.order_item_ids.push(item.id);
           
           // Add pharmacy if not already in the list
           const pharmacyName = orderInfo?.pharmacies?.name || 'نامشخص';
@@ -327,7 +330,8 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
             gtin: drugInfo.gtin || undefined,
             erx_code: drugInfo.erx_code || undefined,
             orders_count: 1,
-            pharmacies: [orderInfo?.pharmacies?.name || 'نامشخص']
+            pharmacies: [orderInfo?.pharmacies?.name || 'نامشخص'],
+            order_item_ids: [item.id]
           });
         }
       });
@@ -381,7 +385,7 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
       const totalReceived = quantityOrdered + bonusQty;
 
       // Create barman order record
-      const { error: orderError } = await supabase
+      const { data: orderData, error: orderError } = await supabase
         .from('barman_orders')
         .insert({
           drug_id: selectedDrug.drug_id,
@@ -398,17 +402,37 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
           irc: selectedDrug.irc,
           gtin: selectedDrug.gtin,
           erx_code: selectedDrug.erx_code
-        });
+        })
+        .select()
+        .single();
 
       if (orderError) throw orderError;
 
-      // Update consolidated drug status to 'ordered'
+      // Update consolidated drug status to 'ordered' and save order_item_ids
       const { error: statusError } = await supabase
         .from('consolidated_drug_status')
         .upsert({
           drug_id: selectedDrug.drug_id,
-          status: 'ordered'
+          status: 'ordered',
+          order_item_ids: selectedDrug.order_item_ids
         });
+
+      if (statusError) throw statusError;
+
+      // Create barman_order_items for tracking which order items are fulfilled
+      if (selectedDrug.order_item_ids && selectedDrug.order_item_ids.length > 0) {
+        const barmanOrderItemsData = selectedDrug.order_item_ids.map(orderItemId => ({
+          barman_order_id: orderData.id,
+          order_item_id: orderItemId,
+          quantity_fulfilled: quantityOrdered
+        }));
+
+        const { error: orderItemsError } = await supabase
+          .from('barman_order_items')
+          .insert(barmanOrderItemsData);
+
+        if (orderItemsError) throw orderItemsError;
+      }
 
       if (statusError) throw statusError;
 

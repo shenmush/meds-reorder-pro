@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      barman_order_items: {
+        Row: {
+          barman_order_id: string
+          created_at: string
+          id: string
+          order_item_id: string
+          quantity_fulfilled: number
+        }
+        Insert: {
+          barman_order_id: string
+          created_at?: string
+          id?: string
+          order_item_id: string
+          quantity_fulfilled?: number
+        }
+        Update: {
+          barman_order_id?: string
+          created_at?: string
+          id?: string
+          order_item_id?: string
+          quantity_fulfilled?: number
+        }
+        Relationships: []
+      }
       barman_orders: {
         Row: {
           bonus_percentage: number | null
@@ -130,6 +154,7 @@ export type Database = {
           created_at: string
           drug_id: string
           id: string
+          order_item_ids: string[] | null
           status: string
           updated_at: string
         }
@@ -137,6 +162,7 @@ export type Database = {
           created_at?: string
           drug_id: string
           id?: string
+          order_item_ids?: string[] | null
           status?: string
           updated_at?: string
         }
@@ -144,6 +170,7 @@ export type Database = {
           created_at?: string
           drug_id?: string
           id?: string
+          order_item_ids?: string[] | null
           status?: string
           updated_at?: string
         }
