@@ -409,6 +409,9 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
       if (orderError) throw orderError;
 
       // Update consolidated drug status to 'ordered' and save order_item_ids
+      console.log('Debug barman order - selectedDrug:', selectedDrug);
+      console.log('Debug barman order - order_item_ids:', selectedDrug.order_item_ids);
+      
       const { error: statusError } = await supabase
         .from('consolidated_drug_status')
         .upsert({
@@ -417,7 +420,12 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
           order_item_ids: selectedDrug.order_item_ids
         });
 
-      if (statusError) throw statusError;
+      if (statusError) {
+        console.error('Debug barman order - statusError:', statusError);
+        throw statusError;
+      } else {
+        console.log('Debug barman order - successfully saved to consolidated_drug_status');
+      }
 
       if (statusError) throw statusError;
 

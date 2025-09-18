@@ -145,6 +145,10 @@ const PharmacyOrderTracking: React.FC<PharmacyOrderTrackingProps> = ({ pharmacyI
                 .eq('drug_id', item.drug_id)
                 .maybeSingle();
 
+              console.log('Debug tracking - item.id:', item.id);
+              console.log('Debug tracking - item.drug_id:', item.drug_id);  
+              console.log('Debug tracking - drugStatus:', drugStatus);
+
               if (drugStatus?.status === 'ordered' && drugStatus.order_item_ids?.includes(item.id)) {
                 isOrderedByBarman = true;
                 // مقدار سفارش داده شده رو از barman_orders بگیریم
@@ -156,6 +160,9 @@ const PharmacyOrderTracking: React.FC<PharmacyOrderTrackingProps> = ({ pharmacyI
                 
                 barmanOrderQuantity = barmanOrder?.quantity_ordered || item.quantity;
               }
+
+              console.log('Debug tracking - isOrderedByBarman:', isOrderedByBarman);
+              console.log('Debug tracking - barmanOrderQuantity:', barmanOrderQuantity);
 
               return {
                 ...item,
