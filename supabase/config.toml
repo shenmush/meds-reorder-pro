@@ -3,5 +3,8 @@ project_id = "rriukgdpjlemgalttztd"
 [functions.create-admin-user]
 verify_jwt = false
 
+[functions.reset-staff-password]
+verify_jwt = true
+
 [functions.import-natural-products]
 verify_jwt = false

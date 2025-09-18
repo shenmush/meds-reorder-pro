@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Plus, UserPlus, Users, Trash2 } from 'lucide-react';
+import { Loader2, Plus, UserPlus, Users, Trash2, RotateCcw } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
 interface StaffMember {
@@ -40,6 +40,8 @@ const StaffManagement: React.FC<StaffManagementProps> = ({ user, pharmacyId, pha
   const [showForm, setShowForm] = useState(false);
   const [pharmacyEnglishName, setPharmacyEnglishName] = useState('');
   const [createdStaff, setCreatedStaff] = useState<CreatedStaffResponse | null>(null);
+  const [resetPasswordLoading, setResetPasswordLoading] = useState<string | null>(null);
+  const [resetPasswordResult, setResetPasswordResult] = useState<{username: string, password: string, display_name: string} | null>(null);
   
   // Form state
   const [staffName, setStaffName] = useState('');
@@ -248,6 +250,64 @@ const StaffManagement: React.FC<StaffManagementProps> = ({ user, pharmacyId, pha
     }
   };
 
+  const handleResetPassword = async (staffId: string, staffName: string, staffUserId: string) => {
+    setResetPasswordLoading(staffId);
+    
+    try {
+      // Get the session token
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        throw new Error('خطا در دریافت session');
+      }
+      
+      if (!session?.access_token) {
+        throw new Error('ورود مجدد مورد نیاز است');
+      }
+
+      // Call Edge Function to reset password
+      const { data, error } = await supabase.functions.invoke('reset-staff-password', {
+        body: {
+          userId: staffUserId,
+          pharmacyEnglishName: pharmacyEnglishName
+        },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (error) {
+        throw new Error(error.message || 'خطا در ریست پسورد');
+      }
+
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
+      // Set reset password result to show to manager
+      setResetPasswordResult({
+        username: data.username,
+        password: data.password,
+        display_name: staffName
+      });
+
+      toast({
+        title: "موفق",
+        description: `رمز عبور ${staffName} با موفقیت ریست شد`,
+      });
+
+    } catch (error: any) {
+      console.error('Error resetting password:', error);
+      toast({
+        title: "خطا",
+        description: error.message || "خطا در ریست پسورد",
+        variant: "destructive",
+      });
+    } finally {
+      setResetPasswordLoading(null);
+    }
+  };
+
   const getRoleLabel = (role: string) => {
     return role === 'pharmacy_staff' ? 'کارمند' : 'حسابدار';
   };
@@ -400,6 +460,43 @@ const StaffManagement: React.FC<StaffManagementProps> = ({ user, pharmacyId, pha
             </Card>
           )}
 
+          {/* Show reset password result */}
+          {resetPasswordResult && (
+            <Card className="mb-6 border-blue-200 bg-blue-50">
+              <CardHeader>
+                <CardTitle className="text-lg text-blue-800">رمز عبور جدید برای {resetPasswordResult.display_name}</CardTitle>
+                <CardDescription className="text-blue-700">
+                  لطفاً این اطلاعات را به کارمند ارائه دهید
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-blue-800">نام کاربری:</Label>
+                    <div className="p-2 bg-white rounded border font-mono text-left" dir="ltr">
+                      {resetPasswordResult.username}
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-blue-800">رمز عبور جدید:</Label>
+                    <div className="p-2 bg-white rounded border font-mono text-left" dir="ltr">
+                      {resetPasswordResult.password}
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-4">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => setResetPasswordResult(null)}
+                  >
+                    بستن
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {staffList.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               هنوز کارمندی اضافه نشده است
@@ -427,40 +524,54 @@ const StaffManagement: React.FC<StaffManagementProps> = ({ user, pharmacyId, pha
                         </div>
                       </div>
                     </div>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="destructive" size="sm">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>حذف کارمند</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            آیا از حذف {staff.display_name} از داروخانه اطمینان دارید؟
-                            این عمل غیرقابل بازگشت است.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>انصراف</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => handleRemoveStaff(staff.id, staff.display_name)}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                          >
-                            حذف کارمند
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
-};
-
-export default StaffManagement;
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleResetPassword(staff.id, staff.display_name, staff.user_id)}
+                        disabled={resetPasswordLoading === staff.id}
+                      >
+                        {resetPasswordLoading === staff.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <RotateCcw className="h-4 w-4" />                          
+                        )}
+                      </Button>
+                       <AlertDialog>
+                         <AlertDialogTrigger asChild>
+                           <Button variant="destructive" size="sm">
+                             <Trash2 className="h-4 w-4" />
+                           </Button>
+                         </AlertDialogTrigger>
+                         <AlertDialogContent>
+                           <AlertDialogHeader>
+                             <AlertDialogTitle>حذف کارمند</AlertDialogTitle>
+                             <AlertDialogDescription>
+                               آیا از حذف {staff.display_name} از داروخانه اطمینان دارید؟
+                               این عمل غیرقابل بازگشت است.
+                             </AlertDialogDescription>
+                           </AlertDialogHeader>
+                           <AlertDialogFooter>
+                             <AlertDialogCancel>انصراف</AlertDialogCancel>
+                             <AlertDialogAction
+                               onClick={() => handleRemoveStaff(staff.id, staff.display_name)}
+                               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                             >
+                               حذف کارمند
+                             </AlertDialogAction>
+                           </AlertDialogFooter>
+                         </AlertDialogContent>
+                       </AlertDialog>
+                     </div>
+                   </div>
+                 </Card>
+               ))}
+             </div>
+           )}
+         </CardContent>
+       </Card>
+     </div>
+   );
+ };
+ 
+ export default StaffManagement;
