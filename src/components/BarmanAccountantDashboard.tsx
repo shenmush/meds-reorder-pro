@@ -75,6 +75,7 @@ interface Order {
   invoice_amount?: number;
   payment_proof_url?: string;
   payment_date?: string;
+  payment_method?: string;
   notes?: string;
   pricing_notes?: string;
   total_items: number;
@@ -1086,7 +1087,7 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
                                 </h3>
                                 {getStatusBadge(order.workflow_status)}
                               </div>
-                              <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-sm text-muted-foreground">
+                               <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-sm text-muted-foreground">
                                 <span className="flex items-center gap-1">
                                   <UserIcon className="w-4 h-4" />
                                   {order.pharmacy.name}
@@ -1099,6 +1100,12 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
                                   <span className="flex items-center gap-1 font-medium text-primary">
                                     <DollarSign className="w-4 h-4" />
                                     {formatCurrency(order.invoice_amount)} تومان
+                                  </span>
+                                )}
+                                {order.payment_method && (
+                                  <span className="flex items-center gap-1 font-medium text-green-600">
+                                    <CreditCard className="w-4 h-4" />
+                                    {order.payment_method}
                                   </span>
                                 )}
                               </div>
@@ -1266,23 +1273,72 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
                             </Dialog>
                           </div>
 
-                          {/* Order Items Expansion */}
+                           {/* Order Items Expansion */}
                           {expandedOrders.has(order.id) && order.order_items && order.order_items.length > 0 && (
                             <div className="border-t pt-4">
-                              <h4 className="font-medium mb-3">اقلام سفارش:</h4>
-                              <div className="space-y-2">
+                              <h4 className="font-medium mb-3">اقلام سفارش ({order.order_items.length} قلم):</h4>
+                              <div className="space-y-3">
                                 {order.order_items.map((item) => (
-                                  <div key={item.id} className="border rounded-lg p-3 bg-muted/30">
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm">
-                                      <div>
-                                        <span className="font-medium">نام:</span> {item.drug_name}
+                                  <div key={item.id} className="border rounded-lg p-4 bg-muted/30">
+                                    <div className="space-y-3">
+                                      <div className="flex items-start justify-between">
+                                        <div className="space-y-1">
+                                          <h5 className="font-semibold text-primary">{item.drug_name}</h5>
+                                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                            <Badge variant="secondary">{item.drug_type}</Badge>
+                                            {item.irc && <span>IRC: {item.irc}</span>}
+                                          </div>
+                                        </div>
+                                        <div className="text-right">
+                                          <p className="font-bold text-lg">{item.quantity} عدد</p>
+                                        </div>
                                       </div>
-                                      <div>
-                                        <span className="font-medium">تعداد:</span> {item.quantity}
+                                      
+                                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
+                                        <div className="space-y-1">
+                                          <span className="font-medium text-muted-foreground">شرکت:</span>
+                                          <p>{item.company_name || 'نامشخص'}</p>
+                                        </div>
+                                        {item.package_count && (
+                                          <div className="space-y-1">
+                                            <span className="font-medium text-muted-foreground">تعداد در بسته:</span>
+                                            <p>{item.package_count}</p>
+                                          </div>
+                                        )}
+                                        {item.gtin && (
+                                          <div className="space-y-1">
+                                            <span className="font-medium text-muted-foreground">GTIN:</span>
+                                            <p className="font-mono text-xs">{item.gtin}</p>
+                                          </div>
+                                        )}
+                                        {item.erx_code && (
+                                          <div className="space-y-1">
+                                            <span className="font-medium text-muted-foreground">کد ERX:</span>
+                                            <p className="font-mono text-xs">{item.erx_code}</p>
+                                          </div>
+                                        )}
                                       </div>
-                                      {item.unit_price && item.unit_price > 0 && (
-                                        <div>
-                                          <span className="font-medium">قیمت:</span> {formatCurrency(item.unit_price)} تومان
+
+                                      {(item.unit_price && item.unit_price > 0) && (
+                                        <div className="border-t pt-3">
+                                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                                            <div className="space-y-1">
+                                              <span className="font-medium text-muted-foreground">قیمت واحد:</span>
+                                              <p className="font-bold text-blue-600">{formatCurrency(item.unit_price)} تومان</p>
+                                            </div>
+                                            <div className="space-y-1">
+                                              <span className="font-medium text-muted-foreground">قیمت کل:</span>
+                                              <p className="font-bold text-green-600">{formatCurrency(item.total_price)} تومان</p>
+                                            </div>
+                                            {item.unit_price && item.total_price && item.quantity > 0 && (
+                                              <div className="space-y-1">
+                                                <span className="font-medium text-muted-foreground">تخفیف:</span>
+                                                <p className="font-medium text-orange-600">
+                                                  {((item.unit_price * item.quantity - item.total_price) / (item.unit_price * item.quantity) * 100).toFixed(1)}%
+                                                </p>
+                                              </div>
+                                            )}
+                                          </div>
                                         </div>
                                       )}
                                     </div>
@@ -1374,7 +1430,7 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
                                 <h3 className="font-semibold">سفارش #{order.id.slice(0, 8)}</h3>
                                 {getStatusBadge(order.workflow_status)}
                               </div>
-                              <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-sm text-muted-foreground">
+                               <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-sm text-muted-foreground">
                                 <span className="flex items-center gap-1">
                                   <UserIcon className="w-4 h-4" />
                                   {order.pharmacy.name}
@@ -1387,6 +1443,12 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
                                   <span className="flex items-center gap-1 font-medium text-primary">
                                     <DollarSign className="w-4 h-4" />
                                     {formatCurrency(order.invoice_amount)} تومان
+                                  </span>
+                                )}
+                                {order.payment_method && (
+                                  <span className="flex items-center gap-1 font-medium text-green-600">
+                                    <CreditCard className="w-4 h-4" />
+                                    {order.payment_method}
                                   </span>
                                 )}
                               </div>
@@ -1417,20 +1479,69 @@ const BarmanAccountantDashboard: React.FC<BarmanAccountantDashboardProps> = ({ u
                               {/* Order Items */}
                               {order.order_items && order.order_items.length > 0 && (
                                 <div>
-                                  <h4 className="font-medium mb-3">اقلام سفارش:</h4>
-                                  <div className="space-y-2">
+                                  <h4 className="font-medium mb-3">اقلام سفارش ({order.order_items.length} قلم):</h4>
+                                  <div className="space-y-3">
                                     {order.order_items.map((item) => (
-                                      <div key={item.id} className="border rounded-lg p-3 bg-muted/30">
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm">
-                                          <div>
-                                            <span className="font-medium">نام:</span> {item.drug_name || 'نامشخص'}
+                                      <div key={item.id} className="border rounded-lg p-4 bg-muted/30">
+                                        <div className="space-y-3">
+                                          <div className="flex items-start justify-between">
+                                            <div className="space-y-1">
+                                              <h5 className="font-semibold text-primary">{item.drug_name}</h5>
+                                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                                <Badge variant="secondary">{item.drug_type}</Badge>
+                                                {item.irc && <span>IRC: {item.irc}</span>}
+                                              </div>
+                                            </div>
+                                            <div className="text-right">
+                                              <p className="font-bold text-lg">{item.quantity} عدد</p>
+                                            </div>
                                           </div>
-                                          <div>
-                                            <span className="font-medium">تعداد:</span> {item.quantity}
+                                          
+                                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
+                                            <div className="space-y-1">
+                                              <span className="font-medium text-muted-foreground">شرکت:</span>
+                                              <p>{item.company_name || 'نامشخص'}</p>
+                                            </div>
+                                            {item.package_count && (
+                                              <div className="space-y-1">
+                                                <span className="font-medium text-muted-foreground">تعداد در بسته:</span>
+                                                <p>{item.package_count}</p>
+                                              </div>
+                                            )}
+                                            {item.gtin && (
+                                              <div className="space-y-1">
+                                                <span className="font-medium text-muted-foreground">GTIN:</span>
+                                                <p className="font-mono text-xs">{item.gtin}</p>
+                                              </div>
+                                            )}
+                                            {item.erx_code && (
+                                              <div className="space-y-1">
+                                                <span className="font-medium text-muted-foreground">کد ERX:</span>
+                                                <p className="font-mono text-xs">{item.erx_code}</p>
+                                              </div>
+                                            )}
                                           </div>
-                                          {item.unit_price && item.unit_price > 0 && (
-                                            <div>
-                                              <span className="font-medium">قیمت:</span> {formatCurrency(item.unit_price)} تومان
+
+                                          {(item.unit_price && item.unit_price > 0) && (
+                                            <div className="border-t pt-3">
+                                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                                                <div className="space-y-1">
+                                                  <span className="font-medium text-muted-foreground">قیمت واحد:</span>
+                                                  <p className="font-bold text-blue-600">{formatCurrency(item.unit_price)} تومان</p>
+                                                </div>
+                                                <div className="space-y-1">
+                                                  <span className="font-medium text-muted-foreground">قیمت کل:</span>
+                                                  <p className="font-bold text-green-600">{formatCurrency(item.total_price)} تومان</p>
+                                                </div>
+                                                {item.unit_price && item.total_price && item.quantity > 0 && (
+                                                  <div className="space-y-1">
+                                                    <span className="font-medium text-muted-foreground">تخفیف:</span>
+                                                    <p className="font-medium text-orange-600">
+                                                      {((item.unit_price * item.quantity - item.total_price) / (item.unit_price * item.quantity) * 100).toFixed(1)}%
+                                                    </p>
+                                                  </div>
+                                                )}
+                                              </div>
                                             </div>
                                           )}
                                         </div>
