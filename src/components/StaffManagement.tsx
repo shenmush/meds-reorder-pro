@@ -125,44 +125,32 @@ const StaffManagement: React.FC<StaffManagementProps> = ({ user, pharmacyId, pha
         return;
       }
 
-      // Create user account in Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: email.trim(),
-        password: password,
-        options: {
-          data: {
-            display_name: staffName.trim()
-          }
-        }
+      // Get the session token
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        throw new Error('ورود مجدد مورد نیاز است');
+      }
+
+      // Call Edge Function to create user
+      const { data, error } = await supabase.functions.invoke('create-staff-user', {
+        body: {
+          email: email.trim(),
+          password: password,
+          displayName: staffName.trim(),
+          role: role
+        },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
       });
 
-      if (authError) {
-        if (authError.message.includes('already registered')) {
-          toast({
-            title: "خطا",
-            description: "این ایمیل قبلاً ثبت شده است",
-            variant: "destructive",
-          });
-          return;
-        }
-        throw authError;
+      if (error) {
+        throw new Error(error.message || 'خطا در ایجاد کاربر');
       }
 
-      if (!authData.user) {
-        throw new Error('کاربر ایجاد نشد');
-      }
-
-      // Create user role
-      const { error: roleError } = await supabase
-        .from('user_roles')
-        .insert({
-          user_id: authData.user.id,
-          role: role,
-          pharmacy_id: pharmacyId
-        });
-
-      if (roleError) {
-        throw roleError;
+      if (data?.error) {
+        throw new Error(data.error);
       }
 
       toast({
