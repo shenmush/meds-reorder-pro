@@ -6,7 +6,6 @@ import { useToast } from '@/hooks/use-toast';
 import { LogOut, Pill, ShoppingCart, User as UserIcon, BarChart3 } from 'lucide-react';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import DrugList from './DrugList';
-import PharmacySetup from './PharmacySetup';
 import PharmacyProfile from './PharmacyProfile';
 import AdminAddDrug from './AdminAddDrug';
 import AdminPharmacies from './AdminPharmacies';
@@ -39,7 +38,6 @@ interface Pharmacy {
 const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
   const [pharmacy, setPharmacy] = useState<Pharmacy | null>(null);
   const [loading, setLoading] = useState(true);
-  const [needsPharmacySetup, setNeedsPharmacySetup] = useState(false);
   const [activeTab, setActiveTab] = useState<'drugs' | 'profile' | 'orders' | 'pharmacies' | 'reports' | 'upload'>('drugs');
   const [userRole, setUserRole] = useState<string | null>(null);
   const { toast } = useToast();
@@ -73,18 +71,16 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
 
       if (error) {
         console.error('Error fetching user role:', error);
-        setNeedsPharmacySetup(true);
         setUserRole(null);
         return;
       }
 
       console.log('User roles found:', roles);
 
-      // If no roles, user needs to setup pharmacy
+      // If no roles, wait a moment for trigger to complete then retry
       if (!roles || roles.length === 0) {
-        console.log('No roles found - needs pharmacy setup');
-        setNeedsPharmacySetup(true);
-        setUserRole(null);
+        console.log('No roles found - user might be newly created, retrying...');
+        setTimeout(() => fetchUserRole(), 1000);
         return;
       }
 
@@ -104,23 +100,12 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
       if (foundRole) {
         console.log('Found role:', foundRole);
         setUserRole(foundRole.role);
-        
-        // Check if pharmacy_manager needs a pharmacy
-        if (foundRole.role === 'pharmacy_manager' && !foundRole.pharmacy_id) {
-          console.log('Pharmacy manager without pharmacy - needs setup');
-          setNeedsPharmacySetup(true);
-          return;
-        }
-        
-        setNeedsPharmacySetup(false);
       } else {
-        console.log('No valid role found - needs setup');
-        setNeedsPharmacySetup(true);
+        console.log('No valid role found');
         setUserRole(null);
       }
     } catch (error) {
       console.error('Error fetching user role:', error);
-      setNeedsPharmacySetup(true);
       setUserRole(null);
     }
   };
@@ -170,20 +155,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onAuthChange }) => {
     }
   };
 
-  const handlePharmacySetupComplete = () => {
-    // Refresh user role and pharmacy data after setup
-    fetchUserRole();
-    fetchPharmacyProfile();
-  };
-
   const handleTabChange = (tab: string) => {
     setActiveTab(tab as any);
   };
-
-  // Show pharmacy setup if user needs it
-  if (needsPharmacySetup) {
-    return <PharmacySetup user={user} onSetupComplete={handlePharmacySetupComplete} />;
-  }
 
   if (loading) {
     return (
