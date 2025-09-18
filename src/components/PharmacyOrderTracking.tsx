@@ -141,17 +141,6 @@ const PharmacyOrderTracking: React.FC<PharmacyOrderTrackingProps> = ({ pharmacyI
                 .eq('order_item_id', item.id)
                 .maybeSingle();
 
-              let barmanOrderQuantity = 0;
-              if (barmanOrderItem) {
-                const { data: barmanOrder } = await supabase
-                  .from('barman_orders')
-                  .select('quantity_ordered, total_received_quantity')
-                  .eq('id', barmanOrderItem.barman_order_id)
-                  .maybeSingle();
-                
-                barmanOrderQuantity = barmanOrder?.quantity_ordered || 0;
-              }
-
               return {
                 ...item,
                 drug_name: drugInfo.name,
@@ -161,7 +150,7 @@ const PharmacyOrderTracking: React.FC<PharmacyOrderTrackingProps> = ({ pharmacyI
                 gtin: drugInfo.gtin,
                 erx_code: drugInfo.erx_code,
                 is_ordered: !!barmanOrderItem,
-                barman_order_quantity: barmanOrderQuantity
+                barman_order_quantity: barmanOrderItem?.quantity_fulfilled || 0
               };
             })
           );
