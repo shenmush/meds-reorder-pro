@@ -392,8 +392,15 @@ const OrdersManagement: React.FC<OrdersManagementProps> = ({
   };
 
   // Handle edit order
-  const handleEditOrder = (order: Order) => {
-    setSelectedOrderForEdit(order);
+  const handleEditOrder = async (order: Order) => {
+    // Load order items if not already loaded
+    let orderWithItems = order;
+    if (!order.items) {
+      const items = await fetchOrderItems(order.id);
+      orderWithItems = { ...order, items };
+    }
+    
+    setSelectedOrderForEdit(orderWithItems);
     setEditDialogOpen(true);
   };
 
