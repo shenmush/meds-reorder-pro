@@ -415,6 +415,8 @@ export type Database = {
           created_at: string
           id: string
           license_number: string | null
+          max_accountants: number | null
+          max_staff: number | null
           name: string
           phone: string | null
           updated_at: string
@@ -424,6 +426,8 @@ export type Database = {
           created_at?: string
           id?: string
           license_number?: string | null
+          max_accountants?: number | null
+          max_staff?: number | null
           name: string
           phone?: string | null
           updated_at?: string
@@ -433,11 +437,60 @@ export type Database = {
           created_at?: string
           id?: string
           license_number?: string | null
+          max_accountants?: number | null
+          max_staff?: number | null
           name?: string
           phone?: string | null
           updated_at?: string
         }
         Relationships: []
+      }
+      pharmacy_staff_accounts: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          is_active: boolean
+          password_hash: string
+          pharmacy_id: string
+          role: Database["public"]["Enums"]["app_role"]
+          staff_name: string
+          updated_at: string
+          username: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          is_active?: boolean
+          password_hash: string
+          pharmacy_id: string
+          role: Database["public"]["Enums"]["app_role"]
+          staff_name: string
+          updated_at?: string
+          username: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          is_active?: boolean
+          password_hash?: string
+          pharmacy_id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          staff_name?: string
+          updated_at?: string
+          username?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pharmacy_staff_accounts_pharmacy_id_fkey"
+            columns: ["pharmacy_id"]
+            isOneToOne: false
+            referencedRelation: "pharmacies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -507,6 +560,17 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      authenticate_staff: {
+        Args: { password_input: string; username_input: string }
+        Returns: {
+          pharmacy_id: string
+          pharmacy_name: string
+          role: Database["public"]["Enums"]["app_role"]
+          staff_id: string
+          staff_name: string
+          username: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
