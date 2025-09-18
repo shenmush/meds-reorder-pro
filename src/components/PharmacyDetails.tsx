@@ -135,6 +135,15 @@ const PharmacyDetails: React.FC<PharmacyDetailsProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (!pharmacy?.id) {
+      toast({
+        title: "خطا",
+        description: "اطلاعات داروخانه یافت نشد",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     try {
       setProfileLoading(true);
       
@@ -147,7 +156,7 @@ const PharmacyDetails: React.FC<PharmacyDetailsProps> = ({
           address: formData.address || null,
           updated_at: new Date().toISOString()
         })
-        .eq('id', pharmacy!.id)
+        .eq('id', pharmacy.id)
         .select()
         .single();
 
