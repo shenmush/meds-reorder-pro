@@ -137,12 +137,20 @@ const PharmacyOrderTracking: React.FC<PharmacyOrderTrackingProps> = ({ pharmacyI
               // بررسی کنیم که آیا این order_item از طریق barman_orders سفارش داده شده
               const { data: barmanOrderItem } = await supabase
                 .from('barman_order_items')
-                .select(`
-                  quantity_fulfilled,
-                  barman_orders(quantity_ordered, total_received_quantity)
-                `)
+                .select('quantity_fulfilled, barman_order_id')
                 .eq('order_item_id', item.id)
                 .maybeSingle();
+
+              let barmanOrderQuantity = 0;
+              if (barmanOrderItem) {
+                const { data: barmanOrder } = await supabase
+                  .from('barman_orders')
+                  .select('quantity_ordered, total_received_quantity')
+                  .eq('id', barmanOrderItem.barman_order_id)
+                  .maybeSingle();
+                
+                barmanOrderQuantity = barmanOrder?.quantity_ordered || 0;
+              }
 
               return {
                 ...item,
@@ -153,7 +161,7 @@ const PharmacyOrderTracking: React.FC<PharmacyOrderTrackingProps> = ({ pharmacyI
                 gtin: drugInfo.gtin,
                 erx_code: drugInfo.erx_code,
                 is_ordered: !!barmanOrderItem,
-                barman_order_quantity: (barmanOrderItem?.barman_orders as any)?.quantity_ordered || 0
+                barman_order_quantity: barmanOrderQuantity
               };
             })
           );
