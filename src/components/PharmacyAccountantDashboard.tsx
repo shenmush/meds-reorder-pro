@@ -60,6 +60,7 @@ const PharmacyAccountantDashboard: React.FC<PharmacyAccountantDashboardProps> = 
   const [activeTab, setActiveTab] = useState<'payments' | 'history' | 'reports'>('payments');
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
   const [uploadedImages, setUploadedImages] = useState<Map<string, string>>(new Map());
+  const [uploadedFiles, setUploadedFiles] = useState<Map<string, File>>(new Map());
   const [confirmationNotes, setConfirmationNotes] = useState<Record<string, string>>({});
   const confirmationNotesRef = useRef<Record<string, string>>({});
   const [orderApprovals, setOrderApprovals] = useState<Record<string, any[]>>({});
@@ -229,58 +230,21 @@ const PharmacyAccountantDashboard: React.FC<PharmacyAccountantDashboardProps> = 
     try {
       setUploadingOrderId(orderId);
 
-      // Create preview URL for the uploaded file
+      // Create preview URL for the uploaded file (no actual upload yet)
       const previewUrl = URL.createObjectURL(file);
       const newUploadedImages = new Map(uploadedImages);
       newUploadedImages.set(orderId, previewUrl);
       setUploadedImages(newUploadedImages);
 
-      // Upload file to Supabase Storage with user folder structure
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}/${orderId}_${Date.now()}.${fileExt}`;
-      
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('payment-proofs')
-        .upload(fileName, file);
+      // Store the file for later upload
+      const newUploadedFiles = new Map(uploadedFiles);
+      newUploadedFiles.set(orderId, file);
+      setUploadedFiles(newUploadedFiles);
 
-      if (uploadError) throw uploadError;
-
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('payment-proofs')
-        .getPublicUrl(fileName);
-
-      // Update order with payment proof URL only (no status change)
-      const { error: updateError } = await supabase
-        .from('orders')
-        .update({
-          payment_proof_url: publicUrl,
-          payment_date: new Date().toISOString(),
-        })
-        .eq('id', orderId);
-
-      if (updateError) throw updateError;
-
-      // Clean up preview URL after successful upload
-      URL.revokeObjectURL(previewUrl);
-      const cleanUploadedImages = new Map(uploadedImages);
-      cleanUploadedImages.delete(orderId);
-      setUploadedImages(cleanUploadedImages);
-
-      toast.success('رسید پرداخت با موفقیت آپلود شد');
-      fetchOrders();
-      fetchPaymentHistory();
+      toast.success('فایل انتخاب شد - برای تایید نهایی دکمه "تایید پرداخت" را بزنید');
     } catch (error) {
-      console.error('Error uploading payment proof:', error);
-      toast.error('خطا در آپلود رسید پرداخت');
-      // Remove preview if upload failed
-      const newUploadedImages = new Map(uploadedImages);
-      const previewUrl = newUploadedImages.get(orderId);
-      if (previewUrl) {
-        URL.revokeObjectURL(previewUrl);
-        newUploadedImages.delete(orderId);
-        setUploadedImages(newUploadedImages);
-      }
+      console.error('Error selecting file:', error);
+      toast.error('خطا در انتخاب فایل');
     } finally {
       setUploadingOrderId(null);
     }
@@ -290,12 +254,55 @@ const PharmacyAccountantDashboard: React.FC<PharmacyAccountantDashboardProps> = 
     try {
       const notes = (confirmationNotesRef.current[orderId] ?? confirmationNotes[orderId]) || 'رسید پرداخت توسط حسابدار داروخانه تایید شد';
       
-      // Update order status to payment verified
+      // Check if there's a file to upload
+      const file = uploadedFiles.get(orderId);
+      let publicUrl = '';
+      
+      if (file) {
+        // Upload file to Supabase Storage with user folder structure
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${user.id}/${orderId}_${Date.now()}.${fileExt}`;
+        
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('payment-proofs')
+          .upload(fileName, file);
+
+        if (uploadError) throw uploadError;
+
+        // Get public URL
+        const { data: { publicUrl: url } } = supabase.storage
+          .from('payment-proofs')
+          .getPublicUrl(fileName);
+          
+        publicUrl = url;
+
+        // Clean up preview and file
+        const previewUrl = uploadedImages.get(orderId);
+        if (previewUrl) {
+          URL.revokeObjectURL(previewUrl);
+        }
+        const newUploadedImages = new Map(uploadedImages);
+        newUploadedImages.delete(orderId);
+        setUploadedImages(newUploadedImages);
+        
+        const newUploadedFiles = new Map(uploadedFiles);
+        newUploadedFiles.delete(orderId);
+        setUploadedFiles(newUploadedFiles);
+      }
+      
+      // Update order status and payment proof URL
+      const updateData: any = {
+        workflow_status: 'payment_uploaded'
+      };
+      
+      if (publicUrl) {
+        updateData.payment_proof_url = publicUrl;
+        updateData.payment_date = new Date().toISOString();
+      }
+      
       const { error: updateError } = await supabase
         .from('orders')
-        .update({
-          workflow_status: 'payment_uploaded'
-        })
+        .update(updateData)
         .eq('id', orderId);
 
       if (updateError) throw updateError;
@@ -836,7 +843,7 @@ const PharmacyAccountantDashboard: React.FC<PharmacyAccountantDashboardProps> = 
                     {(order.workflow_status === 'invoice_issued' || order.workflow_status === 'payment_rejected') && (uploadedImages.get(order.id) || order.payment_proof_url) && (
                       <div className="mt-4 p-3 bg-green-50 dark:bg-green-950/50 rounded-lg">
                         <p className="text-sm font-medium text-green-700 dark:text-green-300 mb-3">
-                          رسید پرداخت آپلود شده - آماده تایید
+                          {uploadedImages.get(order.id) ? 'رسید انتخاب شده - برای تایید نهایی دکمه زیر را بزنید' : 'رسید پرداخت آپلود شده - آماده تایید'}
                         </p>
                         
                         {/* Image Preview */}
