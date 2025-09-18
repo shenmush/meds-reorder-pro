@@ -19,6 +19,8 @@ interface OrderItem {
   expiry_date?: string | null;
   is_ordered?: boolean; // آیا این آیتم از طریق بارمان سفارش داده شده یا نه
   barman_order_quantity?: number; // مقدار سفارش داده شده از طریق بارمان
+  is_received: boolean; // آیا این آیتم توسط داروخانه تحویل گرفته شده
+  received_at?: string; // تاریخ تحویل گرفتن
 }
 
 interface TrackedOrder {
@@ -31,6 +33,7 @@ interface TrackedOrder {
   items: OrderItem[];
   completed_items: number;
   pending_items: number;
+  received_items: number;
 }
 
 interface PharmacyOrderTrackingProps {
@@ -68,9 +71,10 @@ const PharmacyOrderTracking: React.FC<PharmacyOrderTrackingProps> = ({ pharmacyI
       // برای هر سفارش، آیتم‌هایش رو بگیریم
       const ordersWithItems = await Promise.all(
         orders.map(async (order) => {
+          // بررسی کردن order_items برای فیلدهای تحویل
           const { data: orderItems, error: itemsError } = await supabase
             .from('order_items')
-            .select('*')
+            .select('*, is_received, received_at')
             .eq('order_id', order.id);
 
           if (itemsError) throw itemsError;
@@ -180,14 +184,16 @@ const PharmacyOrderTracking: React.FC<PharmacyOrderTrackingProps> = ({ pharmacyI
           );
 
           // محاسبه آمار
-          const completedItems = itemsWithTracking.filter(item => item.is_ordered).length;
-          const pendingItems = itemsWithTracking.length - completedItems;
+          const orderedItems = itemsWithTracking.filter(item => item.is_ordered).length;
+          const receivedItems = itemsWithTracking.filter(item => item.is_received).length;
+          const pendingItems = itemsWithTracking.length - orderedItems;
 
           return {
             ...order,
             items: itemsWithTracking,
-            completed_items: completedItems,
-            pending_items: pendingItems
+            completed_items: orderedItems,
+            pending_items: pendingItems,
+            received_items: receivedItems
           };
         })
       );
@@ -198,6 +204,27 @@ const PharmacyOrderTracking: React.FC<PharmacyOrderTrackingProps> = ({ pharmacyI
       toast.error('خطا در بارگذاری سفارشات');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const confirmDelivery = async (itemId: string) => {
+    try {
+      const { error } = await supabase
+        .from('order_items')
+        .update({
+          is_received: true,
+          received_at: new Date().toISOString(),
+          received_by: (await supabase.auth.getUser()).data.user?.id
+        })
+        .eq('id', itemId);
+
+      if (error) throw error;
+
+      toast.success('تحویل دارو تایید شد');
+      fetchTrackedOrders(); // بارگذاری مجدد داده‌ها
+    } catch (error) {
+      console.error('Error confirming delivery:', error);
+      toast.error('خطا در تایید تحویل دارو');
     }
   };
 
@@ -257,7 +284,7 @@ const PharmacyOrderTracking: React.FC<PharmacyOrderTrackingProps> = ({ pharmacyI
                     سفارش {new Date(order.created_at).toLocaleDateString('fa-IR')}
                   </CardTitle>
                   <CardDescription>
-                    {order.total_items} آیتم • {order.completed_items} تکمیل شده • {order.pending_items} در انتظار
+                    {order.total_items} آیتم • {order.completed_items} سفارش شده • {order.received_items || 0} تحویل شده • {order.pending_items} در انتظار
                   </CardDescription>
                 </div>
                 <div className="flex items-center gap-2">
@@ -294,8 +321,10 @@ const PharmacyOrderTracking: React.FC<PharmacyOrderTrackingProps> = ({ pharmacyI
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
                             <h5 className="font-medium text-sm">{item.drug_name}</h5>
-                            {item.is_ordered ? (
-                              <CheckCircle className="h-4 w-4 text-green-600" />
+                            {item.is_received ? (
+                              <Badge variant="default" className="bg-green-100 text-green-800 text-xs">تحویل داده شده</Badge>
+                            ) : item.is_ordered ? (
+                              <Badge variant="outline" className="bg-blue-100 text-blue-800 text-xs">سفارش داده شده</Badge>
                             ) : (
                               <Clock className="h-4 w-4 text-yellow-600" />
                             )}
@@ -311,14 +340,31 @@ const PharmacyOrderTracking: React.FC<PharmacyOrderTrackingProps> = ({ pharmacyI
                                 تاریخ انقضا: {new Date(item.expiry_date).toLocaleDateString('fa-IR')}
                               </p>
                             )}
+                           {item.is_received && item.received_at && (
+                              <p className="text-xs text-green-700 font-medium mt-1">
+                                تحویل داده شده: {new Date(item.received_at).toLocaleDateString('fa-IR')}
+                              </p>
+                            )}
                         </div>
-                        <div className="text-left">
-                          <div className="text-sm font-medium">
-                            {item.is_ordered ? item.barman_order_quantity : item.quantity} عدد
+                        <div className="text-left flex flex-col items-end gap-2">
+                          <div>
+                            <div className="text-sm font-medium">
+                              {item.is_ordered ? item.barman_order_quantity : item.quantity} عدد
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {item.is_received ? 'تحویل داده شده' : item.is_ordered ? 'سفارش داده شده' : `از ${item.quantity} مورد نیاز`}
+                            </div>
                           </div>
-                          <div className="text-xs text-muted-foreground">
-                            {item.is_ordered ? 'سفارش داده شده' : `از ${item.quantity} مورد نیاز`}
-                          </div>
+                          {item.is_ordered && !item.is_received && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-xs"
+                              onClick={() => confirmDelivery(item.id)}
+                            >
+                              تحویل گرفتم
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </div>

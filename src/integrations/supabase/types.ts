@@ -335,22 +335,31 @@ export type Database = {
           created_at: string
           drug_id: string
           id: string
+          is_received: boolean
           order_id: string
           quantity: number
+          received_at: string | null
+          received_by: string | null
         }
         Insert: {
           created_at?: string
           drug_id: string
           id?: string
+          is_received?: boolean
           order_id: string
           quantity: number
+          received_at?: string | null
+          received_by?: string | null
         }
         Update: {
           created_at?: string
           drug_id?: string
           id?: string
+          is_received?: boolean
           order_id?: string
           quantity?: number
+          received_at?: string | null
+          received_by?: string | null
         }
         Relationships: [
           {
