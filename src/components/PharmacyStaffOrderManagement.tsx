@@ -7,8 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Loader2, Package, Edit, Eye, Send } from "lucide-react";
+import { Loader2, Package, Edit, Eye, Send, Settings } from "lucide-react";
 import { toast } from "sonner";
+import EditOrderDialog from './EditOrderDialog';
 
 interface Order {
   id: string;
@@ -18,12 +19,15 @@ interface Order {
   updated_at: string;
   total_items: number;
   pharmacy_id: string;
+  items?: OrderItem[];
 }
 
 interface OrderItem {
   id: string;
   drug_id: string;
   quantity: number;
+  drug_name: string;
+  drug_type: string;
   chemical_drugs?: {
     full_brand_name: string;
     irc: string;
@@ -45,12 +49,14 @@ interface PharmacyStaffOrderManagementProps {
 const PharmacyStaffOrderManagement: React.FC<PharmacyStaffOrderManagementProps> = ({ user }) => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [selectedOrderForEdit, setSelectedOrderForEdit] = useState<Order | null>(null);
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editOrderDialogOpen, setEditOrderDialogOpen] = useState(false);
 
   useEffect(() => {
     fetchOrders();
@@ -90,7 +96,7 @@ const PharmacyStaffOrderManagement: React.FC<PharmacyStaffOrderManagementProps> 
     }
   };
 
-  const fetchOrderItems = async (orderId: string) => {
+  const fetchOrderItems = async (orderId: string): Promise<OrderItem[]> => {
     try {
       const { data, error } = await supabase
         .from('order_items')
@@ -136,24 +142,54 @@ const PharmacyStaffOrderManagement: React.FC<PharmacyStaffOrderManagementProps> 
             }
           }
           
-          return { ...item, ...drugDetails };
+          return { 
+            ...item, 
+            ...drugDetails,
+            drug_name: drugDetails?.chemical_drugs?.full_brand_name || 
+                      drugDetails?.natural_products?.full_en_brand_name || 
+                      drugDetails?.medical_supplies?.title || 'نامشخص',
+            drug_type: drugDetails?.chemical_drugs ? 'دارو' : 
+                      drugDetails?.natural_products ? 'محصول طبیعی' : 
+                      drugDetails?.medical_supplies ? 'تجهیزات پزشکی' : 'نامشخص'
+          };
         })
       );
       
-      setOrderItems(itemsWithDetails);
+      return itemsWithDetails;
     } catch (error) {
       console.error('Error fetching order items:', error);
       toast.error('خطا در بارگذاری اقلام سفارش');
+      return [];
     }
   };
 
   const handleViewOrder = async (order: Order) => {
     setSelectedOrder(order);
-    await fetchOrderItems(order.id);
+    const items = await fetchOrderItems(order.id);
+    setOrderItems(items);
     setViewDialogOpen(true);
   };
 
-  const handleEditOrder = (order: Order) => {
+  const handleEditOrder = async (order: Order) => {
+    // For complete order editing, load items and use EditOrderDialog
+    console.log('Starting complete edit for order:', order.id);
+    
+    // Load order items if not already loaded
+    let orderWithItems = order;
+    if (!order.items) {
+      console.log('Loading order items for complete edit...');
+      const items = await fetchOrderItems(order.id);
+      console.log('Fetched items for complete edit:', items);
+      orderWithItems = { ...order, items };
+    }
+    
+    console.log('Opening complete edit dialog for order:', orderWithItems);
+    setSelectedOrderForEdit(orderWithItems);
+    setEditOrderDialogOpen(true);
+  };
+
+  const handleEditNotes = (order: Order) => {
+    // For simple notes editing
     setSelectedOrder(order);
     setNotes(order.notes || "");
     setEditDialogOpen(true);
@@ -224,6 +260,11 @@ const PharmacyStaffOrderManagement: React.FC<PharmacyStaffOrderManagementProps> 
     return 'نامشخص';
   };
 
+  const handleOrderUpdated = () => {
+    fetchOrders(); // Refresh orders after edit
+    setEditOrderDialogOpen(false);
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -279,14 +320,24 @@ const PharmacyStaffOrderManagement: React.FC<PharmacyStaffOrderManagementProps> 
                       مشاهده
                     </Button>
                     {canEditOrder(order.workflow_status) && (
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => handleEditOrder(order)}
-                      >
-                        <Edit className="h-4 w-4 mr-1" />
-                        ویرایش
-                      </Button>
+                      <>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleEditOrder(order)}
+                        >
+                          <Settings className="h-4 w-4 mr-1" />
+                          ویرایش کامل
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleEditNotes(order)}
+                        >
+                          <Edit className="h-4 w-4 mr-1" />
+                          ویرایش یادداشت
+                        </Button>
+                      </>
                     )}
                   </div>
                 </div>
@@ -392,6 +443,16 @@ const PharmacyStaffOrderManagement: React.FC<PharmacyStaffOrderManagementProps> 
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Complete Order Edit Dialog */}
+      <EditOrderDialog
+        isOpen={editOrderDialogOpen}
+        onClose={() => setEditOrderDialogOpen(false)}
+        orderId={selectedOrderForEdit?.id || ''}
+        orderItems={selectedOrderForEdit?.items || []}
+        orderNotes={selectedOrderForEdit?.notes || ''}
+        onOrderUpdated={handleOrderUpdated}
+      />
     </div>
   );
 };
