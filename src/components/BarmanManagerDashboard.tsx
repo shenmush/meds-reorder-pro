@@ -6,12 +6,16 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Loader2, CheckCircle, XCircle, Edit, Eye, RotateCcw, LogOut, Pill, ShoppingCart, UserIcon, BarChart3, Calculator, FileText, ChevronDown, ChevronUp, History, Clock } from "lucide-react";
+import { Loader2, CheckCircle, XCircle, Edit, Eye, RotateCcw, LogOut, Pill, ShoppingCart, UserIcon, BarChart3, Calculator, FileText, ChevronDown, ChevronUp, History, Clock, CalendarIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 import MobileBottomNav from './MobileBottomNav';
 import MobileHeader from './MobileHeader';
 
@@ -107,6 +111,7 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
   const [bonusPercentage, setBonusPercentage] = useState<number>(0);
   const [paymentMethod, setPaymentMethod] = useState("");
   const [orderNotes, setOrderNotes] = useState("");
+  const [expiryDate, setExpiryDate] = useState<Date>();
 
   useEffect(() => {
     fetchAllOrders();
@@ -401,7 +406,8 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
           created_by: user.id,
           irc: selectedDrug.irc,
           gtin: selectedDrug.gtin,
-          erx_code: selectedDrug.erx_code
+          erx_code: selectedDrug.erx_code,
+          expiry_date: expiryDate?.toISOString().split('T')[0] || null
         })
         .select()
         .single();
@@ -430,6 +436,7 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
       setBonusPercentage(0);
       setPaymentMethod('');
       setOrderNotes('');
+      setExpiryDate(undefined);
       
       // Refresh data
       fetchConsolidatedDrugs();
@@ -1617,6 +1624,33 @@ const BarmanManagerDashboard: React.FC<BarmanManagerDashboardProps> = ({ user, o
                 onChange={(e) => setPaymentMethod(e.target.value)}
                 placeholder="روش پرداخت"
               />
+            </div>
+            <div className="space-y-2">
+              <Label>تاریخ انقضا</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !expiryDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {expiryDate ? format(expiryDate, "yyyy/MM/dd") : "انتخاب تاریخ انقضا"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={expiryDate}
+                    onSelect={setExpiryDate}
+                    disabled={(date) => date < new Date()}
+                    initialFocus
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
             <div className="space-y-2">
               <Label htmlFor="notes">یادداشت</Label>

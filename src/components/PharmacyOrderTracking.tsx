@@ -16,6 +16,7 @@ interface OrderItem {
   irc?: string;
   gtin?: string;
   erx_code?: string;
+  expiry_date?: string | null;
   is_ordered?: boolean; // آیا این آیتم از طریق بارمان سفارش داده شده یا نه
   barman_order_quantity?: number; // مقدار سفارش داده شده از طریق بارمان
 }
@@ -146,16 +147,18 @@ const PharmacyOrderTracking: React.FC<PharmacyOrderTrackingProps> = ({ pharmacyI
                 .contains('order_item_ids', [item.id])
                 .maybeSingle();
 
+              let expiryDate = null;
               if (drugStatus?.status === 'ordered') {
                 isOrderedByBarman = true;
                 // مقدار سفارش داده شده رو از barman_orders بگیریم
                 const { data: barmanOrder } = await supabase
                   .from('barman_orders')
-                  .select('quantity_ordered')
+                  .select('quantity_ordered, expiry_date')
                   .eq('drug_id', item.drug_id)
                   .maybeSingle();
                 
                 barmanOrderQuantity = barmanOrder?.quantity_ordered || item.quantity;
+                expiryDate = barmanOrder?.expiry_date || null;
               }
 
               return {
@@ -167,7 +170,8 @@ const PharmacyOrderTracking: React.FC<PharmacyOrderTrackingProps> = ({ pharmacyI
                 gtin: drugInfo.gtin,
                 erx_code: drugInfo.erx_code,
                 is_ordered: isOrderedByBarman,
-                barman_order_quantity: barmanOrderQuantity
+                barman_order_quantity: barmanOrderQuantity,
+                expiry_date: expiryDate
               };
             })
           );
@@ -293,12 +297,17 @@ const PharmacyOrderTracking: React.FC<PharmacyOrderTrackingProps> = ({ pharmacyI
                               <Clock className="h-4 w-4 text-yellow-600" />
                             )}
                           </div>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {item.drug_type} • {item.drug_company}
-                          </p>
-                          {item.irc && (
-                            <p className="text-xs text-muted-foreground">IRC: {item.irc}</p>
-                          )}
+                           <p className="text-xs text-muted-foreground mt-1">
+                             {item.drug_type} • {item.drug_company}
+                           </p>
+                           {item.irc && (
+                             <p className="text-xs text-muted-foreground">IRC: {item.irc}</p>
+                           )}
+                           {item.is_ordered && item.expiry_date && (
+                             <p className="text-xs text-green-700 font-medium mt-1">
+                               تاریخ انقضا: {new Date(item.expiry_date).toLocaleDateString('fa-IR')}
+                             </p>
+                           )}
                         </div>
                         <div className="text-left">
                           <div className="text-sm font-medium">

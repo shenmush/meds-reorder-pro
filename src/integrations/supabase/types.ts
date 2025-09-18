@@ -25,6 +25,7 @@ export type Database = {
           drug_name: string
           drug_type: string
           erx_code: string | null
+          expiry_date: string | null
           gtin: string | null
           id: string
           irc: string | null
@@ -45,6 +46,7 @@ export type Database = {
           drug_name: string
           drug_type: string
           erx_code?: string | null
+          expiry_date?: string | null
           gtin?: string | null
           id?: string
           irc?: string | null
@@ -65,6 +67,7 @@ export type Database = {
           drug_name?: string
           drug_type?: string
           erx_code?: string | null
+          expiry_date?: string | null
           gtin?: string | null
           id?: string
           irc?: string | null
